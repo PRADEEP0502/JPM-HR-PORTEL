@@ -1,0 +1,322 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, UserCheck, Users } from 'lucide-react';
+import { api } from '../lib/api';
+import { useDepartments } from '../lib/queries';
+import { useToast } from '../lib/toast';
+import {
+  APPLICATION_STATUSES,
+  EXPERIENCE_BUCKETS,
+  INTERVIEW_STATUSES,
+  VERIFICATION_STATUSES,
+  fmtDate,
+  fmtExperience,
+} from '../lib/format';
+import type { CandidateListItem, Page } from '../lib/types';
+import { ApplicationPill, DemoTag, InterviewPill } from '../components/ui/Pill';
+import { Pagination } from '../components/ui/Pagination';
+import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
+import { EditCandidateModal, StatusModal, type StatusTarget } from '../components/modals/CandidateModals';
+import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
+import { emailProblem, phoneProblem } from '../lib/contact';
+
+const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus'] as const;
+
+const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
+  { key: 'candidateCode', label: 'Candidate ID', sortable: true },
+  { key: 'fullName', label: 'Candidate Name', sortable: true },
+  { key: 'mobile', label: 'Mobile Number', sortable: true },
+  { key: 'department', label: 'Department', sortable: true },
+  { key: 'qualification', label: 'Qualification', sortable: true },
+  { key: 'experience', label: 'Experience', sortable: true },
+  { key: 'applicationDate', label: 'Application Date', sortable: true },
+  { key: 'applicationStatus', label: 'Application Status', sortable: true },
+  { key: 'interviewStatus', label: 'Interview Status', sortable: true },
+];
+
+export default function CandidatesPage() {
+  const [params, setParams] = useSearchParams();
+  const toast = useToast();
+  const { data: departments } = useDepartments();
+  const [search, setSearch] = useState(params.get('q') ?? '');
+  const [editId, setEditId] = useState<number | null>(null);
+  const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [downloading, setDownloading] = useState<number | null>(null);
+  const [contact, setContact] = useState<{ candidateId: number; tab: Tab; title: string } | null>(null);
+  const call = useCallAction();
+
+  const page = Number(params.get('page') ?? 0);
+  const size = Number(params.get('size') ?? 10);
+  const sort = params.get('sort') ?? 'applicationDate';
+  const dir = params.get('dir') ?? 'desc';
+  const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<(typeof FILTER_KEYS)[number], string>;
+  const activeFilters = FILTER_KEYS.filter((k) => filters[k]).length;
+
+  const update = (patch: Record<string, string | number | null>, resetPage = true) => {
+    const next = new URLSearchParams(params);
+    Object.entries(patch).forEach(([k, v]) => (v === null || v === '' ? next.delete(k) : next.set(k, String(v))));
+    if (resetPage) next.delete('page');
+    setParams(next, { replace: true });
+  };
+
+  // keep search box in sync with URL (e.g. header search) and debounce typing into the URL
+  useEffect(() => setSearch(params.get('q') ?? ''), [params]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if ((params.get('q') ?? '') !== search.trim()) update({ q: search.trim() });
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const query = useQuery({
+    queryKey: ['candidates', filters, page, size, sort, dir],
+    queryFn: () => api.get<Page<CandidateListItem>>('/candidates', { ...filters, page, size, sort, dir }),
+    placeholderData: keepPreviousData,
+  });
+
+  const toggleSort = (key: string) => update({ sort: key, dir: sort === key && dir === 'asc' ? 'desc' : 'asc' }, false);
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      await api.download('/candidates/export', { ...filters, sort, dir }, 'candidates.xlsx');
+      toast('success', 'Excel export downloaded');
+    } catch (e) {
+      toast('error', (e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const downloadResume = async (c: CandidateListItem) => {
+    setDownloading(c.id);
+    try {
+      await api.download(`/candidates/${c.id}/resume`, {}, `${c.candidateCode}-resume`);
+    } catch (e) {
+      toast('error', (e as Error).message.includes('not found') ? `No resume on file for ${c.fullName}` : (e as Error).message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const data = query.data;
+  return (
+    <div className="space-y-4">
+      <section className="panel p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="relative min-w-[220px] flex-1">
+            <span className="sr-only">Search by name or candidate ID</span>
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+            <input className="input pl-9" placeholder="Search by name, candidate ID or mobile" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </label>
+          <button className="btn-secondary" onClick={() => query.refetch()} disabled={query.isFetching} title="Refresh">
+            <RefreshCcw size={15} className={clsx(query.isFetching && 'animate-spin')} /> <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button className="btn-primary" onClick={exportExcel} disabled={exporting || !data?.totalElements}>
+            {exporting ? <Spinner size={15} /> : <Download size={15} />} Export to Excel
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <select className="input" aria-label="Department" value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value })}>
+            <option value="">All departments</option>
+            {departments?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            <option value="0">Unassigned</option>
+          </select>
+          <select className="input" aria-label="Experience" value={filters.experience} onChange={(e) => update({ experience: e.target.value })}>
+            <option value="">Any experience</option>
+            {EXPERIENCE_BUCKETS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+          <select className="input" aria-label="Application status" value={filters.applicationStatus} onChange={(e) => update({ applicationStatus: e.target.value })}>
+            <option value="">Any application status</option>
+            {APPLICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <select className="input" aria-label="Interview status" value={filters.interviewStatus} onChange={(e) => update({ interviewStatus: e.target.value })}>
+            <option value="">Any interview status</option>
+            <option value="SCHEDULED,RESCHEDULED">Upcoming (scheduled or rescheduled)</option>
+            {INTERVIEW_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <select className="input" aria-label="Verification" value={filters.verificationStatus} onChange={(e) => update({ verificationStatus: e.target.value })}>
+            <option value="">Any verification</option>
+            {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <button className="btn-ghost justify-start" disabled={activeFilters === 0} onClick={() => update(Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))}>
+            <FilterX size={15} /> Clear filters {activeFilters > 0 && `(${activeFilters})`}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel p-4">
+        {query.isLoading ? (
+          <LoadingBlock label="Loading candidates…" />
+        ) : query.error ? (
+          <ErrorState error={query.error} onRetry={() => query.refetch()} />
+        ) : !data || data.totalElements === 0 ? (
+          <EmptyState
+            icon={<Users size={20} />}
+            title={activeFilters ? 'No candidates match these filters' : 'No candidates yet'}
+            hint={activeFilters ? 'Try removing a filter or changing the search.' : 'New Google Form submissions will appear here after the next sync.'}
+          />
+        ) : (
+          <>
+            <div className={clsx('-mx-4 overflow-x-auto transition-opacity', query.isFetching && 'opacity-70')}>
+              <table className="w-full min-w-[1100px]">
+                <thead>
+                  <tr className="border-b border-line">
+                    {COLUMNS.map((c) => (
+                      <th key={c.key} className="th first:pl-4" aria-sort={sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => toggleSort(c.key)}>
+                          {c.label}
+                          {sort === c.key ? (dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} className="opacity-40" />}
+                        </button>
+                      </th>
+                    ))}
+                    <th className="th pr-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.content.map((c) => (
+                    <tr key={c.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
+                      <td className="td pl-4 font-mono text-xs text-ink">
+                        <span className="flex items-center gap-1.5">{c.candidateCode}{c.source === 'DEMO' && <DemoTag />}</span>
+                      </td>
+                      <td className="td">
+                        <Link to={`/candidates/${c.id}`} className="font-medium text-ink hover:underline">{c.fullName}</Link>
+                        {c.verificationStatus === 'PENDING' && <span className="block text-[11px] text-warn">Verification pending</span>}
+                      </td>
+                      <td className="td tabular-nums">{c.mobile ?? '—'}</td>
+                      <td className="td">{c.departmentName ?? <span className="text-ink-3">Unassigned</span>}</td>
+                      <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
+                      <td className="td">{fmtExperience(c.experienceYears)}</td>
+                      <td className="td tabular-nums">{fmtDate(c.applicationDate)}</td>
+                      <td className="td"><ApplicationPill status={c.applicationStatus} /></td>
+                      <td className="td"><InterviewPill status={c.interviewStatus} /></td>
+                      <td className="td pr-4">
+                        {(() => {
+                          const phoneIssue = phoneProblem(c.mobile);
+                          const emailIssue = emailProblem(c.email);
+                          return (
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button
+                                className="btn-ghost p-2 enabled:hover:text-info"
+                                disabled={!!phoneIssue || call.starting === c.id}
+                                title={phoneIssue ?? `Call ${c.mobile}`}
+                                aria-label={`Call ${c.fullName}`}
+                                onClick={() => call.start(c.id)}
+                              >
+                                {call.starting === c.id ? <Spinner size={16} /> : <Phone size={16} />}
+                              </button>
+                              <button
+                                className="btn-ghost p-2 enabled:hover:text-[#25d366]"
+                                disabled={!!phoneIssue}
+                                title={phoneIssue ?? 'WhatsApp interview invitation'}
+                                aria-label={`WhatsApp ${c.fullName}`}
+                                onClick={() => setContact({ candidateId: c.id, tab: 'whatsapp', title: `Message ${c.fullName}` })}
+                              >
+                                <MessageCircle size={16} />
+                              </button>
+                              <button
+                                className="btn-ghost p-2 enabled:hover:text-info"
+                                disabled={!!emailIssue}
+                                title={emailIssue ?? `Email ${c.email}`}
+                                aria-label={`Email ${c.fullName}`}
+                                onClick={() => setContact({ candidateId: c.id, tab: 'email', title: `Email ${c.fullName}` })}
+                              >
+                                <Mail size={16} />
+                              </button>
+                              <Link to={`/candidates/${c.id}`} className="btn-ghost p-2" title="View profile" aria-label={`View ${c.fullName}`}><Eye size={16} /></Link>
+                              <RowMenu
+                                label={`More actions for ${c.fullName}`}
+                                items={[
+                                  { label: 'Edit details', icon: <PenSquare size={15} />, onClick: () => setEditId(c.id) },
+                                  {
+                                    label: 'Update status',
+                                    icon: <UserCheck size={15} />,
+                                    onClick: () => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus }),
+                                  },
+                                  { label: downloading === c.id ? 'Downloading…' : 'Download resume', icon: <FileDown size={15} />, onClick: () => downloadResume(c) },
+                                ]}
+                              />
+                            </div>
+                          );
+                        })()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              page={data.page}
+              size={data.size}
+              totalPages={data.totalPages}
+              totalElements={data.totalElements}
+              onPage={(p) => update({ page: p }, false)}
+              onSize={(s) => update({ size: s })}
+            />
+          </>
+        )}
+      </section>
+
+      <EditCandidateModal candidateId={editId} onClose={() => setEditId(null)} />
+      <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <CommunicationDialog target={contact} onClose={() => setContact(null)} />
+      {call.modal}
+    </div>
+  );
+}
+
+/** Overflow menu rendered with fixed positioning so the scrollable table never clips it. */
+function RowMenu({ label, items }: { label: string; items: { label: string; icon: ReactNode; onClick: () => void }[] }) {
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  useEffect(() => {
+    if (!pos) return;
+    const close = () => setPos(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [pos]);
+  return (
+    <>
+      <button
+        className="btn-ghost p-2"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={!!pos}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setPos(pos ? null : { top: r.bottom + 4, right: window.innerWidth - r.right });
+        }}
+      >
+        <MoreVertical size={16} />
+      </button>
+      {pos && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPos(null)} />
+          <ul role="menu" className="fixed z-50 min-w-[180px] rounded-xl border border-line bg-raised p-1 shadow-card animate-fade-up" style={{ top: pos.top, right: pos.right }}>
+            {items.map((it) => (
+              <li key={it.label}>
+                <button
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink-2 hover:bg-line hover:text-ink"
+                  onClick={() => {
+                    setPos(null);
+                    it.onClick();
+                  }}
+                >
+                  {it.icon} {it.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </>
+  );
+}

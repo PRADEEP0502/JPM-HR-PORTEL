@@ -1,0 +1,152 @@
+package com.jpm.hrms.candidate;
+
+import com.jpm.hrms.audit.AuditService;
+import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
+import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
+import com.jpm.hrms.candidate.CandidateDtos.DocumentResponse;
+import com.jpm.hrms.candidate.CandidateDtos.RemarkRequest;
+import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
+import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
+import com.jpm.hrms.candidate.CandidateDtos.UpdateCandidateRequest;
+import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
+import com.jpm.hrms.candidate.CandidateEnums.ExperienceBucket;
+import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
+import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
+import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
+import com.jpm.hrms.common.PageResponse;
+import com.jpm.hrms.document.CandidateDocument.DocType;
+import com.jpm.hrms.document.DocumentService;
+import com.jpm.hrms.report.ExcelExporter;
+import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+@PreAuthorize("hasAnyRole('ADMIN','HR')")
+public class CandidateController {
+    private final CandidateService service;
+    private final DocumentService documents;
+    private final AuditService audit;
+
+    public CandidateController(CandidateService service, DocumentService documents, AuditService audit) {
+        this.service = service;
+        this.documents = documents;
+        this.audit = audit;
+    }
+
+    @GetMapping("/candidates")
+    public PageResponse<CandidateListItem> list(@RequestParam(required = false) String q,
+                                                @RequestParam(required = false) Long departmentId,
+                                                @RequestParam(required = false) ExperienceBucket experience,
+                                                @RequestParam(required = false) ApplicationStatus applicationStatus,
+                                                @RequestParam(required = false) List<InterviewStatus> interviewStatus,
+                                                @RequestParam(required = false) VerificationStatus verificationStatus,
+                                                @RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "10") int size,
+                                                @RequestParam(defaultValue = "applicationDate") String sort,
+                                                @RequestParam(defaultValue = "desc") String dir) {
+        return service.list(new Filter(q, departmentId, experience, applicationStatus, interviewStatus, verificationStatus),
+                page, size, sort, dir);
+    }
+
+    /** Exports the currently filtered list. Personal details beyond contact info (DOB, address, salary) are excluded. */
+    @GetMapping("/candidates/export")
+    public ResponseEntity<byte[]> export(@RequestParam(required = false) String q,
+                                         @RequestParam(required = false) Long departmentId,
+                                         @RequestParam(required = false) ExperienceBucket experience,
+                                         @RequestParam(required = false) ApplicationStatus applicationStatus,
+                                         @RequestParam(required = false) List<InterviewStatus> interviewStatus,
+                                         @RequestParam(required = false) VerificationStatus verificationStatus,
+                                         @RequestParam(defaultValue = "applicationDate") String sort,
+                                         @RequestParam(defaultValue = "desc") String dir) {
+        List<Candidate> all = service.listAll(new Filter(q, departmentId, experience, applicationStatus, interviewStatus,
+                verificationStatus), sort, dir);
+        List<List<Object>> rows = new ArrayList<>();
+        for (Candidate c : all) {
+            List<Object> r = new ArrayList<>();
+            r.add(c.getCandidateCode());
+            r.add(c.getFullName());
+            r.add(c.getMobile());
+            r.add(c.getEmail());
+            r.add(c.getDepartment() != null ? c.getDepartment().getName() : c.getDepartmentRaw());
+            r.add(c.getQualification());
+            r.add(c.getExperienceYears());
+            r.add(c.getApplicationDate());
+            r.add(c.getApplicationStatus().label);
+            r.add(c.getInterviewStatus().label);
+            r.add(c.getVerificationStatus().label);
+            rows.add(r);
+        }
+        byte[] bytes = ExcelExporter.build("Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
+                List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Qualification", "Experience (yrs)",
+                        "Application Date", "Application Status", "Interview Status", "Verification"), rows);
+        audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to Excel");
+        return ExcelExporter.response("candidates", bytes);
+    }
+
+    @GetMapping("/candidates/{id}")
+    public CandidateDetail detail(@PathVariable Long id) {
+        return service.detail(id);
+    }
+
+    @PutMapping("/candidates/{id}")
+    public CandidateDetail update(@PathVariable Long id, @Valid @RequestBody UpdateCandidateRequest req) {
+        return service.update(id, req);
+    }
+
+    @PatchMapping("/candidates/{id}/status")
+    public CandidateDetail updateStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateRequest req, Authentication auth) {
+        return service.updateStatus(id, req, auth.getName());
+    }
+
+    @PostMapping("/candidates/{id}/remarks")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RemarkResponse addRemark(@PathVariable Long id, @Valid @RequestBody RemarkRequest req, Authentication auth) {
+        return service.addRemark(id, req.remark(), auth.getName());
+    }
+
+    @PostMapping(value = "/candidates/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public DocumentResponse upload(@PathVariable Long id, @RequestParam DocType type,
+                                   @RequestParam(defaultValue = "false") boolean consent,
+                                   @RequestPart("file") MultipartFile file, Authentication auth) {
+        return documents.upload(id, type, file, consent, auth.getName());
+    }
+
+    @GetMapping("/candidates/{id}/resume")
+    public ResponseEntity<InputStreamResource> resume(@PathVariable Long id) {
+        return documents.downloadLatestResume(id);
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteDocument(@PathVariable Long documentId) {
+        documents.delete(documentId);
+    }
+
+    @GetMapping("/documents/{documentId}/download")
+    public ResponseEntity<InputStreamResource> download(@PathVariable Long documentId) {
+        return documents.download(documentId);
+    }
+}

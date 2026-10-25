@@ -1,0 +1,27 @@
+# Test profile. The datasource (a real embedded PostgreSQL server) is supplied by PostgresTestSupport.
+spring:
+  mail:
+    # GreenMail in-process SMTP server (see CommunicationApiTest)
+    host: localhost
+    port: 3025
+    username:
+    password:
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+      mail.smtp.starttls.required: false
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 3000
+app:
+  demo-mode: false
+  upload-dir: ./target/test-uploads
+  document-encryption-key: ZTVOGCquZCPUT4HsFbLLMYK119bzeJAdvmqlOhYFVFM=
+  mail:
+    from-address: hr@jpm.test
+    from-name: JPM HR Department
+  security:
+    bootstrap-admin-username: admin
+    bootstrap-admin-password: Admin@12345
+  google:
+    credentials-file:
+    spreadsheet-id: TEST_SHEET_ID_1234567890abcdef

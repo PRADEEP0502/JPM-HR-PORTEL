@@ -1,0 +1,16 @@
+# Local development profile: embedded H2 database (PostgreSQL compatibility mode) + demo mode on by default.
+# Activate with SPRING_PROFILES_ACTIVE=dev
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:./data/hrms-dev-pg;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+
+app:
+  demo-mode: ${DEMO_MODE:true}
+  upload-dir: ${UPLOAD_DIR:./data/uploads-pg}
+  # DEV ONLY key so Aadhaar uploads work locally. Never reuse this value in production.
+  document-encryption-key: ${DOCUMENT_ENCRYPTION_KEY:T4ryaPbzxEBk/vDMLFc/ihRAuLHJV4qvqdX/iIqT16A=}
+  security:
+    bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
+    bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@12345}

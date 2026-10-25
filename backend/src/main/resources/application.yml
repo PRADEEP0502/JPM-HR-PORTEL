@@ -1,0 +1,77 @@
+# JPM HRMS - base configuration.
+# Every secret / deployment-specific value is read from an environment variable.
+# See ../../../../.env.example for the full list.
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: jpm-hrms
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/jpm_hrms}
+    username: ${DB_USERNAME:jpm_hrms}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none          # schema is managed by Flyway (src/main/resources/db/migration)
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  # Outgoing email (SMTP). Leave MAIL_HOST empty to disable sending - previews still work.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:true}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS:true}
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 15000
+      mail.smtp.writetimeout: 15000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  # Demo mode seeds clearly-labelled sample candidates (source = DEMO) into an empty database.
+  demo-mode: ${DEMO_MODE:false}
+  timezone: ${APP_TIMEZONE:Asia/Kolkata}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  upload-dir: ${UPLOAD_DIR:./data/uploads}
+  # Base64 32-byte AES key for documents at rest. Required for Aadhaar uploads.  openssl rand -base64 32
+  document-encryption-key: ${DOCUMENT_ENCRYPTION_KEY:}
+  security:
+    jwt-secret: ${JWT_SECRET:}
+    token-ttl-minutes: ${JWT_TTL_MINUTES:480}
+    # Optional bootstrap admin, created only when no users exist yet.
+    bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:}
+    bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+  mail:
+    # Sender shown to candidates, e.g. hr@jpm.example. Must be allowed by the SMTP provider.
+    from-address: ${MAIL_FROM:}
+    from-name: ${MAIL_FROM_NAME:JPM HR Department}
+  google:
+    # Path to a Google Cloud service-account JSON key file. Never commit this file.
+    credentials-file: ${GOOGLE_SERVICE_ACCOUNT_FILE:}
+    # Defaults; an admin may override sheet id / range / form url from Settings.
+    spreadsheet-id: ${GOOGLE_SHEET_ID:}
+    sheet-range: ${GOOGLE_SHEET_RANGE:Form Responses 1}
+    form-url: ${GOOGLE_FORM_URL:}

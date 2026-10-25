@@ -1,0 +1,27 @@
+# secrets
+.env
+*.env.local
+**/service-account*.json
+**/*credentials*.json
+
+# backend
+backend/target/
+backend/data/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# misc
+hs_err_pid*.log
+*.tsbuildinfo

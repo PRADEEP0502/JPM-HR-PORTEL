@@ -1,0 +1,229 @@
+import { Fragment, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '../../lib/api';
+import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
+import { APPLICATION_STATUSES, VERIFICATION_STATUSES } from '../../lib/format';
+import { useToast } from '../../lib/toast';
+import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
+import { Modal } from '../ui/Modal';
+import { Field } from '../ui/Misc';
+import { ErrorState, LoadingBlock, Spinner } from '../ui/States';
+
+export function useInvalidateCandidates() {
+  const qc = useQueryClient();
+  return () => CANDIDATE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k }));
+}
+
+// ------------------------------------------------------------------ edit
+
+type Form = Record<string, string>;
+const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string }[] = [
+  { key: 'fullName', label: 'Full name *', max: 150 },
+  { key: 'dateOfBirth', label: 'Date of birth', type: 'date' },
+  { key: 'mobile', label: 'Mobile number', type: 'tel', max: 20 },
+  { key: 'email', label: 'Email', type: 'email', max: 200 },
+  { key: 'address', label: 'Address', max: 1000, span: true },
+  { key: 'qualification', label: 'Qualification', max: 200 },
+  { key: 'institution', label: 'Institution', max: 200 },
+  { key: 'passingYear', label: 'Passing year', type: 'number' },
+  { key: 'previousCompany', label: 'Previous company', max: 200 },
+  { key: 'experienceYears', label: 'Total experience (years)', type: 'number' },
+  { key: 'previousDesignation', label: 'Previous designation', max: 150 },
+  { key: 'expectedSalary', label: 'Expected salary', max: 100 },
+  { key: 'skills', label: 'Skills', max: 2000, span: true },
+  { key: 'referenceName', label: 'Reference name', max: 150, heading: 'Professional reference' },
+  { key: 'referenceRelation', label: 'Reference relationship / designation', max: 150 },
+  { key: 'referenceContact', label: 'Reference contact', max: 200 },
+  { key: 'familyRefName', label: 'Family member name', max: 150, heading: 'Family reference' },
+  { key: 'familyRefRelation', label: 'Relationship', max: 100, list: 'family-relations' },
+  { key: 'familyRefContact', label: 'Family member contact number', type: 'tel', max: 20 },
+];
+
+export function EditCandidateModal({ candidateId, onClose }: { candidateId: number | null; onClose: () => void }) {
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const { data: departments } = useDepartments();
+  const detail = useQuery({
+    queryKey: ['candidate', candidateId],
+    queryFn: () => api.get<CandidateDetail>(`/candidates/${candidateId}`),
+    enabled: candidateId !== null,
+  });
+  const [form, setForm] = useState<Form>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!detail.data) return;
+    const f: Form = {};
+    TEXT_FIELDS.forEach(({ key }) => (f[key] = detail.data[key] == null ? '' : String(detail.data[key])));
+    f.departmentId = detail.data.departmentId == null ? '' : String(detail.data.departmentId);
+    setForm(f);
+    setErrors({});
+  }, [detail.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.put<CandidateDetail>(`/candidates/${candidateId}`, {
+        ...Object.fromEntries(TEXT_FIELDS.map(({ key }) => [key, form[key]?.trim() ? form[key].trim() : null])),
+        passingYear: form.passingYear ? Number(form.passingYear) : null,
+        experienceYears: form.experienceYears ? Number(form.experienceYears) : null,
+        departmentId: form.departmentId ? Number(form.departmentId) : null,
+        version: detail.data!.version,
+      }),
+    onSuccess: () => {
+      toast('success', 'Candidate details updated');
+      invalidate();
+      onClose();
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.fieldErrors) setErrors(e.fieldErrors);
+      toast('error', e.message);
+    },
+  });
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.fullName?.trim()) errs.fullName = 'Name is required';
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) errs.email = 'Enter a valid email';
+    if (form.mobile && form.mobile.replace(/\D/g, '').length < 10) errs.mobile = 'Enter at least 10 digits';
+    if (form.familyRefContact && form.familyRefContact.replace(/\D/g, '').length < 10) errs.familyRefContact = 'Enter at least 10 digits';
+    if (form.passingYear &&(Number(form.passingYear) < 1950 || Number(form.passingYear) > new Date().getFullYear() + 1)) errs.passingYear = 'Enter a valid year';
+    if (form.experienceYears && (Number(form.experienceYears) < 0 || Number(form.experienceYears) > 60)) errs.experienceYears = '0–60 years';
+    if (form.dateOfBirth && new Date(form.dateOfBirth) >= new Date()) errs.dateOfBirth = 'Must be in the past';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  return (
+    <Modal
+      open={candidateId !== null}
+      onClose={onClose}
+      size="lg"
+      title="Edit candidate details"
+      description={detail.data ? `${detail.data.candidateCode} · changes are recorded in the audit log` : undefined}
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={!detail.data || save.isPending} onClick={() => validate() && save.mutate()}>
+            {save.isPending && <Spinner size={14} />} Save changes
+          </button>
+        </>
+      }
+    >
+      {detail.isLoading && <LoadingBlock />}
+      {detail.error && <ErrorState error={detail.error} onRetry={() => detail.refetch()} />}
+      {detail.data && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <datalist id="family-relations">
+            {['Father', 'Mother', 'Spouse', 'Brother', 'Sister', 'Son', 'Daughter', 'Guardian'].map((r) => <option key={r} value={r} />)}
+          </datalist>
+          {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list }) => (
+            <Fragment key={key}>
+            {heading && <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">{heading}</h3>}
+            <Field label={label} error={errors[key]} className={span ? 'sm:col-span-2' : undefined}>
+              {key === 'address' || key === 'skills' ? (
+                <textarea className="input min-h-[72px]" maxLength={max} value={form[key] ?? ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+              ) : (
+                <input
+                  className="input"
+                  type={type ?? 'text'}
+                  maxLength={max}
+                  step={key === 'experienceYears' ? '0.1' : undefined}
+                  list={list}
+                  max={type === 'date' ? new Date().toISOString().slice(0, 10) : undefined}
+                  value={form[key] ?? ''}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                />
+              )}
+            </Field>
+            </Fragment>
+          ))}
+          <Field label="Department" className="sm:col-span-2" hint={detail.data.departmentRaw && !detail.data.departmentId ? `Submitted as "${detail.data.departmentRaw}"` : undefined}>
+            <select className="input" value={form.departmentId ?? ''} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+              <option value="">Unassigned</option>
+              {departments?.map((d) => (
+                <option key={d.id} value={d.id} disabled={!d.active && String(d.id) !== form.departmentId}>
+                  {d.name}{d.active ? '' : ' (inactive)'}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ status
+
+export interface StatusTarget {
+  id: number;
+  name: string;
+  code: string;
+  applicationStatus: ApplicationStatus;
+  verificationStatus: VerificationStatus;
+}
+
+export function StatusModal({ target, onClose }: { target: StatusTarget | null; onClose: () => void }) {
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const [app, setApp] = useState<ApplicationStatus>('NEW');
+  const [ver, setVer] = useState<VerificationStatus>('PENDING');
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (target) {
+      setApp(target.applicationStatus);
+      setVer(target.verificationStatus);
+      setNote('');
+    }
+  }, [target]);
+
+  const unchanged = !!target && app === target.applicationStatus && ver === target.verificationStatus;
+  const save = useMutation({
+    mutationFn: () =>
+      api.patch(`/candidates/${target!.id}/status`, {
+        applicationStatus: app !== target!.applicationStatus ? app : null,
+        verificationStatus: ver !== target!.verificationStatus ? ver : null,
+        note: note.trim() || null,
+      }),
+    onSuccess: () => {
+      toast('success', `Status updated for ${target!.name}`);
+      invalidate();
+      onClose();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title="Update status"
+      description={target ? `${target.name} · ${target.code}` : undefined}
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={unchanged || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Spinner size={14} />} Update status
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Application status">
+          <select className="input" value={app} onChange={(e) => setApp(e.target.value as ApplicationStatus)}>
+            {APPLICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Document verification">
+          <select className="input" value={ver} onChange={(e) => setVer(e.target.value as VerificationStatus)}>
+            {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </Field>
+        <Field label="HR remark (optional)" hint="Saved to the candidate's HR remarks and the status history.">
+          <textarea className="input min-h-[84px]" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reason for the change…" />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
