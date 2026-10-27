@@ -5,6 +5,9 @@
 # development-only server with data kept in ./data/mongo.
 # Set DEMO_MODE=true to seed fictional sample candidates into an empty database.
 spring:
+  config:
+    # Local secrets (e.g. MONGODB_URI for Atlas) in backend/.env - git-ignored, never committed.
+    import: optional:file:./.env[.properties]
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/jpm_hrms}

@@ -158,7 +158,7 @@ cd frontend && npm install && npm run dev
 
 | Want to… | Set |
 |---|---|
-| Use MongoDB Atlas while developing | `MONGODB_URI=mongodb+srv://…/jpm_hrms` |
+| Use MongoDB Atlas while developing | put `MONGODB_URI=mongodb+srv://…/jpm_hrms` in `backend/.env` (read by the dev profile; git-ignored) |
 | Run without installing MongoDB | `EMBEDDED_MONGO=true` — starts a development-only MongoDB (official binaries, ~600 MB download once), data in `backend/data/mongo` |
 | Load fictional sample data | `DEMO_MODE=true` (only into an empty database; every record is tagged `DEMO`) |
 | Store files in MongoDB instead of a folder | `FILE_STORAGE=gridfs` |
