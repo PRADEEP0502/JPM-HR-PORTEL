@@ -11,6 +11,7 @@ import DepartmentsPage from './pages/DepartmentsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import MyInterviewsPage from './pages/MyInterviewsPage';
+import PipelinePage from './pages/PipelinePage';
 
 export default function App() {
   const { user, loading, isInterviewer } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="candidates" element={<CandidatesPage />} />
         <Route path="candidates/:id" element={<CandidateProfilePage />} />
+        <Route path="pipeline" element={<PipelinePage />} />
         <Route path="interviews" element={<InterviewsPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="reports" element={<ReportsPage />} />

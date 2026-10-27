@@ -13,6 +13,7 @@ import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusChangeResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
 import com.jpm.hrms.candidate.CandidateDtos.UpdateCandidateRequest;
+import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
 import com.jpm.hrms.common.ApiException;
@@ -128,6 +129,24 @@ public class CandidateService {
                     Sort.by(asc ? Sort.Order.asc("sortGroup") : Sort.Order.desc("sortGroup"), Sort.Order.desc("_id"))));
         }
         return Optional.empty();
+    }
+
+    /** One pipeline column: a recruitment status, how many active candidates have it, and the newest of them. */
+    public record PipelineColumn(ApplicationStatus status, String label, long count, List<CandidateListItem> candidates) {
+    }
+
+    /** Active (non-archived) candidates grouped by recruitment status for the pipeline board. */
+    public List<PipelineColumn> pipeline(Long departmentId, int limit) {
+        int size = Math.min(Math.max(limit, 1), 50);
+        DepartmentDirectory.Names names = depts.snapshot();
+        List<PipelineColumn> columns = new ArrayList<>();
+        for (ApplicationStatus s : ApplicationStatus.values()) {
+            Criteria criteria = CandidateSpecifications.matching(new Filter(null, departmentId, null, s, null, null));
+            Page<Candidate> page = repo.findAll(criteria, PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "updatedAt")));
+            columns.add(new PipelineColumn(s, s.label, page.getTotalElements(),
+                    page.getContent().stream().map(c -> CandidateListItem.from(c, names)).toList()));
+        }
+        return columns;
     }
 
     static Sort toSort(String sort, String dir) {
@@ -276,7 +295,7 @@ public class CandidateService {
     }
 
     /** Guideline label for a rating; HR makes the final call. */
-    static String ratingLabel(int rating) {
+    public static String ratingLabel(int rating) {
         if (rating <= 2) return "Not Suitable";
         if (rating <= 4) return "Low Match";
         if (rating <= 6) return "Average Match";

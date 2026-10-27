@@ -14,10 +14,15 @@ import { HorizontalBars, TrendArea, VerticalBars } from '../components/charts/Ch
 const REPORTS: { type: ReportType; label: string; desc: string }[] = [
   { type: 'DEPARTMENT', label: 'Department-wise', desc: 'Candidates and outcomes per department' },
   { type: 'MONTHLY', label: 'Monthly applications', desc: 'Applications received per month' },
+  { type: 'APPLICATIONS_BY_DATE', label: 'Applications by date', desc: 'Applications received per day (default: last 30 days)' },
+  { type: 'STATUS', label: 'Recruitment status', desc: 'Candidates in each recruitment status' },
+  { type: 'RATING_DISTRIBUTION', label: 'Profile Match Rating', desc: 'How many candidates have each rating (internal)' },
   { type: 'SELECTED', label: 'Selected', desc: 'Candidates with status Selected' },
+  { type: 'SELECTED_JOINED', label: 'Selected & joined', desc: 'Candidates who were selected or have joined' },
   { type: 'REJECTED', label: 'Rejected', desc: 'Candidates with status Rejected' },
   { type: 'PENDING_VERIFICATION', label: 'Pending verification', desc: 'Documents / data not yet verified' },
-  { type: 'INTERVIEW_STATUS', label: 'Interview status', desc: 'All interviews and their outcome' },
+  { type: 'INTERVIEW_STATUS', label: 'Interview schedule', desc: 'All interviews and their outcome' },
+  { type: 'ACTIVITY', label: 'Recruitment activity', desc: 'Who changed what, from the audit log (default: last 30 days)' },
 ];
 
 export default function ReportsPage() {
@@ -35,10 +40,10 @@ export default function ReportsPage() {
   });
   const r = query.data;
 
-  const exportExcel = async () => {
+  const exportReport = async (format: 'xlsx' | 'csv') => {
     setExporting(true);
     try {
-      await api.download(`/reports/${type}/export`, { from, to }, `${type.toLowerCase()}-report.xlsx`);
+      await api.download(`/reports/${type}/export`, { from, to, format }, `${type.toLowerCase()}-report.${format}`);
       toast('success', 'Report exported');
     } catch (e) {
       toast('error', (e as Error).message);
@@ -47,7 +52,7 @@ export default function ReportsPage() {
     }
   };
 
-  const dateLabel = type === 'INTERVIEW_STATUS' ? 'Interview date' : 'Application date';
+  const dateLabel = type === 'INTERVIEW_STATUS' ? 'Interview date' : type === 'ACTIVITY' ? 'Activity date' : 'Application date';
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -82,7 +87,10 @@ export default function ReportsPage() {
           </label>
           <button className="btn-ghost" disabled={!from && !to} onClick={() => { setFrom(''); setTo(''); }}>Clear dates</button>
           <div className="flex-1" />
-          <button className="btn-primary" onClick={exportExcel} disabled={exporting || !r || invalid}>
+          <button className="btn-secondary" onClick={() => exportReport('csv')} disabled={exporting || !r || invalid}>
+            <Download size={15} /> CSV
+          </button>
+          <button className="btn-primary" onClick={() => exportReport('xlsx')} disabled={exporting || !r || invalid}>
             {exporting ? <Spinner size={15} /> : <Download size={15} />} Export to Excel
           </button>
           {invalid && <p className="w-full text-sm text-bad">“From” must be on or before “to”.</p>}
@@ -101,13 +109,13 @@ export default function ReportsPage() {
               />
               {r.chart.length === 0 || r.chart.every((c) => c.value === 0) ? (
                 <EmptyState icon={<BarChart3 size={20} />} title="Nothing to chart for this selection" />
-              ) : type === 'MONTHLY' ? (
+              ) : type === 'MONTHLY' || type === 'APPLICATIONS_BY_DATE' ? (
                 <TrendArea data={r.chart.map((c) => ({ label: c.label, value: c.value }))} />
-              ) : type === 'INTERVIEW_STATUS' ? (
+              ) : type === 'INTERVIEW_STATUS' || type === 'RATING_DISTRIBUTION' || type === 'STATUS' ? (
                 <VerticalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} />
               ) : (
                 <>
-                  {type !== 'DEPARTMENT' && <p className="mb-2 text-xs text-ink-3">By department</p>}
+                  {type !== 'DEPARTMENT' && <p className="mb-2 text-xs text-ink-3">{type === 'ACTIVITY' ? 'By action' : 'By department'}</p>}
                   <HorizontalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} />
                 </>
               )}

@@ -136,6 +136,34 @@ class RecruitmentWorkflowApiTest {
                 .andExpect(jsonPath("$.interviews[0].feedbackBy").value("iv.meena"));
     }
 
+    @Test
+    void everyReportBuildsAndExportsAndPipelineHasAllStatuses() throws Exception {
+        String admin = login("admin", "Admin@12345");
+        Candidate c = candidate("Report Pipeline Test", LocalDate.now());
+        call(patch("/api/candidates/" + c.getId() + "/rating"), admin, "{\"rating\":8}");
+
+        for (var type : com.jpm.hrms.report.ReportService.ReportType.values()) {
+            mvc.perform(get("/api/reports/" + type).header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+            mvc.perform(get("/api/reports/" + type + "/export").param("format", "csv").header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isOk());
+        }
+        mvc.perform(get("/api/reports/RATING_DISTRIBUTION").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.rows[7].rating").value("8/10"))
+                .andExpect(jsonPath("$.rows[7].band").value("Good Match"))
+                .andExpect(jsonPath("$.rows[10].rating").value("Not Rated"));
+        mvc.perform(get("/api/reports/ACTIVITY").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.rows[0].fullName").value("Report Pipeline Test"))
+                .andExpect(jsonPath("$.rows[0].action").value("rating updated"));
+        mvc.perform(get("/api/reports/APPLICATIONS_BY_DATE").param("from", "2020-01-01").param("to", "2026-12-31")
+                .header("Authorization", "Bearer " + admin)).andExpect(status().isBadRequest());
+
+        JsonNode pipeline = mapper.readTree(mvc.perform(get("/api/pipeline").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(pipeline).hasSize(CandidateEnums.ApplicationStatus.values().length);
+        assertThat(pipeline.get(0).get("status").asText()).isEqualTo("NEW");
+        assertThat(pipeline.get(0).toString()).contains("Report Pipeline Test");
+    }
+
     private Candidate candidate(String name, LocalDate applied) {
         Candidate c = new Candidate();
         c.setFullName(name);

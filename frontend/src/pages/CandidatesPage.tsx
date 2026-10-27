@@ -210,7 +210,38 @@ export default function CandidatesPage() {
           />
         ) : (
           <>
-            <div className={clsx('-mx-4 overflow-x-auto transition-opacity', query.isFetching && 'opacity-70')}>
+            {/* Phones: one card per candidate. Tablets and up: the sortable table below. */}
+            <ul className={clsx('space-y-3 md:hidden', query.isFetching && 'opacity-70')} aria-label="Candidates">
+              {data.content.map((c) => (
+                <li key={c.id} className="rounded-xl border border-line/70 bg-card p-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link to={`/candidates/${c.id}`} className="block truncate font-medium text-ink hover:underline">{c.fullName}</Link>
+                      <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
+                        <span className="font-mono">{c.candidateCode}</span>
+                        {c.source === 'DEMO' && <DemoTag />}
+                        {c.archived && <span className="rounded border border-line px-1 text-[10px] font-semibold uppercase">Archived</span>}
+                        · {c.departmentName ?? 'Unassigned'}
+                      </p>
+                    </div>
+                    <ApplicationPill status={c.applicationStatus} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-3">
+                    <button onClick={() => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark })} aria-label={`Rating for ${c.fullName}`}>
+                      <RatingPill rating={c.profileRating} />
+                    </button>
+                    <span>Applied {fmtDate(c.applicationDate)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1 border-t border-line/60 pt-2">
+                    <button className="btn-ghost p-2" disabled={!!phoneProblem(c.mobile)} onClick={() => call.start(c.id)} aria-label={`Call ${c.fullName}`}><Phone size={16} /></button>
+                    <button className="btn-ghost p-2" disabled={!!phoneProblem(c.mobile)} onClick={() => setContact({ candidateId: c.id, tab: 'whatsapp', title: `Message ${c.fullName}` })} aria-label={`WhatsApp ${c.fullName}`}><MessageCircle size={16} /></button>
+                    <button className="btn-ghost p-2" disabled={!!emailProblem(c.email)} onClick={() => setContact({ candidateId: c.id, tab: 'email', title: `Email ${c.fullName}` })} aria-label={`Email ${c.fullName}`}><Mail size={16} /></button>
+                    <Link to={`/candidates/${c.id}`} className="btn-ghost ml-auto px-2 py-1.5 text-sm"><Eye size={15} /> Profile</Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className={clsx('-mx-4 hidden overflow-x-auto transition-opacity md:block', query.isFetching && 'opacity-70')}>
               <table className="w-full min-w-[1380px]">
                 <thead>
                   <tr className="border-b border-line">

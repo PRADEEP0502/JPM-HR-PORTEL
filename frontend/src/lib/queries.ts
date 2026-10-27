@@ -29,4 +29,4 @@ export const useNotifications = () =>
   });
 
 /** Query keys whose data depends on candidates/interviews - invalidated after every mutation. */
-export const CANDIDATE_KEYS = [['dashboard'], ['candidates'], ['candidate'], ['interviews'], ['reports'], ['notifications']];
+export const CANDIDATE_KEYS = [['dashboard'], ['candidates'], ['candidate'], ['interviews'], ['reports'], ['notifications'], ['pipeline']];

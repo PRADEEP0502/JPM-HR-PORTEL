@@ -107,6 +107,13 @@ public class CandidateController {
         return service.archive(id, req, auth.getName());
     }
 
+    /** Recruitment pipeline board: active candidates per status (newest first). */
+    @GetMapping("/pipeline")
+    public List<CandidateService.PipelineColumn> pipeline(@RequestParam(required = false) Long departmentId,
+                                                          @RequestParam(defaultValue = "25") int limit) {
+        return service.pipeline(departmentId, limit);
+    }
+
     @GetMapping("/candidates/{id}")
     public CandidateDetail detail(@PathVariable Long id) {
         return service.detail(id);

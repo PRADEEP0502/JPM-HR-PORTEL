@@ -38,7 +38,8 @@ public class ReportController {
     @GetMapping("/{type}/export")
     public ResponseEntity<byte[]> export(@PathVariable ReportType type,
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                         @RequestParam(defaultValue = "xlsx") String format) {
         Report r = service.build(type, from, to);
         List<String> headers = r.columns().stream().map(ReportService.Column::label).toList();
         List<List<Object>> rows = new ArrayList<>();
@@ -49,8 +50,9 @@ public class ReportController {
         }
         String range = (r.from() == null && r.to() == null) ? "All dates"
                 : (r.from() == null ? "…" : r.from().toString()) + " to " + (r.to() == null ? "today" : r.to().toString());
-        byte[] bytes = ExcelExporter.build(type.name(), "JPM HR Portal - " + r.title() + " (" + range + ")", headers, rows);
-        audit.record("EXPORT", "REPORT", null, "Exported " + r.title() + " (" + rows.size() + " rows)");
-        return ExcelExporter.response(type.name().toLowerCase().replace('_', '-') + "-report", bytes);
+        var response = TableExporter.export(format, type.name(), "JPM HR Portal - " + r.title() + " (" + range + ")", headers, rows,
+                type.name().toLowerCase().replace('_', '-') + "-report");
+        audit.record("EXPORT", "REPORT", null, "Exported " + r.title() + " (" + rows.size() + " rows, " + format.toUpperCase() + ")");
+        return response;
     }
 }

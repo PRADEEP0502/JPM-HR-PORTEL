@@ -302,7 +302,18 @@ export interface SyncTestResult {
   dataRows: number;
 }
 
-export type ReportType = 'DEPARTMENT' | 'MONTHLY' | 'SELECTED' | 'REJECTED' | 'PENDING_VERIFICATION' | 'INTERVIEW_STATUS';
+export type ReportType =
+  | 'DEPARTMENT'
+  | 'MONTHLY'
+  | 'APPLICATIONS_BY_DATE'
+  | 'STATUS'
+  | 'RATING_DISTRIBUTION'
+  | 'SELECTED'
+  | 'SELECTED_JOINED'
+  | 'REJECTED'
+  | 'PENDING_VERIFICATION'
+  | 'INTERVIEW_STATUS'
+  | 'ACTIVITY';
 
 export interface Report {
   type: ReportType;

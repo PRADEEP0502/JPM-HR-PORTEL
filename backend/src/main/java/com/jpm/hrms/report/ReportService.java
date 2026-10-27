@@ -1,5 +1,7 @@
 package com.jpm.hrms.report;
 
+import com.jpm.hrms.audit.AuditLog;
+import com.jpm.hrms.audit.AuditLogRepository;
 import com.jpm.hrms.candidate.Candidate;
 import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
@@ -39,7 +41,12 @@ public class ReportService {
         SELECTED("Selected Candidate Report"),
         REJECTED("Rejected Candidate Report"),
         PENDING_VERIFICATION("Pending Verification Report"),
-        INTERVIEW_STATUS("Interview Status Report");
+        INTERVIEW_STATUS("Interview Status Report"),
+        APPLICATIONS_BY_DATE("Applications by Date"),
+        STATUS("Candidates by Recruitment Status"),
+        RATING_DISTRIBUTION("Profile Match Rating Distribution"),
+        SELECTED_JOINED("Selected and Joined Candidates"),
+        ACTIVITY("Recruitment Activity History");
 
         public final String title;
 
@@ -63,11 +70,14 @@ public class ReportService {
     private final DepartmentRepository departments;
     private final DepartmentDirectory depts;
     private final InterviewViews views;
+    private final AuditLogRepository auditLogs;
     private final Clock clock;
     private final ZoneId zone;
 
     public ReportService(CandidateRepository candidates, InterviewRepository interviews, DepartmentRepository departments,
-                         DepartmentDirectory depts, InterviewViews views, Clock clock, ZoneId businessZone) {
+                         DepartmentDirectory depts, InterviewViews views, AuditLogRepository auditLogs, Clock clock,
+                         ZoneId businessZone) {
+        this.auditLogs = auditLogs;
         this.depts = depts;
         this.views = views;
         this.candidates = candidates;
@@ -85,6 +95,10 @@ public class ReportService {
             to = LocalDate.now(clock);
             from = YearMonth.from(to).minusMonths(11).atDay(1);
         }
+        if ((type == ReportType.APPLICATIONS_BY_DATE || type == ReportType.ACTIVITY) && from == null && to == null) {
+            to = LocalDate.now(clock);
+            from = to.minusDays(29);
+        }
         return switch (type) {
             case DEPARTMENT -> department(from, to);
             case MONTHLY -> monthly(from, to);
@@ -93,6 +107,12 @@ public class ReportService {
             case PENDING_VERIFICATION -> candidateList(type, from, to,
                     Criteria.where("verificationStatus").is(VerificationStatus.PENDING));
             case INTERVIEW_STATUS -> interviewReport(from, to);
+            case APPLICATIONS_BY_DATE -> byDate(from, to);
+            case STATUS -> byStatus(from, to);
+            case RATING_DISTRIBUTION -> ratingDistribution(from, to);
+            case SELECTED_JOINED -> candidateList(type, from, to,
+                    Criteria.where("applicationStatus").in(ApplicationStatus.SELECTED, ApplicationStatus.JOINED));
+            case ACTIVITY -> activity(from, to);
         };
     }
 
@@ -238,6 +258,115 @@ public class ReportService {
                         new Column("scheduledAt", "Date & Time"), new Column("mode", "Mode"),
                         new Column("status", "Status"), new Column("remarks", "Remarks")),
                 rows, chart);
+    }
+
+    /** Applications received per day (default: the last 30 days). */
+    private Report byDate(LocalDate from, LocalDate to) {
+        LocalDate start = from != null ? from : to.minusDays(29);
+        LocalDate end = to != null ? to : LocalDate.now(clock);
+        if (start.plusDays(366).isBefore(end)) throw com.jpm.hrms.common.ApiException.badRequest("Choose a range of at most one year");
+        Map<LocalDate, long[]> perDay = new LinkedHashMap<>(); // received, still pending
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) perDay.put(d, new long[2]);
+        for (Candidate c : candidates.findAll(dateRange(start, end), Sort.unsorted())) {
+            long[] a = perDay.get(c.getApplicationDate());
+            if (a == null) continue;
+            a[0]++;
+            if (c.getApplicationStatus().isPending()) a[1]++;
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        List<ChartPoint> chart = new ArrayList<>();
+        perDay.forEach((d, a) -> {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("date", d);
+            r.put("applications", a[0]);
+            r.put("pending", a[1]);
+            rows.add(r);
+            chart.add(new ChartPoint(d.format(DateTimeFormatter.ofPattern("dd MMM", Locale.ENGLISH)), a[0]));
+        });
+        return new Report(ReportType.APPLICATIONS_BY_DATE, ReportType.APPLICATIONS_BY_DATE.title, start, end, clock.instant(),
+                List.of(new Column("date", "Date"), new Column("applications", "Applications"),
+                        new Column("pending", "Still pending")), rows, chart);
+    }
+
+    private Report byStatus(LocalDate from, LocalDate to) {
+        Map<ApplicationStatus, Long> counts = new EnumMap<>(ApplicationStatus.class);
+        List<Candidate> all = candidates.findAll(dateRange(from, to), Sort.unsorted());
+        for (Candidate c : all) counts.merge(c.getApplicationStatus(), 1L, Long::sum);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        List<ChartPoint> chart = new ArrayList<>();
+        for (ApplicationStatus s : ApplicationStatus.values()) {
+            long n = counts.getOrDefault(s, 0L);
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("status", s.label);
+            r.put("candidates", n);
+            r.put("share", all.isEmpty() ? "0%" : Math.round(n * 1000.0 / all.size()) / 10.0 + "%");
+            rows.add(r);
+            chart.add(new ChartPoint(s.label, n));
+        }
+        return new Report(ReportType.STATUS, ReportType.STATUS.title, from, to, clock.instant(),
+                List.of(new Column("status", "Recruitment Status"), new Column("candidates", "Candidates"),
+                        new Column("share", "Share")), rows, chart);
+    }
+
+    /** Ratings 1-10 plus Not Rated, with the guideline band of each value. */
+    private Report ratingDistribution(LocalDate from, LocalDate to) {
+        long[] counts = new long[11]; // index 0 = not rated
+        for (Candidate c : candidates.findAll(dateRange(from, to), Sort.unsorted())) {
+            Integer r = c.getProfileRating();
+            counts[r == null ? 0 : r]++;
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        List<ChartPoint> chart = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("rating", i + "/10");
+            r.put("band", com.jpm.hrms.candidate.CandidateService.ratingLabel(i));
+            r.put("candidates", counts[i]);
+            rows.add(r);
+            chart.add(new ChartPoint(String.valueOf(i), counts[i]));
+        }
+        Map<String, Object> unrated = new LinkedHashMap<>();
+        unrated.put("rating", "Not Rated");
+        unrated.put("band", "-");
+        unrated.put("candidates", counts[0]);
+        rows.add(unrated);
+        chart.add(new ChartPoint("Not Rated", counts[0]));
+        return new Report(ReportType.RATING_DISTRIBUTION, ReportType.RATING_DISTRIBUTION.title, from, to, clock.instant(),
+                List.of(new Column("rating", "Profile Match Rating"), new Column("band", "Guideline"),
+                        new Column("candidates", "Candidates")), rows, chart);
+    }
+
+    /** Recruitment actions on candidates from the audit log (sign-ins and settings changes are not included). */
+    private Report activity(LocalDate from, LocalDate to) {
+        int limit = 2000;
+        Criteria when = Criteria.where("occurredAt").gte(from.atStartOfDay(zone).toInstant()).lt(to.plusDays(1).atStartOfDay(zone).toInstant());
+        List<AuditLog> logs = auditLogs.findAll(new Criteria().andOperator(Criteria.where("entityType").is("CANDIDATE"),
+                        Criteria.where("action").nin("DOCUMENT_DOWNLOADED", "DOCUMENT_VIEWED"), when),
+                org.springframework.data.domain.PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "occurredAt"))).getContent();
+        Map<Long, Candidate> byId = new java.util.HashMap<>();
+        candidates.findAllById(logs.stream().map(AuditLog::getEntityId).filter(java.util.Objects::nonNull).distinct().toList())
+                .forEach(c -> byId.put(c.getId(), c));
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm").withZone(zone);
+        Map<String, Long> byAction = new LinkedHashMap<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (AuditLog a : logs) {
+            Candidate c = a.getEntityId() == null ? null : byId.get(a.getEntityId());
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", a.getEntityId());
+            r.put("when", fmt.format(a.getOccurredAt()));
+            r.put("candidateCode", c == null ? null : c.getCandidateCode());
+            r.put("fullName", c == null ? null : c.getFullName());
+            r.put("action", a.getAction().replace('_', ' ').toLowerCase(Locale.ROOT));
+            r.put("details", a.getDetails());
+            r.put("actor", a.getActor());
+            rows.add(r);
+            byAction.merge((String) r.get("action"), 1L, Long::sum);
+        }
+        return new Report(ReportType.ACTIVITY, ReportType.ACTIVITY.title + (logs.size() == limit ? " (latest " + limit + ")" : ""),
+                from, to, clock.instant(),
+                List.of(new Column("when", "Date & Time"), new Column("candidateCode", "Candidate ID"), new Column("fullName", "Name"),
+                        new Column("action", "Action"), new Column("details", "Details"), new Column("actor", "By")),
+                rows, byAction.entrySet().stream().map(e -> new ChartPoint(e.getKey(), e.getValue())).toList());
     }
 
     private static Criteria statusSpec(ApplicationStatus s) {
