@@ -4,6 +4,9 @@
 
 server:
   port: ${SERVER_PORT:8080}
+  # Behind nginx / a load balancer: take the client IP from X-Forwarded-For only when the proxy is on a trusted
+  # internal address (used for login rate limiting and logs).
+  forward-headers-strategy: native
   error:
     include-message: never
     include-stacktrace: never
@@ -69,6 +72,7 @@ app:
     # Optional bootstrap admin, created only when no users exist yet.
     bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:}
     bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    login-attempts-per-ip: ${LOGIN_ATTEMPTS_PER_IP:20}
   mail:
     # Sender shown to candidates, e.g. hr@jpm.example. Must be allowed by the SMTP provider.
     from-address: ${MAIL_FROM:}

@@ -26,6 +26,8 @@ app:
   security:
     bootstrap-admin-username: admin
     bootstrap-admin-password: Admin@12345
+    # the whole test run signs in from 127.0.0.1; LoginRateLimitTest checks the limit with its own address
+    login-attempts-per-ip: 100000
   google:
     credentials-file:
     spreadsheet-id: TEST_SHEET_ID_1234567890abcdef

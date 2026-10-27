@@ -17,10 +17,12 @@ public record AppProperties(
         @DefaultValue Google google,
         @DefaultValue Files files) {
 
+    /** loginAttemptsPerIp = sign-in requests allowed per client IP in 5 minutes. */
     public record Security(String jwtSecret,
                            @DefaultValue("480") long tokenTtlMinutes,
                            String bootstrapAdminUsername,
-                           String bootstrapAdminPassword) {
+                           String bootstrapAdminPassword,
+                           @DefaultValue("20") int loginAttemptsPerIp) {
     }
 
     /** Sender identity for outgoing email; SMTP connection settings live under spring.mail.*. */
