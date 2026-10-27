@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -10,6 +10,7 @@ import {
   APPLICATION_STATUSES,
   EXPERIENCE_BUCKETS,
   INTERVIEW_STATUSES,
+  PENDING_STATUSES,
   VERIFICATION_STATUSES,
   fmtDate,
   fmtExperience,
@@ -18,11 +19,11 @@ import type { CandidateListItem, Page } from '../lib/types';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../components/ui/Pill';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
-import { EditCandidateModal, RatingModal, StatusModal, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
+import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type ArchiveTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
-const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating'] as const;
+const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
 
 /** Profile Match Rating filter values understood by the API. */
 const RATING_FILTERS = [
@@ -57,6 +58,7 @@ export default function CandidatesPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ArchiveTarget | null>(null);
   const [exporting, setExporting] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [contact, setContact] = useState<{ candidateId: number; tab: Tab; title: string } | null>(null);
@@ -146,6 +148,7 @@ export default function CandidatesPage() {
           </select>
           <select className="input" aria-label="Application status" value={filters.applicationStatus} onChange={(e) => update({ applicationStatus: e.target.value })}>
             <option value="">Any application status</option>
+            <option value={PENDING_STATUSES}>Pending (no final decision)</option>
             {APPLICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           <select className="input" aria-label="Interview status" value={filters.interviewStatus} onChange={(e) => update({ interviewStatus: e.target.value })}>
@@ -160,6 +163,19 @@ export default function CandidatesPage() {
           <select className="input" aria-label="Profile match rating" value={filters.rating} onChange={(e) => update({ rating: e.target.value })}>
             <option value="">Any rating</option>
             {RATING_FILTERS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <label className="block">
+            <span className="sr-only">Applied from</span>
+            <input className="input" type="date" aria-label="Applied from" title="Applied from" value={filters.appliedFrom} max={filters.appliedTo || undefined} onChange={(e) => update({ appliedFrom: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="sr-only">Applied to</span>
+            <input className="input" type="date" aria-label="Applied to" title="Applied to" value={filters.appliedTo} min={filters.appliedFrom || undefined} onChange={(e) => update({ appliedTo: e.target.value })} />
+          </label>
+          <select className="input" aria-label="Archived candidates" value={filters.archive} onChange={(e) => update({ archive: e.target.value })}>
+            <option value="">Active candidates</option>
+            <option value="ARCHIVED">Archived only</option>
+            <option value="ALL">Active and archived</option>
           </select>
           <button
             className={clsx('justify-start', filters.rating === '7+' ? 'btn-primary' : 'btn-secondary')}
@@ -215,7 +231,11 @@ export default function CandidatesPage() {
                   {data.content.map((c) => (
                     <tr key={c.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                       <td className="td pl-4 font-mono text-xs text-ink">
-                        <span className="flex items-center gap-1.5">{c.candidateCode}{c.source === 'DEMO' && <DemoTag />}</span>
+                        <span className="flex items-center gap-1.5">
+                          {c.candidateCode}
+                          {c.source === 'DEMO' && <DemoTag />}
+                          {c.archived && <span className="rounded border border-line px-1 text-[10px] font-semibold uppercase tracking-wide text-ink-3">Archived</span>}
+                        </span>
                       </td>
                       <td className="td">
                         <Link to={`/candidates/${c.id}`} className="font-medium text-ink hover:underline">{c.fullName}</Link>
@@ -288,6 +308,11 @@ export default function CandidatesPage() {
                                     onClick: () => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark }),
                                   },
                                   { label: downloading === c.id ? 'Downloading…' : 'Download resume', icon: <FileDown size={15} />, onClick: () => downloadResume(c) },
+                                  {
+                                    label: c.archived ? 'Restore from archive' : 'Archive',
+                                    icon: c.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />,
+                                    onClick: () => setArchiveTarget({ id: c.id, name: c.fullName, code: c.candidateCode, archived: c.archived }),
+                                  },
                                 ]}
                               />
                             </div>
@@ -314,6 +339,7 @@ export default function CandidatesPage() {
       <EditCandidateModal candidateId={editId} onClose={() => setEditId(null)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
+      <ArchiveModal target={archiveTarget} onClose={() => setArchiveTarget(null)} />
       <CommunicationDialog target={contact} onClose={() => setContact(null)} />
       {call.modal}
     </div>

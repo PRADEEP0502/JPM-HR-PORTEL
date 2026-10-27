@@ -1,6 +1,7 @@
 package com.jpm.hrms.candidate;
 
 import com.jpm.hrms.audit.AuditService;
+import com.jpm.hrms.candidate.CandidateDtos.ArchiveRequest;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
 import com.jpm.hrms.candidate.CandidateDtos.DocumentResponse;
@@ -9,17 +10,11 @@ import com.jpm.hrms.candidate.CandidateDtos.RemarkRequest;
 import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
 import com.jpm.hrms.candidate.CandidateDtos.UpdateCandidateRequest;
-import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
-import com.jpm.hrms.candidate.CandidateEnums.ExperienceBucket;
-import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
-import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
-import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
-import com.jpm.hrms.candidate.CandidateSpecifications.RatingFilter;
 import com.jpm.hrms.common.PageResponse;
 import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.document.CandidateDocument.DocType;
 import com.jpm.hrms.document.DocumentService;
-import com.jpm.hrms.report.ExcelExporter;
+import com.jpm.hrms.report.TableExporter;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
@@ -62,35 +57,24 @@ public class CandidateController {
     }
 
     @GetMapping("/candidates")
-    public PageResponse<CandidateListItem> list(@RequestParam(required = false) String q,
-                                                @RequestParam(required = false) Long departmentId,
-                                                @RequestParam(required = false) ExperienceBucket experience,
-                                                @RequestParam(required = false) ApplicationStatus applicationStatus,
-                                                @RequestParam(required = false) List<InterviewStatus> interviewStatus,
-                                                @RequestParam(required = false) VerificationStatus verificationStatus,
-                                                @RequestParam(required = false) String rating,
+    public PageResponse<CandidateListItem> list(CandidateQuery query,
                                                 @RequestParam(defaultValue = "0") int page,
                                                 @RequestParam(defaultValue = "10") int size,
                                                 @RequestParam(defaultValue = "applicationDate") String sort,
                                                 @RequestParam(defaultValue = "desc") String dir) {
-        return service.list(new Filter(q, departmentId, experience, applicationStatus, interviewStatus, verificationStatus,
-                        RatingFilter.parse(rating)),
-                page, size, sort, dir);
+        return service.list(query.toFilter(), page, size, sort, dir);
     }
 
-    /** Exports the currently filtered list. Personal details beyond contact info (DOB, address, salary) are excluded. */
+    /**
+     * Exports the currently filtered list as Excel or CSV ({@code format=csv}). Personal details beyond contact info
+     * (DOB, address, salary), internal rating notes and credentials are never exported.
+     */
     @GetMapping("/candidates/export")
-    public ResponseEntity<byte[]> export(@RequestParam(required = false) String q,
-                                         @RequestParam(required = false) Long departmentId,
-                                         @RequestParam(required = false) ExperienceBucket experience,
-                                         @RequestParam(required = false) ApplicationStatus applicationStatus,
-                                         @RequestParam(required = false) List<InterviewStatus> interviewStatus,
-                                         @RequestParam(required = false) VerificationStatus verificationStatus,
-                                         @RequestParam(required = false) String rating,
+    public ResponseEntity<byte[]> export(CandidateQuery query,
                                          @RequestParam(defaultValue = "applicationDate") String sort,
-                                         @RequestParam(defaultValue = "desc") String dir) {
-        List<Candidate> all = service.listAll(new Filter(q, departmentId, experience, applicationStatus, interviewStatus,
-                verificationStatus, RatingFilter.parse(rating)), sort, dir);
+                                         @RequestParam(defaultValue = "desc") String dir,
+                                         @RequestParam(defaultValue = "xlsx") String format) {
+        List<Candidate> all = service.listAll(query.toFilter(), sort, dir);
         DepartmentDirectory.Names names = depts.snapshot();
         List<List<Object>> rows = new ArrayList<>();
         for (Candidate c : all) {
@@ -109,11 +93,18 @@ public class CandidateController {
             r.add(c.getVerificationStatus().label);
             rows.add(r);
         }
-        byte[] bytes = ExcelExporter.build("Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
+        var response = TableExporter.export(format, "Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Qualification", "Experience (yrs)",
-                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification"), rows);
-        audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to Excel");
-        return ExcelExporter.response("candidates", bytes);
+                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification"),
+                rows, "candidates");
+        audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to " + format.toUpperCase());
+        return response;
+    }
+
+    /** Archives (hides from the active list) or restores a candidate. Nothing is deleted. */
+    @PatchMapping("/candidates/{id}/archive")
+    public CandidateDetail archive(@PathVariable Long id, @Valid @RequestBody ArchiveRequest req, Authentication auth) {
+        return service.archive(id, req, auth.getName());
     }
 
     @GetMapping("/candidates/{id}")

@@ -65,6 +65,12 @@ public class Candidate implements SequencedEntity {
     private String ratedBy;
     private Instant ratedAt;
 
+    /** Archived candidates are hidden from the active candidate list; nothing is deleted. */
+    private boolean archived;
+    private Instant archivedAt;
+    private String archivedBy;
+    private String archiveReason;
+
     private CandidateSource source;
     private String sourceRowKey;
     /** Human-readable notes about missing / invalid fields found during import. */
@@ -152,6 +158,14 @@ public class Candidate implements SequencedEntity {
     public void setRatedBy(String ratedBy) { this.ratedBy = ratedBy; }
     public Instant getRatedAt() { return ratedAt; }
     public void setRatedAt(Instant ratedAt) { this.ratedAt = ratedAt; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
+    public Instant getArchivedAt() { return archivedAt; }
+    public void setArchivedAt(Instant archivedAt) { this.archivedAt = archivedAt; }
+    public String getArchivedBy() { return archivedBy; }
+    public void setArchivedBy(String archivedBy) { this.archivedBy = archivedBy; }
+    public String getArchiveReason() { return archiveReason; }
+    public void setArchiveReason(String archiveReason) { this.archiveReason = archiveReason; }
     public CandidateSource getSource() { return source; }
     public void setSource(CandidateSource source) { this.source = source; }
     public String getSourceRowKey() { return sourceRowKey; }

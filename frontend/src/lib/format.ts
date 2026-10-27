@@ -1,12 +1,31 @@
-import type { ApplicationStatus, ExperienceBucket, InterviewMode, InterviewStatus, VerificationStatus } from './types';
+import type { ApplicationStatus, ExperienceBucket, InterviewMode, InterviewStatus, Recommendation, Role, VerificationStatus } from './types';
 
 export const APPLICATION_STATUSES: { value: ApplicationStatus; label: string }[] = [
-  { value: 'NEW', label: 'New' },
+  { value: 'NEW', label: 'Applied' },
   { value: 'UNDER_REVIEW', label: 'Under Review' },
   { value: 'SHORTLISTED', label: 'Shortlisted' },
+  { value: 'INTERVIEW_SCHEDULED', label: 'Interview Scheduled' },
+  { value: 'INTERVIEW_COMPLETED', label: 'Interview Completed' },
   { value: 'SELECTED', label: 'Selected' },
   { value: 'REJECTED', label: 'Rejected' },
   { value: 'ON_HOLD', label: 'On Hold' },
+  { value: 'JOINED', label: 'Joined' },
+];
+
+/** Statuses without a final decision (not selected, rejected or joined), as a list filter value. */
+export const PENDING_STATUSES = 'NEW,UNDER_REVIEW,SHORTLISTED,INTERVIEW_SCHEDULED,INTERVIEW_COMPLETED,ON_HOLD';
+
+export const ROLES: { value: Role; label: string; hint: string }[] = [
+  { value: 'ADMIN', label: 'HR Admin', hint: 'Everything, including users, settings, templates and the audit log' },
+  { value: 'HR', label: 'HR Executive', hint: 'Candidates, statuses, ratings, interviews, communication and reports' },
+  { value: 'INTERVIEWER', label: 'Interviewer', hint: 'Only their assigned interviews, a limited candidate summary and feedback' },
+];
+
+export const RECOMMENDATIONS: { value: Recommendation; label: string }[] = [
+  { value: 'STRONGLY_RECOMMEND', label: 'Strongly recommend' },
+  { value: 'RECOMMEND', label: 'Recommend' },
+  { value: 'NEUTRAL', label: 'Neutral' },
+  { value: 'NOT_RECOMMENDED', label: 'Not recommended' },
 ];
 
 export const INTERVIEW_STATUSES: { value: InterviewStatus; label: string }[] = [
@@ -47,9 +66,12 @@ export const applicationTone: Record<ApplicationStatus, Tone> = {
   NEW: 'blue',
   UNDER_REVIEW: 'violet',
   SHORTLISTED: 'aqua',
+  INTERVIEW_SCHEDULED: 'blue',
+  INTERVIEW_COMPLETED: 'violet',
   SELECTED: 'green',
   REJECTED: 'red',
   ON_HOLD: 'orange',
+  JOINED: 'green',
 };
 
 export const interviewTone: Record<InterviewStatus, Tone> = {

@@ -38,8 +38,9 @@ import java.util.Map;
 @Service
 public class DashboardService {
 
-    public record Summary(long totalCandidates, long todayApplications, long shortlisted, long interviewsScheduled,
-                          long selected, long pendingVerification) {
+    /** Dashboard KPIs. "pending" = no final decision yet (not selected, rejected or joined). */
+    public record Summary(long totalCandidates, long todayApplications, long newApplications, long shortlisted,
+                          long interviewsScheduled, long selected, long rejected, long pending, long pendingVerification) {
     }
 
     public record Count(String key, String label, long count) {
@@ -94,9 +95,11 @@ public class DashboardService {
         long upcomingInterviews = interviews.countByStatusInAndScheduledAtAfter(InterviewService.ACTIVE, now);
         long pendingVerification = candidates.countByVerificationStatus(VerificationStatus.PENDING);
 
+        long pending = byStatus.entrySet().stream().filter(e -> e.getKey().isPending()).mapToLong(Map.Entry::getValue).sum();
         Summary summary = new Summary(total, candidates.countByApplicationDate(today),
-                byStatus.getOrDefault(ApplicationStatus.SHORTLISTED, 0L), upcomingInterviews,
-                byStatus.getOrDefault(ApplicationStatus.SELECTED, 0L), pendingVerification);
+                byStatus.getOrDefault(ApplicationStatus.NEW, 0L), byStatus.getOrDefault(ApplicationStatus.SHORTLISTED, 0L),
+                upcomingInterviews, byStatus.getOrDefault(ApplicationStatus.SELECTED, 0L),
+                byStatus.getOrDefault(ApplicationStatus.REJECTED, 0L), pending, pendingVerification);
 
         List<Count> statusCounts = new ArrayList<>();
         for (ApplicationStatus s : ApplicationStatus.values()) {

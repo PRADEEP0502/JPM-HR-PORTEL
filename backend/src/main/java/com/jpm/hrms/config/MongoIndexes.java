@@ -53,8 +53,13 @@ public class MongoIndexes implements ApplicationRunner {
         index("candidates", new Index().on("source", Direction.ASC).named("idx_source"));
         index("candidates", new Index().on("createdAt", Direction.DESC).named("idx_created_at"));
 
+        index("candidates", new Index().on("archived", Direction.ASC).on("appliedAt", Direction.DESC).named("idx_archived_applied"));
+        index("recruitment_status_history", new Index().on("candidateId", Direction.ASC).on("changedAt", Direction.DESC).named("idx_candidate_time"));
+        index("profile_rating_history", new Index().on("candidateId", Direction.ASC).on("ratedAt", Direction.DESC).named("idx_candidate_time"));
+
         index("interviews", new Index().on("candidateId", Direction.ASC).on("scheduledAt", Direction.DESC).named("idx_candidate_time"));
         index("interviews", new Index().on("status", Direction.ASC).on("scheduledAt", Direction.ASC).named("idx_status_time"));
+        index("interviews", new Index().on("interviewerUsername", Direction.ASC).on("scheduledAt", Direction.DESC).named("idx_interviewer_user"));
         index("interviews", new Index().on("interviewer", Direction.ASC).on("scheduledAt", Direction.ASC)
                 .collation(CASE_INSENSITIVE).named("idx_interviewer_time"));
 

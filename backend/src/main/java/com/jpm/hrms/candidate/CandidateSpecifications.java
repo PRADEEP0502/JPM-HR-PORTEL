@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -19,13 +20,21 @@ public final class CandidateSpecifications {
     private CandidateSpecifications() {
     }
 
-    /** departmentId = 0 means "no department assigned"; several interview statuses are OR-ed. */
-    public record Filter(String q, Long departmentId, ExperienceBucket experience, ApplicationStatus applicationStatus,
+    /** Which candidates a list shows: active (default), archived only, or both. */
+    public enum ArchiveScope { ACTIVE, ARCHIVED, ALL }
+
+    /**
+     * departmentId = 0 means "no department assigned"; several application or interview statuses are OR-ed;
+     * appliedFrom / appliedTo are inclusive application dates.
+     */
+    public record Filter(String q, Long departmentId, ExperienceBucket experience, List<ApplicationStatus> applicationStatuses,
                          List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus,
-                         RatingFilter rating) {
+                         RatingFilter rating, LocalDate appliedFrom, LocalDate appliedTo, ArchiveScope archive) {
+        /** Simple filter used by the dashboard previews (active candidates only). */
         public Filter(String q, Long departmentId, ExperienceBucket experience, ApplicationStatus applicationStatus,
                       List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus) {
-            this(q, departmentId, experience, applicationStatus, interviewStatuses, verificationStatus, null);
+            this(q, departmentId, experience, applicationStatus == null ? null : List.of(applicationStatus),
+                    interviewStatuses, verificationStatus, null, null, null, ArchiveScope.ACTIVE);
         }
     }
 
@@ -71,7 +80,9 @@ public final class CandidateSpecifications {
                 }
             }
         }
-        if (f.applicationStatus() != null) cs.add(Criteria.where("applicationStatus").is(f.applicationStatus()));
+        if (f.applicationStatuses() != null && !f.applicationStatuses().isEmpty()) {
+            cs.add(Criteria.where("applicationStatus").in(f.applicationStatuses()));
+        }
         if (f.interviewStatuses() != null && !f.interviewStatuses().isEmpty()) {
             cs.add(Criteria.where("interviewStatus").in(f.interviewStatuses()));
         }
@@ -80,6 +91,17 @@ public final class CandidateSpecifications {
             cs.add(f.rating().unrated()
                     ? Criteria.where("profileRating").is(null)
                     : Criteria.where("profileRating").gte(f.rating().min()).lte(f.rating().max()));
+        }
+        if (f.appliedFrom() != null || f.appliedTo() != null) {
+            Criteria applied = Criteria.where("applicationDate");
+            if (f.appliedFrom() != null) applied = applied.gte(f.appliedFrom());
+            if (f.appliedTo() != null) applied = applied.lte(f.appliedTo());
+            cs.add(applied);
+        }
+        switch (f.archive() == null ? ArchiveScope.ACTIVE : f.archive()) {
+            case ACTIVE -> cs.add(Criteria.where("archived").ne(true));
+            case ARCHIVED -> cs.add(Criteria.where("archived").is(true));
+            case ALL -> { }
         }
         return cs.isEmpty() ? new Criteria() : new Criteria().andOperator(cs);
     }

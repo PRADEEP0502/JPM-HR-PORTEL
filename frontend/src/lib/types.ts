@@ -1,5 +1,16 @@
-export type Role = 'ADMIN' | 'HR';
-export type ApplicationStatus = 'NEW' | 'UNDER_REVIEW' | 'SHORTLISTED' | 'SELECTED' | 'REJECTED' | 'ON_HOLD';
+export type Role = 'ADMIN' | 'HR' | 'INTERVIEWER';
+export type ApplicationStatus =
+  | 'NEW'
+  | 'UNDER_REVIEW'
+  | 'SHORTLISTED'
+  | 'INTERVIEW_SCHEDULED'
+  | 'INTERVIEW_COMPLETED'
+  | 'SELECTED'
+  | 'REJECTED'
+  | 'ON_HOLD'
+  | 'JOINED';
+export type Recommendation = 'STRONGLY_RECOMMEND' | 'RECOMMEND' | 'NEUTRAL' | 'NOT_RECOMMENDED';
+export type ArchiveScope = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type InterviewStatus = 'NOT_SCHEDULED' | 'SCHEDULED' | 'COMPLETED' | 'RESCHEDULED' | 'CANCELLED';
 export type VerificationStatus = 'PENDING' | 'VERIFIED';
 export type CandidateSource = 'GOOGLE_SHEETS' | 'MANUAL' | 'DEMO';
@@ -50,6 +61,7 @@ export interface CandidateListItem {
   source: CandidateSource;
   profileRating: number | null;
   ratingRemark: string | null;
+  archived: boolean;
 }
 
 export interface DocumentInfo {
@@ -80,6 +92,11 @@ export interface Interview {
   remarks: string | null;
   createdBy: string | null;
   updatedAt: string;
+  interviewerUsername: string | null;
+  recommendation: Recommendation | null;
+  feedback: string | null;
+  feedbackBy: string | null;
+  feedbackAt: string | null;
 }
 
 export interface Remark {
@@ -130,6 +147,10 @@ export interface CandidateDetail {
   ratingRemark: string | null;
   ratedBy: string | null;
   ratedAt: string | null;
+  archived: boolean;
+  archivedAt: string | null;
+  archivedBy: string | null;
+  archiveReason: string | null;
   source: CandidateSource;
   dataIssues: string | null;
   version: number;
@@ -138,6 +159,43 @@ export interface CandidateDetail {
   interviews: Interview[];
   remarks: Remark[];
   activity: Activity[];
+  statusHistory: StatusChange[];
+  ratingHistory: RatingChange[];
+}
+
+export interface StatusChange {
+  fromStatus: ApplicationStatus;
+  toStatus: ApplicationStatus;
+  changedBy: string;
+  changedAt: string;
+  note: string | null;
+}
+
+export interface RatingChange {
+  fromRating: number | null;
+  toRating: number;
+  remark: string | null;
+  ratedBy: string;
+  ratedAt: string;
+}
+
+/** Interviewer view: their assigned interview plus a limited candidate summary (no contact details or HR rating). */
+export interface AssignedInterview {
+  interview: Interview;
+  candidate: {
+    id: number;
+    candidateCode: string;
+    fullName: string;
+    departmentName: string | null;
+    qualification: string | null;
+    institution: string | null;
+    passingYear: number | null;
+    experienceYears: number | null;
+    previousCompany: string | null;
+    previousDesignation: string | null;
+    skills: string | null;
+    hasResume: boolean;
+  } | null;
 }
 
 export interface Count {
@@ -169,9 +227,12 @@ export interface Dashboard {
   summary: {
     totalCandidates: number;
     todayApplications: number;
+    newApplications: number;
     shortlisted: number;
     interviewsScheduled: number;
     selected: number;
+    rejected: number;
+    pending: number;
     pendingVerification: number;
   };
   departmentWise: Count[];

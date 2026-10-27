@@ -17,13 +17,16 @@ public final class InterviewDtos {
     public record InterviewResponse(Long id, Long candidateId, String candidateCode, String candidateName,
                                     String departmentName, Instant scheduledAt, int durationMinutes, String roundName,
                                     String interviewer, Interview.Mode mode, String location, InterviewStatus status,
-                                    String remarks, String createdBy, Instant updatedAt) {
+                                    String remarks, String createdBy, Instant updatedAt, String interviewerUsername,
+                                    Interview.Recommendation recommendation, String feedback, String feedbackBy,
+                                    Instant feedbackAt) {
         /** {@code departmentName} is the configured department's name or the submitted department text. */
         public static InterviewResponse from(Interview i, Candidate c, String departmentName) {
             return new InterviewResponse(i.getId(), i.getCandidateId(), c == null ? null : c.getCandidateCode(),
                     c == null ? "(candidate not found)" : c.getFullName(), departmentName,
                     i.getScheduledAt(), i.getDurationMinutes(), i.getRoundName(), i.getInterviewer(), i.getMode(),
-                    i.getLocation(), i.getStatus(), i.getRemarks(), i.getCreatedBy(), i.getUpdatedAt());
+                    i.getLocation(), i.getStatus(), i.getRemarks(), i.getCreatedBy(), i.getUpdatedAt(), i.getInterviewerUsername(),
+                    i.getRecommendation(), i.getFeedback(), i.getFeedbackBy(), i.getFeedbackAt());
         }
     }
 

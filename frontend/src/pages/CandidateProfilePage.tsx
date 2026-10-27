@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Briefcase,
   CalendarPlus,
@@ -28,12 +30,12 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { INTERVIEW_MODES, fmtBytes, fmtDate, fmtDateTime, fmtExperience, fmtRelative, labelOf } from '../lib/format';
+import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtExperience, fmtRelative, labelOf } from '../lib/format';
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
-import { EditCandidateModal, RatingModal, StatusModal, useInvalidateCandidates, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
+import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, useInvalidateCandidates, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
@@ -102,6 +104,7 @@ export default function CandidateProfilePage() {
   const [editing, setEditing] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [archiving, setArchiving] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [interviewEdit, setInterviewEdit] = useState<Interview | null>(null);
   const [contact, setContact] = useState<Tab | null>(null);
@@ -216,6 +219,9 @@ export default function CandidateProfilePage() {
             >
               <Star size={15} /> {c.profileRating == null ? 'Rate profile' : 'Update rating'}
             </button>
+            <button className="btn-secondary" onClick={() => setArchiving(true)}>
+              {c.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />} {c.archived ? 'Restore' : 'Archive'}
+            </button>
             <button className="btn-secondary" disabled={c.applicationStatus === 'REJECTED'} onClick={() => setScheduling(true)} title={c.applicationStatus === 'REJECTED' ? 'Rejected candidates cannot be scheduled' : undefined}>
               <CalendarPlus size={15} /> Schedule interview
             </button>
@@ -225,6 +231,18 @@ export default function CandidateProfilePage() {
           </div>
         </div>
       </section>
+
+      {c.archived && (
+        <div className="flex items-start gap-3 rounded-xl border border-line bg-raised px-4 py-3 text-sm text-ink-2">
+          <Archive size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <strong className="text-ink">Archived</strong>
+            {c.archivedAt && ` on ${fmtDate(c.archivedAt)}`}
+            {c.archivedBy && ` by ${c.archivedBy}`}
+            {c.archiveReason && ` - ${c.archiveReason}`}. Hidden from the active candidate list; nothing has been deleted.
+          </div>
+        </div>
+      )}
 
       {c.dataIssues && (
         <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-[#f3c08a]">
@@ -297,6 +315,12 @@ export default function CandidateProfilePage() {
                         <p className="text-sm font-medium">{i.roundName} <span className="font-normal text-ink-3">with {i.interviewer}</span></p>
                         <p className="text-xs text-ink-3">{fmtDateTime(i.scheduledAt)} · {i.durationMinutes} min · {labelOf(INTERVIEW_MODES, i.mode)}{i.location ? ` · ${i.location}` : ''}</p>
                         {i.remarks && <p className="mt-1 text-xs text-ink-2">“{i.remarks}”</p>}
+                        {i.feedback && (
+                          <p className="mt-1.5 rounded-lg bg-raised px-2.5 py-1.5 text-xs text-ink-2">
+                            <strong className="text-ink">Interviewer feedback · {labelOf(RECOMMENDATIONS, i.recommendation)}:</strong> {i.feedback}
+                            <span className="block text-[11px] text-ink-3">{i.feedbackBy} · {i.feedbackAt && fmtDateTime(i.feedbackAt)}</span>
+                          </p>
+                        )}
                       </div>
                       <InterviewPill status={i.status} />
                       {active && <button className="btn-ghost px-2 py-1 text-xs" onClick={() => setInterviewEdit(i)}>Update</button>}
@@ -473,6 +497,41 @@ export default function CandidateProfilePage() {
           </section>
 
           <section className="panel p-5">
+            <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><UserCheck size={16} className="text-ink-3" /> Status history</h2>
+            {c.statusHistory.length === 0 ? (
+              <p className="text-sm text-ink-3">No status changes yet.</p>
+            ) : (
+              <ol className="space-y-3">
+                {c.statusHistory.map((s, idx) => (
+                  <li key={idx} className="text-sm">
+                    <span className="flex flex-wrap items-center gap-1.5"><ApplicationPill status={s.fromStatus} /> → <ApplicationPill status={s.toStatus} /></span>
+                    {s.note && <span className="mt-1 block text-ink-2">“{s.note}”</span>}
+                    <span className="block text-[11px] text-ink-3">{s.changedBy} · {fmtDateTime(s.changedAt)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section className="panel p-5">
+            <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold"><Star size={16} className="text-ink-3" /> Rating history</h2>
+            <p className="mb-4 text-xs text-ink-3">Internal to HR. Never shown to the candidate.</p>
+            {c.ratingHistory.length === 0 ? (
+              <p className="text-sm text-ink-3">Not rated yet.</p>
+            ) : (
+              <ol className="space-y-3">
+                {c.ratingHistory.map((r, idx) => (
+                  <li key={idx} className="text-sm">
+                    <span className="flex flex-wrap items-center gap-1.5"><RatingPill rating={r.fromRating} /> → <RatingPill rating={r.toRating} /></span>
+                    {r.remark && <span className="mt-1 block text-ink-2">“{r.remark}”</span>}
+                    <span className="block text-[11px] text-ink-3">{r.ratedBy} · {fmtDateTime(r.ratedAt)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section className="panel p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><History size={16} className="text-ink-3" /> Activity</h2>
             {c.activity.length === 0 ? (
               <p className="text-sm text-ink-3">No activity recorded.</p>
@@ -494,6 +553,7 @@ export default function CandidateProfilePage() {
       <EditCandidateModal candidateId={editing ? c.id : null} onClose={() => setEditing(false)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
+      <ArchiveModal target={archiving ? { id: c.id, name: c.fullName, code: c.candidateCode, archived: c.archived } : null} onClose={() => setArchiving(false)} />
       <ScheduleInterviewModal open={scheduling} onClose={() => setScheduling(false)} candidate={{ id: c.id, name: c.fullName, code: c.candidateCode }} />
       <InterviewStatusModal interview={interviewEdit} onClose={() => setInterviewEdit(null)} />
       <CommunicationDialog

@@ -2,12 +2,15 @@ package com.jpm.hrms.candidate;
 
 import com.jpm.hrms.audit.AuditLogRepository;
 import com.jpm.hrms.audit.AuditService;
+import com.jpm.hrms.candidate.CandidateDtos.ArchiveRequest;
 import com.jpm.hrms.candidate.CandidateDtos.ActivityResponse;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
 import com.jpm.hrms.candidate.CandidateDtos.DocumentResponse;
+import com.jpm.hrms.candidate.CandidateDtos.RatingChangeResponse;
 import com.jpm.hrms.candidate.CandidateDtos.RatingRequest;
 import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
+import com.jpm.hrms.candidate.CandidateDtos.StatusChangeResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
 import com.jpm.hrms.candidate.CandidateDtos.UpdateCandidateRequest;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
@@ -62,12 +65,17 @@ public class CandidateService {
     private final CandidateDocumentRepository documents;
     private final InterviewRepository interviews;
     private final HrRemarkRepository remarks;
+    private final StatusChangeRepository statusHistory;
+    private final RatingChangeRepository ratingHistory;
     private final AuditLogRepository auditLogs;
     private final AuditService audit;
 
     public CandidateService(CandidateRepository repo, DepartmentRepository departments, DepartmentDirectory depts,
                             CandidateDocumentRepository documents, InterviewRepository interviews, HrRemarkRepository remarks,
+                            StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory,
                             AuditLogRepository auditLogs, AuditService audit) {
+        this.statusHistory = statusHistory;
+        this.ratingHistory = ratingHistory;
         this.repo = repo;
         this.departments = departments;
         this.depts = depts;
@@ -141,6 +149,7 @@ public class CandidateService {
                 c.getReferenceName(), c.getReferenceRelation(), c.getReferenceContact(),
                 c.getFamilyRefName(), c.getFamilyRefRelation(), c.getFamilyRefContact(),
                 c.getProfileRating(), c.getRatingRemark(), c.getRatedBy(), c.getRatedAt(),
+                c.isArchived(), c.getArchivedAt(), c.getArchivedBy(), c.getArchiveReason(),
                 c.getSource(), c.getDataIssues(), c.getVersion(), c.getUpdatedAt(),
                 documents.findByCandidateIdOrderByCreatedAtDesc(id).stream().map(DocumentResponse::from).toList(),
                 interviews.findByCandidateIdOrderByScheduledAtDesc(id).stream()
@@ -148,7 +157,9 @@ public class CandidateService {
                 remarks.findByCandidateIdOrderByCreatedAtDesc(id).stream().map(RemarkResponse::from).toList(),
                 auditLogs.findByEntityTypeAndEntityIdOrderByOccurredAtDesc("CANDIDATE", id).stream()
                         .filter(a -> !"DOCUMENT_DOWNLOADED".equals(a.getAction()))
-                        .limit(50).map(ActivityResponse::from).toList());
+                        .limit(50).map(ActivityResponse::from).toList(),
+                statusHistory.findByCandidateIdOrderByChangedAtDesc(id).stream().map(StatusChangeResponse::from).toList(),
+                ratingHistory.findByCandidateIdOrderByRatedAtDesc(id).stream().map(RatingChangeResponse::from).toList());
     }
 
     public CandidateDetail update(Long id, UpdateCandidateRequest req) {
@@ -209,6 +220,8 @@ public class CandidateService {
         if (req.applicationStatus() != null && req.applicationStatus() != c.getApplicationStatus()) {
             audit.record("STATUS_CHANGED", "CANDIDATE", c.getId(), "Application status: " + c.getApplicationStatus().label
                     + " → " + req.applicationStatus().label + (StringUtils.hasText(req.note()) ? " - " + req.note().trim() : ""));
+            statusHistory.save(new StatusChange(c.getId(), c.getApplicationStatus(), req.applicationStatus(), actor,
+                    StringUtils.hasText(req.note()) ? req.note().trim() : null));
             c.setApplicationStatus(req.applicationStatus());
             changed = true;
         }
@@ -240,7 +253,25 @@ public class CandidateService {
         c.setRatedBy(actor);
         c.setRatedAt(Instant.now());
         repo.save(c);
+        ratingHistory.save(new RatingChange(c.getId(), old, rating, remark, actor));
         if (remark != null) remarks.save(new HrRemark(c, actor, "Profile match rating " + rating + "/10: " + remark));
+        return detail(id);
+    }
+
+    /** Archives (hides from the active list) or restores a candidate. Records are never deleted. */
+    public CandidateDetail archive(Long id, ArchiveRequest req, String actor) {
+        Candidate c = get(id);
+        if (c.isArchived() == req.archived()) {
+            throw ApiException.badRequest(req.archived() ? "The candidate is already archived" : "The candidate is not archived");
+        }
+        String reason = trim(req.reason());
+        c.setArchived(req.archived());
+        c.setArchivedAt(req.archived() ? Instant.now() : null);
+        c.setArchivedBy(req.archived() ? actor : null);
+        c.setArchiveReason(req.archived() ? reason : null);
+        repo.save(c);
+        audit.record(req.archived() ? "CANDIDATE_ARCHIVED" : "CANDIDATE_RESTORED", "CANDIDATE", c.getId(),
+                (req.archived() ? "Archived" : "Restored from archive") + (reason != null ? " - " + reason : ""));
         return detail(id);
     }
 

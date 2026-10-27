@@ -317,3 +317,61 @@ export function RatingModal({ target, onClose }: { target: RatingTarget | null; 
     </Modal>
   );
 }
+
+// ------------------------------------------------------------------ archive / restore
+
+export interface ArchiveTarget {
+  id: number;
+  name: string;
+  code: string;
+  archived: boolean;
+}
+
+/** Confirms archiving (hide from the active list) or restoring a candidate. Nothing is ever deleted. */
+export function ArchiveModal({ target, onClose }: { target: ArchiveTarget | null; onClose: () => void }) {
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const [reason, setReason] = useState('');
+  useEffect(() => setReason(''), [target?.id, target?.archived]);
+  const archiving = !!target && !target.archived;
+
+  const save = useMutation({
+    mutationFn: () => api.patch(`/candidates/${target!.id}/archive`, { archived: archiving, reason: reason.trim() || null }),
+    onSuccess: () => {
+      toast('success', archiving ? `${target!.name} archived` : `${target!.name} restored to the active list`);
+      invalidate();
+      onClose();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title={archiving ? 'Archive candidate?' : 'Restore candidate?'}
+      description={target ? `${target.name} · ${target.code}` : undefined}
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className={archiving ? 'btn-danger' : 'btn-primary'} disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Spinner size={14} />} {archiving ? 'Archive' : 'Restore'}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm text-ink-2">
+        <p>
+          {archiving
+            ? 'The candidate is hidden from the active candidate list. Their record, documents, interviews and history are kept, and you can restore them at any time.'
+            : 'The candidate will appear in the active candidate list again.'}
+        </p>
+        {archiving && (
+          <Field label="Reason (optional)" hint="Recorded in the audit log.">
+            <input className="input" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Position filled" />
+          </Field>
+        )}
+      </div>
+    </Modal>
+  );
+}

@@ -15,6 +15,9 @@ public class Interview implements SequencedEntity {
 
     public enum Mode { IN_PERSON, VIDEO, PHONE }
 
+    /** Interviewer's overall recommendation; the hiring decision stays with HR. */
+    public enum Recommendation { STRONGLY_RECOMMEND, RECOMMEND, NEUTRAL, NOT_RECOMMENDED }
+
     @Id
     private Long id;
 
@@ -29,6 +32,12 @@ public class Interview implements SequencedEntity {
     private InterviewStatus status;
     private String remarks;
     private String createdBy;
+    /** Username of the Interviewer account this interview is assigned to (null when the interviewer has no account). */
+    private String interviewerUsername;
+    private Recommendation recommendation;
+    private String feedback;
+    private String feedbackBy;
+    private Instant feedbackAt;
     @Version
     private Long version;
     private Instant createdAt;
@@ -67,5 +76,15 @@ public class Interview implements SequencedEntity {
     public void setRemarks(String remarks) { this.remarks = remarks; }
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getInterviewerUsername() { return interviewerUsername; }
+    public void setInterviewerUsername(String interviewerUsername) { this.interviewerUsername = interviewerUsername; }
+    public Recommendation getRecommendation() { return recommendation; }
+    public void setRecommendation(Recommendation recommendation) { this.recommendation = recommendation; }
+    public String getFeedback() { return feedback; }
+    public void setFeedback(String feedback) { this.feedback = feedback; }
+    public String getFeedbackBy() { return feedbackBy; }
+    public void setFeedbackBy(String feedbackBy) { this.feedbackBy = feedbackBy; }
+    public Instant getFeedbackAt() { return feedbackAt; }
+    public void setFeedbackAt(Instant feedbackAt) { this.feedbackAt = feedbackAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

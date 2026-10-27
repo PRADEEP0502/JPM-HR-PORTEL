@@ -20,7 +20,7 @@ import {
 import { useAuth } from '../../lib/auth';
 import { api } from '../../lib/api';
 import { useDashboard, useNotifications } from '../../lib/queries';
-import { fmtRelative } from '../../lib/format';
+import { ROLES, fmtRelative, labelOf } from '../../lib/format';
 import { Avatar } from '../ui/Misc';
 
 const NAV = [
@@ -29,6 +29,12 @@ const NAV = [
   { to: '/interviews', label: 'Interview Schedule', icon: CalendarClock },
   { to: '/departments', label: 'Departments', icon: Building2 },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/settings', label: 'Settings', icon: Settings },
+];
+
+/** Interviewers only work with their own assigned interviews. */
+const INTERVIEWER_NAV = [
+  { to: '/', label: 'My Interviews', icon: CalendarClock, end: true },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -53,8 +59,9 @@ export function Logo() {
 }
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isInterviewer } = useAuth();
   const [menu, setMenu] = useState(false);
+  const nav = isInterviewer ? INTERVIEWER_NAV : NAV;
   return (
     <>
       <div className={clsx('fixed inset-0 z-30 bg-black/60 lg:hidden', open ? 'block' : 'hidden')} onClick={onClose} />
@@ -71,7 +78,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           </button>
         </div>
         <nav className="mt-10 flex flex-1 flex-col gap-1.5" aria-label="Main">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -111,7 +118,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             <Avatar name={user?.fullName ?? '?'} size="sm" />
             <span className="min-w-0 flex-1 text-left">
               <span className="block truncate text-sm font-semibold">{user?.fullName}</span>
-              <span className="block text-[11px] text-canvas/60">{user?.role === 'ADMIN' ? 'Administrator' : 'HR'}</span>
+              <span className="block text-[11px] text-canvas/60">{labelOf(ROLES, user?.role)}</span>
             </span>
             <ChevronDown size={16} className={clsx('transition', menu && 'rotate-180')} />
           </button>
@@ -183,13 +190,13 @@ function NotificationsMenu() {
 }
 
 function Header({ onMenu }: { onMenu: () => void }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isInterviewer } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [q, setQ] = useState('');
   const section = location.pathname.split('/')[1];
   const isHome = section === '';
-  const title = isHome ? `Hello, ${user?.fullName.split(' ')[0] ?? ''}` : section === 'candidates' && location.pathname.split('/')[2] ? 'Candidate Profile' : TITLES[section] ?? 'JPM HR Portal';
+  const title = isHome && isInterviewer ? 'My Interviews' : isHome ? `Hello, ${user?.fullName.split(' ')[0] ?? ''}` : section === 'candidates' && location.pathname.split('/')[2] ? 'Candidate Profile' : TITLES[section] ?? 'JPM HR Portal';
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,8 +212,9 @@ function Header({ onMenu }: { onMenu: () => void }) {
         <h1 className="truncate text-xl font-semibold sm:text-2xl">
           {title} {isHome && <span aria-hidden>👋</span>}
         </h1>
-        {isHome && <p className="hidden text-sm text-ink-3 sm:block">Here's what's happening in recruitment today.</p>}
+        {isHome && !isInterviewer && <p className="hidden text-sm text-ink-3 sm:block">Here's what's happening in recruitment today.</p>}
       </div>
+      {!isInterviewer && (
       <form onSubmit={submit} className="order-last w-full sm:order-none sm:w-64 lg:w-72" role="search">
         <label className="relative block">
           <span className="sr-only">Search candidates by name or ID</span>
@@ -214,7 +222,8 @@ function Header({ onMenu }: { onMenu: () => void }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or candidate ID" className="input rounded-full py-2.5 pl-10" />
         </label>
       </form>
-      <NotificationsMenu />
+      )}
+      {!isInterviewer && <NotificationsMenu />}
       <Link to="/settings" className="icon-btn hidden sm:inline-flex" aria-label="Settings">
         <Settings size={18} />
       </Link>
@@ -241,12 +250,13 @@ function DemoBanner() {
 
 export function AppLayout() {
   const [open, setOpen] = useState(false);
+  const { isInterviewer } = useAuth();
   return (
     <div className="flex min-h-full">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onMenu={() => setOpen(true)} />
-        <DemoBanner />
+        {!isInterviewer && <DemoBanner />}
         <main className="flex-1 px-4 pb-10 pt-2 sm:px-6 lg:px-8">
           <Outlet />
         </main>

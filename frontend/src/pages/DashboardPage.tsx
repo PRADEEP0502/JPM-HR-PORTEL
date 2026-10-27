@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarCheck2,
   CalendarClock,
+  CalendarPlus,
   ClipboardList,
   FileClock,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   fmtTime,
   fmtDate,
   interviewTone,
+  PENDING_STATUSES,
   toneHex,
   INTERVIEW_MODES,
   labelOf,
@@ -62,12 +64,15 @@ function SummaryStrip({ d }: { d: Dashboard }) {
   const share = (n: number) => (total ? (n / total) * 100 : 0);
   const week = d.lastSevenDays.reduce((a, x) => a + x.count, 0);
   const tiles = [
-    { label: 'Total Candidates', value: total, sub: `${fmtNumber(week)} in the last 7 days`, icon: Users, to: '/candidates' },
-    { label: "Today's Applications", value: s.todayApplications, sub: 'Submitted today', ring: share(s.todayApplications), color: toneHex.blue, to: '/candidates?sort=applicationDate' },
+    { label: 'Total Applications', value: total, sub: `${fmtNumber(week)} in the last 7 days`, icon: Users, to: '/candidates' },
+    { label: 'New Applications', value: s.newApplications, sub: 'Status: Applied', ring: share(s.newApplications), color: toneHex.blue, to: '/candidates?applicationStatus=NEW' },
+    { label: "Today's Applications", value: s.todayApplications, sub: 'Submitted today', icon: CalendarPlus, to: '/candidates?sort=applicationDate' },
     { label: 'Shortlisted', value: s.shortlisted, sub: 'of all candidates', ring: share(s.shortlisted), color: toneHex.aqua, to: '/candidates?applicationStatus=SHORTLISTED' },
     { label: 'Interviews Scheduled', value: s.interviewsScheduled, sub: 'Upcoming', icon: CalendarClock, to: '/interviews' },
     { label: 'Selected', value: s.selected, sub: 'of all candidates', ring: share(s.selected), color: toneHex.green, to: '/candidates?applicationStatus=SELECTED' },
-    { label: 'Pending Verification', value: s.pendingVerification, sub: 'of all candidates', ring: share(s.pendingVerification), color: toneHex.orange, to: '/candidates?verificationStatus=PENDING' },
+    { label: 'Rejected', value: s.rejected, sub: 'of all candidates', ring: share(s.rejected), color: toneHex.red, to: '/candidates?applicationStatus=REJECTED' },
+    { label: 'Pending Applications', value: s.pending, sub: 'No final decision yet', ring: share(s.pending), color: toneHex.violet, to: `/candidates?applicationStatus=${PENDING_STATUSES}` },
+    { label: 'Pending Verification', value: s.pendingVerification, sub: 'Documents to verify', ring: share(s.pendingVerification), color: toneHex.orange, to: '/candidates?verificationStatus=PENDING' },
   ];
   return (
     // Max three columns: six tiles in one row are too cramped next to the right rail.

@@ -8,8 +8,10 @@ public final class CandidateEnums {
     }
 
     public enum ApplicationStatus {
-        NEW("New"), UNDER_REVIEW("Under Review"), SHORTLISTED("Shortlisted"),
-        SELECTED("Selected"), REJECTED("Rejected"), ON_HOLD("On Hold");
+        // NEW is shown as "Applied"; the stored value stays NEW so existing records need no migration.
+        NEW("Applied"), UNDER_REVIEW("Under Review"), SHORTLISTED("Shortlisted"),
+        INTERVIEW_SCHEDULED("Interview Scheduled"), INTERVIEW_COMPLETED("Interview Completed"),
+        SELECTED("Selected"), REJECTED("Rejected"), ON_HOLD("On Hold"), JOINED("Joined");
 
         public final String label;
 
@@ -17,9 +19,9 @@ public final class CandidateEnums {
             this.label = label;
         }
 
-        /** Statuses where no hiring decision has been made yet. */
+        /** Statuses where no final hiring decision (selected, rejected, joined) has been made yet. */
         public boolean isPending() {
-            return this == NEW || this == UNDER_REVIEW || this == ON_HOLD;
+            return this != SELECTED && this != REJECTED && this != JOINED;
         }
     }
 

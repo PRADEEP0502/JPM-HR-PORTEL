@@ -117,6 +117,14 @@ export function ScheduleInterviewModal({ open, onClose, candidate }: { open: boo
   }, [open, candidate?.id]);
 
   const settings = useQuery({ queryKey: ['comm-settings'], queryFn: () => api.get<CommSettings>('/communication/settings'), enabled: open });
+  const interviewerAccounts = useQuery({
+    queryKey: ['interviewer-accounts'],
+    queryFn: () => api.get<{ username: string; fullName: string }[]>('/interviewers'),
+    enabled: open,
+  });
+  const linkedAccount = interviewerAccounts.data?.find(
+    (a) => a.fullName.toLowerCase() === interviewer.trim().toLowerCase() || a.username.toLowerCase() === interviewer.trim().toLowerCase(),
+  );
   const detail = useQuery({
     queryKey: ['candidate', picked?.id],
     queryFn: () => api.get<CandidateDetail>(`/candidates/${picked!.id}`),
@@ -231,8 +239,18 @@ export function ScheduleInterviewModal({ open, onClose, candidate }: { open: boo
             {ROUNDS.map((r) => <option key={r}>{r}</option>)}
           </select>
         </Field>
-        <Field label="Interviewer *">
-          <input className="input" maxLength={150} value={interviewer} onChange={(e) => setInterviewer(e.target.value)} placeholder="e.g. Ramesh Kumar" />
+        <Field
+          label="Interviewer *"
+          hint={
+            linkedAccount
+              ? `Linked to interviewer account "${linkedAccount.username}" - they will see this interview and can record feedback.`
+              : 'Pick an interviewer account to let them see the interview and record feedback, or type any name.'
+          }
+        >
+          <input className="input" maxLength={150} list="interviewer-accounts" value={interviewer} onChange={(e) => setInterviewer(e.target.value)} placeholder="e.g. Ramesh Kumar" />
+          <datalist id="interviewer-accounts">
+            {interviewerAccounts.data?.map((a) => <option key={a.username} value={a.fullName} />)}
+          </datalist>
         </Field>
         <Field label="Mode">
           <select className="input" value={mode} onChange={(e) => setMode(e.target.value as InterviewMode)}>

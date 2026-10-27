@@ -10,6 +10,8 @@ import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.candidate.CandidateService;
 import com.jpm.hrms.candidate.HrRemark;
 import com.jpm.hrms.candidate.HrRemarkRepository;
+import com.jpm.hrms.candidate.RatingChangeRepository;
+import com.jpm.hrms.candidate.StatusChangeRepository;
 import com.jpm.hrms.communication.CommunicationRepository;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.department.Department;
@@ -91,13 +93,19 @@ public class DemoDataService {
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final CommunicationRepository communications;
+    private final StatusChangeRepository statusHistory;
+    private final RatingChangeRepository ratingHistory;
     private final Clock clock;
     private final ZoneId zone;
 
     public DemoDataService(AppProperties props, CandidateRepository candidates, DepartmentRepository departments,
                            InterviewRepository interviews, HrRemarkRepository remarks, CandidateDocumentRepository documents,
                            AppUserRepository users, InterviewService interviewService, PasswordEncoder encoder,
-                           AuditService audit, CommunicationRepository communications, Clock clock, ZoneId businessZone) {
+                           AuditService audit, CommunicationRepository communications,
+                           StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory, Clock clock,
+                           ZoneId businessZone) {
+        this.statusHistory = statusHistory;
+        this.ratingHistory = ratingHistory;
         this.props = props;
         this.candidates = candidates;
         this.departments = departments;
@@ -319,6 +327,8 @@ public class DemoDataService {
         communications.deleteByCandidateIdIn(ids);
         interviews.deleteByCandidateIdIn(ids);
         remarks.deleteByCandidateIdIn(ids);
+        statusHistory.deleteByCandidateIdIn(ids);
+        ratingHistory.deleteByCandidateIdIn(ids);
         documents.deleteByCandidateIdIn(ids);
         candidates.deleteAllById(ids);
         audit.record("DEMO_DATA_PURGED", "CANDIDATE", null, "Removed " + ids.size() + " demo candidates");

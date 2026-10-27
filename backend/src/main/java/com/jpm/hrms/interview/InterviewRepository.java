@@ -14,6 +14,8 @@ public interface InterviewRepository extends CriteriaRepository<Interview, Long>
 
     List<Interview> findByCandidateIdOrderByScheduledAtDesc(Long candidateId);
 
+    List<Interview> findByInterviewerUsernameOrderByScheduledAtDesc(String interviewerUsername);
+
     long countByStatusInAndScheduledAtAfter(Collection<InterviewStatus> statuses, Instant after);
 
     List<Interview> findTop6ByStatusInAndScheduledAtAfterOrderByScheduledAtAsc(Collection<InterviewStatus> statuses, Instant after);

@@ -10,4 +10,6 @@ public interface AppUserRepository extends CriteriaRepository<AppUser, Long> {
     boolean existsByUsernameIgnoreCase(String username);
 
     long countByRoleAndEnabledTrue(Role role);
+
+    java.util.List<AppUser> findByRoleAndEnabledTrueOrderByFullNameAsc(Role role);
 }

@@ -34,14 +34,14 @@ public final class CandidateDtos {
                                     BigDecimal experienceYears, LocalDate applicationDate,
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
                                     VerificationStatus verificationStatus, CandidateSource source,
-                                    Integer profileRating, String ratingRemark) {
+                                    Integer profileRating, String ratingRemark, boolean archived) {
         public static CandidateListItem from(Candidate c, DepartmentDirectory.Names depts) {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
                     depts.name(c) == null ? null : c.getDepartmentId(),
                     depts.nameOrRaw(c),
                     c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getApplicationStatus(),
                     c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
-                    c.getProfileRating(), c.getRatingRemark());
+                    c.getProfileRating(), c.getRatingRemark(), c.isArchived());
         }
     }
 
@@ -84,10 +84,29 @@ public final class CandidateDtos {
             String familyRefName, String familyRefRelation, String familyRefContact,
             // F. profile match rating (HR only)
             Integer profileRating, String ratingRemark, String ratedBy, Instant ratedAt,
+            // archive
+            boolean archived, Instant archivedAt, String archivedBy, String archiveReason,
             // meta
             CandidateSource source, String dataIssues, long version, Instant updatedAt,
             List<DocumentResponse> documents, List<InterviewResponse> interviews,
-            List<RemarkResponse> remarks, List<ActivityResponse> activity) {
+            List<RemarkResponse> remarks, List<ActivityResponse> activity,
+            List<StatusChangeResponse> statusHistory, List<RatingChangeResponse> ratingHistory) {
+    }
+
+    public record StatusChangeResponse(ApplicationStatus fromStatus, ApplicationStatus toStatus, String changedBy,
+                                       Instant changedAt, String note) {
+        public static StatusChangeResponse from(StatusChange s) {
+            return new StatusChangeResponse(s.getFromStatus(), s.getToStatus(), s.getChangedBy(), s.getChangedAt(), s.getNote());
+        }
+    }
+
+    public record RatingChangeResponse(Integer fromRating, Integer toRating, String remark, String ratedBy, Instant ratedAt) {
+        public static RatingChangeResponse from(RatingChange r) {
+            return new RatingChangeResponse(r.getFromRating(), r.getToRating(), r.getRemark(), r.getRatedBy(), r.getRatedAt());
+        }
+    }
+
+    public record ArchiveRequest(boolean archived, @Size(max = 500) String reason) {
     }
 
     private static final String PHONE = "^\\+?[0-9 ()-]{10,20}$";

@@ -40,13 +40,15 @@ public class InterviewService {
     private final InterviewRepository interviews;
     private final CandidateRepository candidates;
     private final InterviewViews views;
+    private final InterviewerService interviewers;
     private final AuditService audit;
     private final Clock clock;
     private final ZoneId zone;
     private final DateTimeFormatter displayFormat;
 
     public InterviewService(InterviewRepository interviews, CandidateRepository candidates, InterviewViews views,
-                            AuditService audit, Clock clock, ZoneId businessZone) {
+                            InterviewerService interviewers, AuditService audit, Clock clock, ZoneId businessZone) {
+        this.interviewers = interviewers;
         this.interviews = interviews;
         this.candidates = candidates;
         this.views = views;
@@ -101,6 +103,7 @@ public class InterviewService {
         i.setLocation(trimToNull(req.location()));
         i.setRemarks(trimToNull(req.remarks()));
         i.setStatus(InterviewStatus.SCHEDULED);
+        i.setInterviewerUsername(interviewers.resolveInterviewerUsername(req.interviewer()));
         i.setCreatedBy(actor);
         interviews.save(i);
         refreshCandidateInterviewStatus(c);
@@ -121,6 +124,7 @@ public class InterviewService {
         i.setMode(req.mode());
         i.setLocation(trimToNull(req.location()));
         i.setRemarks(trimToNull(req.remarks()));
+        i.setInterviewerUsername(interviewers.resolveInterviewerUsername(req.interviewer()));
         interviews.save(i);
         audit.record("INTERVIEW_UPDATED", "CANDIDATE", i.getCandidateId(),
                 "Updated " + i.getRoundName() + " details (interviewer " + i.getInterviewer() + ")");

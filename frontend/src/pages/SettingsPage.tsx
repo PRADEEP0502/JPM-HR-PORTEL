@@ -24,7 +24,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { CANDIDATE_KEYS, useDashboard } from '../lib/queries';
 import { useToast } from '../lib/toast';
-import { fmtDateTime, fmtRelative } from '../lib/format';
+import { ROLES, fmtDateTime, fmtRelative, labelOf } from '../lib/format';
 import type { AuditEntry, IntegrationSettings, Page, Role, SyncRun, SyncTestResult, User } from '../lib/types';
 import { Field, SectionTitle } from '../components/ui/Misc';
 import { Pill } from '../components/ui/Pill';
@@ -111,7 +111,7 @@ function ProfileTab() {
         <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
           <div><dt className="text-xs text-ink-3">Name</dt><dd>{user?.fullName}</dd></div>
           <div><dt className="text-xs text-ink-3">Username</dt><dd>{user?.username}</dd></div>
-          <div><dt className="text-xs text-ink-3">Role</dt><dd>{user?.role === 'ADMIN' ? 'Administrator' : 'HR'}</dd></div>
+          <div><dt className="text-xs text-ink-3">Role</dt><dd>{labelOf(ROLES, user?.role)}</dd></div>
         </dl>
       </section>
       <form className="panel max-w-xl space-y-4 p-5" onSubmit={submit}>
@@ -394,10 +394,9 @@ function UserModal({ open, user, onClose }: { open: boolean; user: User | null; 
         </Field>
         <Field label="Full name *" error={errors.fullName}><input className="input" maxLength={150} value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} /></Field>
         <Field label="Email" error={errors.email}><input className="input" type="email" maxLength={200} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-        <Field label="Role">
+        <Field label="Role" hint={ROLES.find((r) => r.value === f.role)?.hint}>
           <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
-            <option value="HR">HR</option>
-            <option value="ADMIN">Administrator</option>
+            {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </Field>
         <Field label={user ? 'Reset password (optional)' : 'Initial password *'} error={errors.password ?? errors.newPassword} hint="8+ characters with a letter and a digit" className="sm:col-span-2">
@@ -427,7 +426,7 @@ function UsersTab() {
               {users.data?.map((u) => (
                 <tr key={u.id} className="border-b border-line/40 last:border-0">
                   <td className="td pl-5"><span className="block font-medium text-ink">{u.fullName}</span><span className="text-xs text-ink-3">{u.username}{u.email ? ` · ${u.email}` : ''}</span></td>
-                  <td className="td">{u.role === 'ADMIN' ? 'Administrator' : 'HR'}</td>
+                  <td className="td">{labelOf(ROLES, u.role)}</td>
                   <td className="td">{u.enabled ? <Pill tone="green">Active</Pill> : <Pill tone="grey">Disabled</Pill>}</td>
                   <td className="td">{u.lastLoginAt ? fmtRelative(u.lastLoginAt) : 'Never'}</td>
                   <td className="td pr-5 text-right"><button className="btn-ghost p-2" aria-label={`Edit ${u.username}`} onClick={() => setModal({ open: true, user: u })}><Pencil size={15} /></button></td>

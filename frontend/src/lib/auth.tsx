@@ -9,6 +9,7 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
+  isInterviewer: boolean;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, isAdmin: user?.role === 'ADMIN' }),
+    () => ({ user, loading, login, logout, isAdmin: user?.role === 'ADMIN', isInterviewer: user?.role === 'INTERVIEWER' }),
     [user, loading, login, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,14 +10,27 @@ import InterviewsPage from './pages/InterviewsPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
+import MyInterviewsPage from './pages/MyInterviewsPage';
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, isInterviewer } = useAuth();
   if (loading) return <LoadingBlock className="h-full" label="Starting JPM HR Portal…" />;
   if (!user) {
     return (
       <Routes>
         <Route path="*" element={<LoginPage />} />
+      </Routes>
+    );
+  }
+  if (isInterviewer) {
+    // Interviewers only see their own assigned interviews; the API enforces the same rule.
+    return (
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<MyInterviewsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     );
   }
