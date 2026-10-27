@@ -16,7 +16,7 @@ services:
         generateValue: true
       - key: DOCUMENT_ENCRYPTION_KEY # base64 of 32 random bytes: openssl rand -base64 32 (keep a copy safely)
         sync: false
-      - key: CORS_ALLOWED_ORIGINS    # your Vercel address, e.g. https://jpm-hr-portal.vercel.app
+      - key: CORS_ALLOWED_ORIGINS    # your Vercel address: https://jpm-hr-portel.vercel.app
         sync: false
       - key: BOOTSTRAP_ADMIN_USERNAME
         value: admin

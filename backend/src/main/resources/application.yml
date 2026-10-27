@@ -47,6 +47,11 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    # Email is optional (Settings shows whether it is configured); an unset or unreachable SMTP server must not
+    # mark the whole service DOWN, or hosts like Render would keep restarting it.
+    mail:
+      enabled: false
 
 app:
   # Demo mode seeds clearly-labelled sample candidates (source = DEMO) into an empty database.
