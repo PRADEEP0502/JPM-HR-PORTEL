@@ -1,4 +1,4 @@
-import type { ApplicationStatus, ExperienceBucket, InterviewMode, InterviewStatus, Recommendation, Role, VerificationStatus } from './types';
+import type { ApplicationStatus, ExperienceBucket, InterviewMode, InterviewStatus, Recommendation, Role, TemplatePurpose, VerificationStatus } from './types';
 
 export const APPLICATION_STATUSES: { value: ApplicationStatus; label: string }[] = [
   { value: 'NEW', label: 'Applied' },
@@ -164,3 +164,13 @@ export const RATING_BANDS: { min: number; max: number; label: string; tone: Tone
 ];
 
 export const ratingBand = (rating: number) => RATING_BANDS.find((b) => rating >= b.min && rating <= b.max)!;
+
+/** Message templates by purpose; interview messages need an upcoming interview. */
+export const TEMPLATE_PURPOSES: { value: TemplatePurpose; label: string; needsInterview: boolean }[] = [
+  { value: 'APPLICATION_ACK', label: 'Application acknowledgement', needsInterview: false },
+  { value: 'INTERVIEW_INVITATION', label: 'Interview invitation', needsInterview: true },
+  { value: 'INTERVIEW_REMINDER', label: 'Interview reminder', needsInterview: true },
+  { value: 'SELECTION', label: 'Selection notification', needsInterview: false },
+  { value: 'REJECTION', label: 'Rejection notification', needsInterview: false },
+  { value: 'JOINING', label: 'Joining instructions', needsInterview: false },
+];

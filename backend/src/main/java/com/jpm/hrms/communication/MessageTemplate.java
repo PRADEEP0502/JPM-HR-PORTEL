@@ -15,6 +15,8 @@ public class MessageTemplate implements SequencedEntity {
 
     @Id
     private Long id;
+    /** Older templates without a purpose are set to INTERVIEW_INVITATION at startup (CommunicationService.ensureDefaults). */
+    private TemplatePurpose purpose;
     private TemplateChannel channel;
     private int version;
     private String subject;
@@ -26,7 +28,8 @@ public class MessageTemplate implements SequencedEntity {
     protected MessageTemplate() {
     }
 
-    public MessageTemplate(TemplateChannel channel, int version, String subject, String body, String createdBy) {
+    public MessageTemplate(TemplatePurpose purpose, TemplateChannel channel, int version, String subject, String body, String createdBy) {
+        this.purpose = purpose;
         this.channel = channel;
         this.version = version;
         this.subject = subject;
@@ -39,6 +42,7 @@ public class MessageTemplate implements SequencedEntity {
     public Long getId() { return id; }
     @Override
     public void assignId(Long id) { this.id = id; }
+    public TemplatePurpose getPurpose() { return purpose == null ? TemplatePurpose.INTERVIEW_INVITATION : purpose; }
     public TemplateChannel getChannel() { return channel; }
     public int getVersion() { return version; }
     public String getSubject() { return subject; }

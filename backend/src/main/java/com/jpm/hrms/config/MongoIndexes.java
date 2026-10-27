@@ -66,13 +66,22 @@ public class MongoIndexes implements ApplicationRunner {
         index("hr_remarks", new Index().on("candidateId", Direction.ASC).on("createdAt", Direction.DESC).named("idx_candidate_time"));
         index("candidate_documents", new Index().on("candidateId", Direction.ASC).on("createdAt", Direction.DESC).named("idx_candidate_time"));
         index("communications", new Index().on("candidateId", Direction.ASC).on("createdAt", Direction.DESC).named("idx_candidate_time"));
-        index("message_templates", new Index().on("channel", Direction.ASC).on("version", Direction.DESC).unique().named("uk_channel_version"));
+        // Versions are numbered per purpose and channel (replaces the older channel-only index).
+        dropIfExists("message_templates", "uk_channel_version");
+        index("message_templates", new Index().on("purpose", Direction.ASC).on("channel", Direction.ASC).on("version", Direction.DESC)
+                .unique().named("uk_purpose_channel_version"));
 
         index("audit_logs", new Index().on("occurredAt", Direction.DESC).named("idx_occurred_at"));
         index("audit_logs", new Index().on("entityType", Direction.ASC).on("entityId", Direction.ASC).on("occurredAt", Direction.DESC).named("idx_entity"));
         index("audit_logs", new Index().on("action", Direction.ASC).on("occurredAt", Direction.DESC).named("idx_action"));
         index("sync_runs", new Index().on("startedAt", Direction.DESC).named("idx_started_at"));
         log.debug("MongoDB indexes verified");
+    }
+
+    private void dropIfExists(String collection, String indexName) {
+        if (ops.indexOps(collection).getIndexInfo().stream().anyMatch(i -> i.getName().equals(indexName))) {
+            ops.indexOps(collection).dropIndex(indexName);
+        }
     }
 
     private void index(String collection, Index index) {

@@ -345,6 +345,7 @@ export interface CommunicationRecord {
   id: number;
   candidateId: number;
   interviewId: number | null;
+  purpose: TemplatePurpose | null;
   channel: CommChannel;
   recipient: string;
   candidateName: string;
@@ -420,11 +421,21 @@ export interface MessageTemplateInfo {
   createdAt: string;
 }
 
-export interface TemplatesOverview {
+export type TemplatePurpose = 'APPLICATION_ACK' | 'INTERVIEW_INVITATION' | 'INTERVIEW_REMINDER' | 'SELECTION' | 'REJECTION' | 'JOINING';
+
+export interface PurposeTemplates {
+  purpose: TemplatePurpose;
+  label: string;
+  needsInterview: boolean;
+  required: string[];
   whatsapp: MessageTemplateInfo;
   email: MessageTemplateInfo;
+}
+
+export interface TemplatesOverview {
+  purposes: PurposeTemplates[];
   settings: CommSettings;
   placeholders: Record<string, string>;
-  required: string[];
+  interviewPlaceholders: string[];
   emailService: { configured: boolean; provider: string | null; fromAddress: string | null; fromName: string | null };
 }

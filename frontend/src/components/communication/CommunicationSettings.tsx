@@ -5,7 +5,7 @@ import { CheckCircle2, ChevronDown, History, Mail, MessageCircle, RotateCcw, Sen
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { fmtDateTime, fmtRelative } from '../../lib/format';
-import type { CommSettings, MessageTemplateInfo, TemplatesOverview } from '../../lib/types';
+import type { CommSettings, MessageTemplateInfo, TemplatePurpose, TemplatesOverview } from '../../lib/types';
 import { Field, SectionTitle } from '../ui/Misc';
 import { ErrorState, LoadingBlock, Spinner } from '../ui/States';
 import { EmailPreview, WhatsAppBubble } from './Communication';
@@ -15,15 +15,37 @@ type Channel = 'WHATSAPP' | 'EMAIL';
 /** Admin page: company identity, approved templates (versioned), and email service status. */
 export function CommunicationSettingsTab() {
   const overview = useQuery({ queryKey: ['comm-templates'], queryFn: () => api.get<TemplatesOverview>('/communication/templates') });
+  const [purpose, setPurpose] = useState<TemplatePurpose>('INTERVIEW_INVITATION');
   if (overview.isLoading) return <div className="panel"><LoadingBlock /></div>;
   if (overview.error || !overview.data) return <div className="panel"><ErrorState error={overview.error} onRetry={() => overview.refetch()} /></div>;
   const o = overview.data;
+  const current = o.purposes.find((p) => p.purpose === purpose) ?? o.purposes[0];
+  // Interview placeholders are only offered where an interview exists.
+  const placeholders = Object.fromEntries(
+    Object.entries(o.placeholders).filter(([key]) => current.needsInterview || !o.interviewPlaceholders.includes(key)),
+  );
   return (
     <div className="space-y-6">
       <IdentityForm settings={o.settings} />
       <EmailServiceCard status={o.emailService} />
-      <TemplateEditor channel="WHATSAPP" template={o.whatsapp} placeholders={o.placeholders} required={o.required} />
-      <TemplateEditor channel="EMAIL" template={o.email} placeholders={o.placeholders} required={o.required} />
+      <section className="panel p-5">
+        <SectionTitle title="Message templates" subtitle="Each message type has its own approved WhatsApp and email wording. Messages are only sent when an HR user chooses to send them." />
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Message type">
+          {o.purposes.map((p) => (
+            <button
+              key={p.purpose}
+              role="tab"
+              aria-selected={p.purpose === current.purpose}
+              onClick={() => setPurpose(p.purpose)}
+              className={clsx('rounded-lg border px-3 py-1.5 text-sm transition', p.purpose === current.purpose ? 'border-ink bg-ink text-canvas' : 'border-line text-ink-2 hover:text-ink')}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </section>
+      <TemplateEditor key={`${current.purpose}-WHATSAPP`} purpose={current.purpose} purposeLabel={current.label} channel="WHATSAPP" template={current.whatsapp} placeholders={placeholders} required={current.required} />
+      <TemplateEditor key={`${current.purpose}-EMAIL`} purpose={current.purpose} purposeLabel={current.label} channel="EMAIL" template={current.email} placeholders={placeholders} required={current.required} />
     </div>
   );
 }
@@ -117,7 +139,16 @@ function EmailServiceCard({ status }: { status: TemplatesOverview['emailService'
   );
 }
 
-function TemplateEditor({ channel, template, placeholders, required }: { channel: Channel; template: MessageTemplateInfo; placeholders: Record<string, string>; required: string[] }) {
+interface EditorProps {
+  purpose: TemplatePurpose;
+  purposeLabel: string;
+  channel: Channel;
+  template: MessageTemplateInfo;
+  placeholders: Record<string, string>;
+  required: string[];
+}
+
+function TemplateEditor({ purpose, purposeLabel, channel, template, placeholders, required }: EditorProps) {
   const toast = useToast();
   const qc = useQueryClient();
   const [subject, setSubject] = useState(template.subject ?? '');
@@ -137,17 +168,17 @@ function TemplateEditor({ channel, template, placeholders, required }: { channel
   }, [subject, body]);
 
   const preview = useQuery({
-    queryKey: ['template-preview', channel, debounced],
-    queryFn: () => api.post<{ subject: string | null; body: string | null; problems: string[] }>('/communication/templates/preview', { channel, subject: debounced.subject, body: debounced.body || ' ' }),
+    queryKey: ['template-preview', purpose, channel, debounced],
+    queryFn: () => api.post<{ subject: string | null; body: string | null; problems: string[] }>('/communication/templates/preview', { purpose, channel, subject: debounced.subject, body: debounced.body || ' ' }),
   });
   const history = useQuery({
-    queryKey: ['template-history', channel],
-    queryFn: () => api.get<MessageTemplateInfo[]>('/communication/templates/history', { channel }),
+    queryKey: ['template-history', purpose, channel],
+    queryFn: () => api.get<MessageTemplateInfo[]>('/communication/templates/history', { channel, purpose }),
     enabled: showHistory,
   });
   const dirty = body.trim() !== template.body.trim() || (isEmail && subject.trim() !== (template.subject ?? '').trim());
   const save = useMutation({
-    mutationFn: () => api.post<MessageTemplateInfo>('/communication/templates', { channel, subject: isEmail ? subject : null, body }),
+    mutationFn: () => api.post<MessageTemplateInfo>('/communication/templates', { purpose, channel, subject: isEmail ? subject : null, body }),
     onSuccess: (t) => {
       toast('success', `${isEmail ? 'Email' : 'WhatsApp'} template version ${t.version} approved`);
       ['comm-templates', 'template-history', 'compose'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
@@ -174,7 +205,7 @@ function TemplateEditor({ channel, template, placeholders, required }: { channel
   return (
     <section className="panel space-y-4 p-5">
       <SectionTitle
-        title={`${isEmail ? 'Email' : 'WhatsApp'} template`}
+        title={`${purposeLabel} - ${isEmail ? 'email' : 'WhatsApp'}`}
         subtitle={`Approved version ${template.version} · by ${template.createdBy} on ${fmtDateTime(template.createdAt)}. Saving creates a new version; messages already sent keep the version they used.`}
         action={<Icon size={18} className="text-ink-3" />}
       />

@@ -49,18 +49,21 @@ public class CommunicationController {
 
     /** Contact validation plus rendered WhatsApp and email previews for the candidate's interview. */
     @GetMapping("/candidates/{id}/compose")
-    public ComposeResponse compose(@PathVariable Long id, @RequestParam(required = false) Long interviewId) {
-        return service.compose(id, interviewId);
+    public ComposeResponse compose(@PathVariable Long id, @RequestParam(required = false) Long interviewId,
+                                   @RequestParam(defaultValue = "INTERVIEW_INVITATION") TemplatePurpose purpose) {
+        return service.compose(id, interviewId, purpose);
     }
 
     @PostMapping("/candidates/{id}/communications/whatsapp")
     public WhatsAppPrepared whatsapp(@PathVariable Long id, @RequestBody(required = false) ComposeRequest req, Authentication auth) {
-        return service.prepareWhatsApp(id, req == null ? null : req.interviewId(), auth.getName());
+        return service.prepareWhatsApp(id, req == null ? null : req.interviewId(),
+                req == null ? TemplatePurpose.INTERVIEW_INVITATION : req.purposeOrDefault(), auth.getName());
     }
 
     @PostMapping("/candidates/{id}/communications/email")
     public CommunicationResponse email(@PathVariable Long id, @RequestBody(required = false) ComposeRequest req, Authentication auth) {
-        return service.sendEmail(id, req == null ? null : req.interviewId(), auth.getName());
+        return service.sendEmail(id, req == null ? null : req.interviewId(),
+                req == null ? TemplatePurpose.INTERVIEW_INVITATION : req.purposeOrDefault(), auth.getName());
     }
 
     @PostMapping("/candidates/{id}/communications/call")
@@ -110,8 +113,9 @@ public class CommunicationController {
 
     @GetMapping("/communication/templates/history")
     @PreAuthorize("hasRole('ADMIN')")
-    public List<TemplateResponse> templateHistory(@RequestParam TemplateChannel channel) {
-        return service.history(channel);
+    public List<TemplateResponse> templateHistory(@RequestParam TemplateChannel channel,
+                                                  @RequestParam(defaultValue = "INTERVIEW_INVITATION") TemplatePurpose purpose) {
+        return service.history(purpose, channel);
     }
 
     @PostMapping("/communication/templates")
@@ -123,7 +127,7 @@ public class CommunicationController {
     @PostMapping("/communication/templates/preview")
     @PreAuthorize("hasRole('ADMIN')")
     public PreviewResponse preview(@Valid @RequestBody PreviewRequest req) {
-        return service.previewDraft(req.channel(), req.subject(), req.body());
+        return service.previewDraft(req.purposeOrDefault(), req.channel(), req.subject(), req.body());
     }
 
     @PostMapping("/communication/test-email")

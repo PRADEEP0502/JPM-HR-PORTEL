@@ -40,8 +40,8 @@ public final class TemplateRenderer {
         PLACEHOLDERS.put(INTERVIEW_ROUND, "Interview round, e.g. HR Round");
     }
 
-    /** Every template must contain these, otherwise it cannot serve as an interview invitation. */
-    public static final List<String> REQUIRED = List.of(CANDIDATE_NAME, INTERVIEW_DATE, INTERVIEW_TIME);
+    /** Placeholders that only exist when the message is about a specific interview. */
+    public static final List<String> INTERVIEW_PLACEHOLDERS = List.of(INTERVIEW_DATE, INTERVIEW_TIME, INTERVIEW_ROUND);
 
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
@@ -67,14 +67,15 @@ public final class TemplateRenderer {
     }
 
     /** Returns problems with a template draft (unknown or malformed placeholders, missing required ones). */
-    public static List<String> validate(String subject, String body) {
+    public static List<String> validate(TemplatePurpose purpose, String subject, String body) {
         List<String> problems = new ArrayList<>();
         Set<String> used = new LinkedHashSet<>(placeholdersIn(body));
         used.addAll(placeholdersIn(subject));
         for (String p : used) {
             if (!PLACEHOLDERS.containsKey(p)) problems.add("Unknown placeholder {{" + p + "}}");
+            else if (!purpose.allows(p)) problems.add("{{" + p + "}} is only available in interview invitations and reminders");
         }
-        for (String r : REQUIRED) {
+        for (String r : purpose.required()) {
             if (!placeholdersIn(body).contains(r)) problems.add("The message must contain {{" + r + "}}");
         }
         String stripped = TOKEN.matcher((subject == null ? "" : subject) + "\n" + body).replaceAll("");

@@ -16,6 +16,7 @@ import com.jpm.hrms.communication.CommunicationDtos.EmailDraft;
 import com.jpm.hrms.communication.CommunicationDtos.EmailServiceStatus;
 import com.jpm.hrms.communication.CommunicationDtos.InterviewSummary;
 import com.jpm.hrms.communication.CommunicationDtos.PreviewResponse;
+import com.jpm.hrms.communication.CommunicationDtos.PurposeTemplates;
 import com.jpm.hrms.communication.CommunicationDtos.SettingsRequest;
 import com.jpm.hrms.communication.CommunicationDtos.SettingsResponse;
 import com.jpm.hrms.communication.CommunicationDtos.TemplateRequest;
@@ -30,6 +31,10 @@ import com.jpm.hrms.communication.MessageTemplate.TemplateChannel;
 import com.jpm.hrms.communication.TemplateRenderer.MissingValuesException;
 import com.jpm.hrms.interview.Interview;
 import com.jpm.hrms.interview.InterviewRepository;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -92,6 +97,7 @@ public class CommunicationService {
     private final InterviewRepository interviews;
     private final EmailSender email;
     private final AuditService audit;
+    private final MongoOperations mongo;
     private final Clock clock;
     private final DateTimeFormatter dateFmt;
     private final DateTimeFormatter timeFmt;
@@ -100,7 +106,8 @@ public class CommunicationService {
     public CommunicationService(CommunicationSettingsRepository settingsRepo, MessageTemplateRepository templates,
                                 CommunicationRepository communications, CandidateRepository candidates,
                                 DepartmentDirectory depts, InterviewRepository interviews, EmailSender email,
-                                AuditService audit, Clock clock, ZoneId businessZone) {
+                                AuditService audit, MongoOperations mongo, Clock clock, ZoneId businessZone) {
+        this.mongo = mongo;
         this.settingsRepo = settingsRepo;
         this.templates = templates;
         this.communications = communications;
@@ -117,18 +124,26 @@ public class CommunicationService {
 
     // ================================================================ settings & templates
 
-    /** Creates the settings row and version 1 of each template on first start. */
+    /**
+     * Creates the settings document and version 1 of every purpose's templates on first start. Templates saved
+     * before purposes existed are interview invitations.
+     */
     public void ensureDefaults() {
         if (!settingsRepo.existsById(CommunicationSettings.SINGLETON_ID)) {
             CommunicationSettings s = new CommunicationSettings();
             s.setUpdatedBy(AuditService.SYSTEM_ACTOR);
             settingsRepo.save(s);
         }
-        if (templates.maxVersion(TemplateChannel.WHATSAPP) == 0) {
-            templates.save(new MessageTemplate(TemplateChannel.WHATSAPP, 1, null, DEFAULT_WHATSAPP_BODY, AuditService.SYSTEM_ACTOR));
-        }
-        if (templates.maxVersion(TemplateChannel.EMAIL) == 0) {
-            templates.save(new MessageTemplate(TemplateChannel.EMAIL, 1, DEFAULT_EMAIL_SUBJECT, DEFAULT_EMAIL_BODY, AuditService.SYSTEM_ACTOR));
+        mongo.updateMulti(new Query(Criteria.where("purpose").exists(false)),
+                new Update().set("purpose", TemplatePurpose.INTERVIEW_INVITATION.name()), MessageTemplate.class);
+        for (TemplatePurpose p : TemplatePurpose.values()) {
+            DefaultTemplates.Wording w = DefaultTemplates.ALL.get(p);
+            if (templates.maxVersion(p, TemplateChannel.WHATSAPP) == 0) {
+                templates.save(new MessageTemplate(p, TemplateChannel.WHATSAPP, 1, null, w.whatsappBody(), AuditService.SYSTEM_ACTOR));
+            }
+            if (templates.maxVersion(p, TemplateChannel.EMAIL) == 0) {
+                templates.save(new MessageTemplate(p, TemplateChannel.EMAIL, 1, w.emailSubject(), w.body(), AuditService.SYSTEM_ACTOR));
+            }
         }
     }
 
@@ -137,9 +152,10 @@ public class CommunicationService {
                 .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Communication settings are not initialised"));
     }
 
-    MessageTemplate activeTemplate(TemplateChannel channel) {
-        return templates.findFirstByChannelAndActiveTrueOrderByVersionDesc(channel)
-                .orElseThrow(() -> ApiException.badRequest("No approved " + channel.name().toLowerCase() + " template exists"));
+    MessageTemplate activeTemplate(TemplatePurpose purpose, TemplateChannel channel) {
+        return templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(purpose, channel)
+                .orElseThrow(() -> ApiException.badRequest("No approved " + channel.name().toLowerCase() + " template exists for "
+                        + purpose.label.toLowerCase()));
     }
 
     public SettingsResponse getSettings() {
@@ -160,41 +176,48 @@ public class CommunicationService {
     }
 
     public TemplatesOverview overview() {
-        return new TemplatesOverview(TemplateResponse.from(activeTemplate(TemplateChannel.WHATSAPP)),
-                TemplateResponse.from(activeTemplate(TemplateChannel.EMAIL)), SettingsResponse.from(settings()),
-                TemplateRenderer.PLACEHOLDERS, TemplateRenderer.REQUIRED, emailStatus());
+        List<PurposeTemplates> purposes = new ArrayList<>();
+        for (TemplatePurpose p : TemplatePurpose.values()) {
+            purposes.add(new PurposeTemplates(p, p.label, p.needsInterview, p.required(),
+                    TemplateResponse.from(activeTemplate(p, TemplateChannel.WHATSAPP)),
+                    TemplateResponse.from(activeTemplate(p, TemplateChannel.EMAIL))));
+        }
+        return new TemplatesOverview(purposes, SettingsResponse.from(settings()), TemplateRenderer.PLACEHOLDERS,
+                TemplateRenderer.INTERVIEW_PLACEHOLDERS, emailStatus());
     }
 
     public EmailServiceStatus emailStatus() {
         return new EmailServiceStatus(email.isConfigured(), email.providerName(), email.fromAddress(), email.fromName());
     }
 
-    public List<TemplateResponse> history(TemplateChannel channel) {
-        return templates.findByChannelOrderByVersionDesc(channel).stream().map(TemplateResponse::from).toList();
+    public List<TemplateResponse> history(TemplatePurpose purpose, TemplateChannel channel) {
+        return templates.findByPurposeAndChannelOrderByVersionDesc(purpose, channel).stream().map(TemplateResponse::from).toList();
     }
 
     /** Saves a new approved version. Earlier versions stay in the database for the communication history. */
     public TemplateResponse saveTemplate(TemplateRequest req, String actor) {
+        TemplatePurpose purpose = req.purposeOrDefault();
         String subject = req.channel() == TemplateChannel.EMAIL ? trimToNull(req.subject()) : null;
         if (req.channel() == TemplateChannel.EMAIL && subject == null) throw ApiException.badRequest("Email subject is required");
         String body = req.body().replace("\r\n", "\n").strip();
-        List<String> problems = TemplateRenderer.validate(subject, body);
+        List<String> problems = TemplateRenderer.validate(purpose, subject, body);
         if (!problems.isEmpty()) throw ApiException.badRequest(String.join("; ", problems));
-        MessageTemplate current = activeTemplate(req.channel());
+        MessageTemplate current = activeTemplate(purpose, req.channel());
         if (current.getBody().equals(body) && Objects.equals(current.getSubject(), subject)) {
             throw ApiException.badRequest("No changes to save - this is already the approved template");
         }
         current.setActive(false);
         templates.save(current);
-        MessageTemplate next = templates.save(new MessageTemplate(req.channel(), templates.maxVersion(req.channel()) + 1, subject, body, actor));
-        audit.record("TEMPLATE_UPDATED", "TEMPLATE", next.getId(),
-                req.channel() + " template version " + next.getVersion() + " approved (replaces version " + current.getVersion() + ")");
+        MessageTemplate next = templates.save(new MessageTemplate(purpose, req.channel(),
+                templates.maxVersion(purpose, req.channel()) + 1, subject, body, actor));
+        audit.record("TEMPLATE_UPDATED", "TEMPLATE", next.getId(), purpose.label + " " + req.channel() + " template version "
+                + next.getVersion() + " approved (replaces version " + current.getVersion() + ")");
         return TemplateResponse.from(next);
     }
 
     /** Renders a draft with clearly-marked sample data so admins can review wording before approving it. */
-    public PreviewResponse previewDraft(TemplateChannel channel, String subject, String body) {
-        List<String> problems = new ArrayList<>(TemplateRenderer.validate(channel == TemplateChannel.EMAIL ? subject : null, body));
+    public PreviewResponse previewDraft(TemplatePurpose purpose, TemplateChannel channel, String subject, String body) {
+        List<String> problems = new ArrayList<>(TemplateRenderer.validate(purpose, channel == TemplateChannel.EMAIL ? subject : null, body));
         Map<String, String> values = baseValues(settings());
         LocalDate nextMonday = LocalDate.now(clock).with(TemporalAdjusters.next(DayOfWeek.MONDAY));
         Instant sampleTime = nextMonday.atTime(10, 30).atZone(zone).toInstant();
@@ -222,13 +245,16 @@ public class CommunicationService {
                            EmailCheck email, List<String> interviewProblems, Map<String, String> values) {
     }
 
-    private Context context(Long candidateId, Long interviewId) {
+    private Context context(Long candidateId, Long interviewId, TemplatePurpose purpose) {
         Candidate c = candidates.findById(candidateId).orElseThrow(() -> ApiException.notFound("Candidate"));
         CommunicationSettings s = settings();
         Instant now = clock.instant();
         Interview interview;
         List<String> problems = new ArrayList<>();
-        if (interviewId != null) {
+        if (!purpose.needsInterview) {
+            // Acknowledgement, selection, rejection and joining messages are not about a specific interview.
+            interview = null;
+        } else if (interviewId != null) {
             interview = interviews.findById(interviewId).orElseThrow(() -> ApiException.notFound("Interview"));
             if (!interview.getCandidateId().equals(c.getId())) throw ApiException.badRequest("Interview does not belong to this candidate");
         } else {
@@ -236,12 +262,15 @@ public class CommunicationService {
                     .filter(i -> i.getStatus().isActive() && i.getScheduledAt().isAfter(now))
                     .min(Comparator.comparing(Interview::getScheduledAt)).orElse(null);
         }
-        if (interview == null) {
-            problems.add("No upcoming interview is scheduled for this candidate - schedule one first");
-        } else if (!interview.getStatus().isActive()) {
-            problems.add("This interview is " + interview.getStatus().label.toLowerCase() + " - invitations are only sent for scheduled interviews");
-        } else if (!interview.getScheduledAt().isAfter(now)) {
-            problems.add("This interview's time has already passed - reschedule it before sending an invitation");
+        if (purpose.needsInterview) {
+            String what = purpose.label.toLowerCase();
+            if (interview == null) {
+                problems.add("No upcoming interview is scheduled for this candidate - schedule one first");
+            } else if (!interview.getStatus().isActive()) {
+                problems.add("This interview is " + interview.getStatus().label.toLowerCase() + " - an " + what + " is only sent for scheduled interviews");
+            } else if (!interview.getScheduledAt().isAfter(now)) {
+                problems.add("This interview's time has already passed - reschedule it before sending an " + what);
+            }
         }
         Map<String, String> values = baseValues(s);
         values.put(TemplateRenderer.CANDIDATE_NAME, c.getFullName());
@@ -278,10 +307,10 @@ public class CommunicationService {
         }
     }
 
-    public ComposeResponse compose(Long candidateId, Long interviewId) {
-        Context ctx = context(candidateId, interviewId);
-        MessageTemplate wa = activeTemplate(TemplateChannel.WHATSAPP);
-        MessageTemplate em = activeTemplate(TemplateChannel.EMAIL);
+    public ComposeResponse compose(Long candidateId, Long interviewId, TemplatePurpose purpose) {
+        Context ctx = context(candidateId, interviewId, purpose);
+        MessageTemplate wa = activeTemplate(purpose, TemplateChannel.WHATSAPP);
+        MessageTemplate em = activeTemplate(purpose, TemplateChannel.EMAIL);
 
         Rendered waText = render(wa, ctx);
         List<String> waProblems = new ArrayList<>(waText.problems());
@@ -299,7 +328,7 @@ public class CommunicationService {
         InterviewSummary summary = i == null ? null : new InterviewSummary(i.getId(), i.getScheduledAt(), dateFmt.format(i.getScheduledAt()),
                 timeFmt.format(i.getScheduledAt()), i.getRoundName(), i.getInterviewer(), i.getStatus().name(),
                 ctx.settings().getDefaultVenue(), i.getLocation());
-        return new ComposeResponse(c.getId(), c.getCandidateCode(), c.getFullName(),
+        return new ComposeResponse(purpose, purpose.label, c.getId(), c.getCandidateCode(), c.getFullName(),
                 departmentName(c),
                 new ContactInfo(c.getMobile(), ctx.phone().valid(), ctx.phone().display(), ctx.phone().reason(),
                         c.getEmail(), ctx.email().valid(), ctx.email().reason()),
@@ -312,13 +341,14 @@ public class CommunicationService {
     // ================================================================ actions
 
     /** Records the prepared WhatsApp message and returns the click-to-chat link. Nothing is sent by the server. */
-    public WhatsAppPrepared prepareWhatsApp(Long candidateId, Long interviewId, String actor) {
-        Context ctx = context(candidateId, interviewId);
+    public WhatsAppPrepared prepareWhatsApp(Long candidateId, Long interviewId, TemplatePurpose purpose, String actor) {
+        Context ctx = context(candidateId, interviewId, purpose);
         if (!ctx.phone().valid()) throw ApiException.badRequest(ctx.phone().reason());
-        MessageTemplate t = activeTemplate(TemplateChannel.WHATSAPP);
+        MessageTemplate t = activeTemplate(purpose, TemplateChannel.WHATSAPP);
         Rendered r = render(t, ctx);
         if (!r.problems().isEmpty()) throw ApiException.badRequest(String.join("; ", r.problems()));
         Communication comm = base(ctx, Channel.WHATSAPP, ctx.phone().display(), actor);
+        comm.setPurpose(purpose);
         comm.setTemplateId(t.getId());
         comm.setTemplateVersion(t.getVersion());
         comm.setContent(r.body());
@@ -326,21 +356,22 @@ public class CommunicationService {
         comm.setProvider("WhatsApp click-to-chat");
         communications.save(comm);
         audit.record("WHATSAPP_PREPARED", "CANDIDATE", ctx.candidate().getId(),
-                "Interview invitation prepared for WhatsApp (template v" + t.getVersion() + ") - HR to review and send");
+                purpose.label + " prepared for WhatsApp (template v" + t.getVersion() + ") - HR to review and send");
         return new WhatsAppPrepared(CommunicationResponse.from(comm), ContactValidator.whatsAppUrl(ctx.phone().international(), r.body()));
     }
 
-    /** Sends the interview invitation email. The record is kept whether the provider accepts or rejects it. */
-    public CommunicationResponse sendEmail(Long candidateId, Long interviewId, String actor) {
-        Context ctx = context(candidateId, interviewId);
+    /** Sends the email for the purpose. The record is kept whether the provider accepts or rejects it. */
+    public CommunicationResponse sendEmail(Long candidateId, Long interviewId, TemplatePurpose purpose, String actor) {
+        Context ctx = context(candidateId, interviewId, purpose);
         if (!ctx.email().valid()) throw ApiException.badRequest(ctx.email().reason());
-        MessageTemplate t = activeTemplate(TemplateChannel.EMAIL);
+        MessageTemplate t = activeTemplate(purpose, TemplateChannel.EMAIL);
         Rendered r = render(t, ctx);
         if (!r.problems().isEmpty()) throw ApiException.badRequest(String.join("; ", r.problems()));
         if (!email.isConfigured()) {
             throw ApiException.badRequest("Email service is not configured on the server - ask an administrator to set the MAIL_* settings");
         }
         Communication comm = base(ctx, Channel.EMAIL, ctx.email().address(), actor);
+        comm.setPurpose(purpose);
         comm.setTemplateId(t.getId());
         comm.setTemplateVersion(t.getVersion());
         comm.setSubject(r.subject());
@@ -361,6 +392,7 @@ public class CommunicationService {
         comm.setChannel(Channel.EMAIL);
         comm.setRecipient(failed.getRecipient());
         comm.setCandidateName(failed.getCandidateName());
+        comm.setPurpose(failed.getPurpose());
         comm.setTemplateId(failed.getTemplateId());
         comm.setTemplateVersion(failed.getTemplateVersion());
         comm.setSubject(failed.getSubject());
@@ -380,12 +412,12 @@ public class CommunicationService {
             comm.setProviderMessageId(messageId);
             comm.setErrorMessage(null);
             audit.record("EMAIL_ACCEPTED", "CANDIDATE", comm.getCandidateId(),
-                    "Interview invitation email accepted by " + comm.getProvider() + " (template v" + comm.getTemplateVersion() + ")"
+                    purposeLabel(comm) + " email accepted by " + comm.getProvider() + " (template v" + comm.getTemplateVersion() + ")"
                             + (comm.getRetryOfId() != null ? " - retry of #" + comm.getRetryOfId() : ""));
         } catch (EmailSender.EmailException e) {
             comm.setStatus(Status.FAILED);
             comm.setErrorMessage(e.getMessage());
-            audit.record("EMAIL_FAILED", "CANDIDATE", comm.getCandidateId(), "Interview invitation email failed: " + e.getMessage());
+            audit.record("EMAIL_FAILED", "CANDIDATE", comm.getCandidateId(), purposeLabel(comm) + " email failed: " + e.getMessage());
         }
         communications.save(comm);
         return CommunicationResponse.from(comm);
@@ -464,6 +496,11 @@ public class CommunicationService {
     /** Configured department name, or the department text the candidate submitted. */
     private String departmentName(Candidate c) {
         return depts.find(c.getDepartmentId()).map(Department::getName).orElse(c.getDepartmentRaw());
+    }
+
+    /** Messages saved before purposes existed were interview invitations. */
+    private static String purposeLabel(Communication comm) {
+        return (comm.getPurpose() == null ? TemplatePurpose.INTERVIEW_INVITATION : comm.getPurpose()).label;
     }
 
     private static String friendly(List<String> missing) {

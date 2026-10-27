@@ -274,8 +274,10 @@ class CommunicationApiTest {
         String firstContent = first.at("/communication/content").asText();
 
         JsonNode overview = json(call(get("/api/communication/templates"), admin, null).andExpect(status().isOk()));
-        String original = overview.at("/whatsapp/body").asText();
-        int originalVersion = overview.at("/whatsapp/version").asInt();
+        JsonNode invitation = null;
+        for (JsonNode p : overview.get("purposes")) if (p.get("purpose").asText().equals("INTERVIEW_INVITATION")) invitation = p;
+        String original = invitation.at("/whatsapp/body").asText();
+        int originalVersion = invitation.at("/whatsapp/version").asInt();
 
         // invalid draft is rejected
         call(post("/api/communication/templates"), admin, mapper.writeValueAsString(

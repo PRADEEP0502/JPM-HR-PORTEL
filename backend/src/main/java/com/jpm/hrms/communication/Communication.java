@@ -32,6 +32,8 @@ public class Communication implements SequencedEntity {
     private Channel channel;
     private String recipient;
     private String candidateName;
+    /** Which template purpose the message used (null for calls and for messages sent before purposes existed). */
+    private TemplatePurpose purpose;
     private Long templateId;
     private Integer templateVersion;
     private String subject;
@@ -70,6 +72,8 @@ public class Communication implements SequencedEntity {
     public void setRecipient(String recipient) { this.recipient = recipient; }
     public String getCandidateName() { return candidateName; }
     public void setCandidateName(String candidateName) { this.candidateName = candidateName; }
+    public TemplatePurpose getPurpose() { return purpose; }
+    public void setPurpose(TemplatePurpose purpose) { this.purpose = purpose; }
     public Long getTemplateId() { return templateId; }
     public void setTemplateId(Long templateId) { this.templateId = templateId; }
     public Integer getTemplateVersion() { return templateVersion; }

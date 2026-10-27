@@ -58,19 +58,19 @@ class CommunicationUnitTest {
 
     @Test
     void validatesTemplateDrafts() {
-        assertThat(TemplateRenderer.validate(null, "Dear {{CandidateName}} on {{InterviewDate}} at {{InterviewTime}}")).isEmpty();
-        assertThat(TemplateRenderer.validate(null, "Dear {{CandidateName}} {{Salary}} {{InterviewDate}} {{InterviewTime}}"))
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, "Dear {{CandidateName}} on {{InterviewDate}} at {{InterviewTime}}")).isEmpty();
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, "Dear {{CandidateName}} {{Salary}} {{InterviewDate}} {{InterviewTime}}"))
                 .anyMatch(p -> p.contains("Unknown placeholder {{Salary}}"));
-        assertThat(TemplateRenderer.validate(null, "Dear {{CandidateName}}")).anyMatch(p -> p.contains("{{InterviewDate}}"));
-        assertThat(TemplateRenderer.validate(null, "Dear {{CandidateName} {{InterviewDate}} {{InterviewTime}}"))
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, "Dear {{CandidateName}}")).anyMatch(p -> p.contains("{{InterviewDate}}"));
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, "Dear {{CandidateName} {{InterviewDate}} {{InterviewTime}}"))
                 .anyMatch(p -> p.contains("Malformed"));
     }
 
     @Test
     void defaultTemplatesFollowTheApprovedWording() {
         assertThat(CommunicationService.DEFAULT_EMAIL_SUBJECT).isEqualTo("Interview Invitation – JPM");
-        assertThat(TemplateRenderer.validate(CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.DEFAULT_EMAIL_BODY)).isEmpty();
-        assertThat(TemplateRenderer.validate(null, CommunicationService.DEFAULT_WHATSAPP_BODY)).isEmpty();
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.DEFAULT_EMAIL_BODY)).isEmpty();
+        assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, CommunicationService.DEFAULT_WHATSAPP_BODY)).isEmpty();
         assertThat(CommunicationService.DEFAULT_WHATSAPP_BODY).contains("\n*Interview Details*\n");
         assertThat(CommunicationService.DEFAULT_EMAIL_BODY).contains("\nInterview Details\n").doesNotContain("*");
     }

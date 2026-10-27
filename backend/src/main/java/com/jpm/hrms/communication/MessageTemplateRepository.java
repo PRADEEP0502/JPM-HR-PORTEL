@@ -7,14 +7,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MessageTemplateRepository extends CriteriaRepository<MessageTemplate, Long> {
-    Optional<MessageTemplate> findFirstByChannelAndActiveTrueOrderByVersionDesc(TemplateChannel channel);
+    Optional<MessageTemplate> findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(TemplatePurpose purpose, TemplateChannel channel);
 
-    List<MessageTemplate> findByChannelOrderByVersionDesc(TemplateChannel channel);
+    List<MessageTemplate> findByPurposeAndChannelOrderByVersionDesc(TemplatePurpose purpose, TemplateChannel channel);
 
-    Optional<MessageTemplate> findFirstByChannelOrderByVersionDesc(TemplateChannel channel);
+    Optional<MessageTemplate> findFirstByPurposeAndChannelOrderByVersionDesc(TemplatePurpose purpose, TemplateChannel channel);
 
-    /** Highest version number for a channel (0 when there is none yet). */
-    default int maxVersion(TemplateChannel channel) {
-        return findFirstByChannelOrderByVersionDesc(channel).map(MessageTemplate::getVersion).orElse(0);
+    /** Highest version number for a purpose and channel (0 when there is none yet). */
+    default int maxVersion(TemplatePurpose purpose, TemplateChannel channel) {
+        return findFirstByPurposeAndChannelOrderByVersionDesc(purpose, channel).map(MessageTemplate::getVersion).orElse(0);
     }
 }

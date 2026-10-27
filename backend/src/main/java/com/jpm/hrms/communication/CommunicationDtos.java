@@ -39,19 +39,31 @@ public final class CommunicationDtos {
         }
     }
 
-    public record TemplateRequest(@NotNull TemplateChannel channel, @Size(max = 300) String subject,
+    /** {@code purpose} defaults to the interview invitation when omitted. */
+    public record TemplateRequest(TemplatePurpose purpose, @NotNull TemplateChannel channel, @Size(max = 300) String subject,
                                   @NotBlank @Size(max = 4000) String body) {
+        public TemplatePurpose purposeOrDefault() {
+            return purpose == null ? TemplatePurpose.INTERVIEW_INVITATION : purpose;
+        }
     }
 
     public record EmailServiceStatus(boolean configured, String provider, String fromAddress, String fromName) {
     }
 
-    public record TemplatesOverview(TemplateResponse whatsapp, TemplateResponse email, SettingsResponse settings,
-                                    Map<String, String> placeholders, List<String> required, EmailServiceStatus emailService) {
+    /** The approved WhatsApp and email template of one purpose. */
+    public record PurposeTemplates(TemplatePurpose purpose, String label, boolean needsInterview, List<String> required,
+                                   TemplateResponse whatsapp, TemplateResponse email) {
     }
 
-    public record PreviewRequest(@NotNull TemplateChannel channel, @Size(max = 300) String subject,
+    public record TemplatesOverview(List<PurposeTemplates> purposes, SettingsResponse settings, Map<String, String> placeholders,
+                                    List<String> interviewPlaceholders, EmailServiceStatus emailService) {
+    }
+
+    public record PreviewRequest(TemplatePurpose purpose, @NotNull TemplateChannel channel, @Size(max = 300) String subject,
                                  @NotBlank @Size(max = 4000) String body) {
+        public TemplatePurpose purposeOrDefault() {
+            return purpose == null ? TemplatePurpose.INTERVIEW_INVITATION : purpose;
+        }
     }
 
     public record PreviewResponse(String subject, String body, List<String> problems, boolean sample) {
@@ -74,20 +86,24 @@ public final class CommunicationDtos {
                              List<String> problems, boolean serviceConfigured) {
     }
 
-    public record ComposeResponse(Long candidateId, String candidateCode, String candidateName, String department,
+    public record ComposeResponse(TemplatePurpose purpose, String purposeLabel, Long candidateId, String candidateCode, String candidateName, String department,
                                   ContactInfo contact, InterviewSummary interview, WhatsAppDraft whatsapp, EmailDraft email) {
     }
 
-    public record ComposeRequest(Long interviewId) {
+    /** {@code purpose} defaults to the interview invitation when omitted. */
+    public record ComposeRequest(Long interviewId, TemplatePurpose purpose) {
+        public TemplatePurpose purposeOrDefault() {
+            return purpose == null ? TemplatePurpose.INTERVIEW_INVITATION : purpose;
+        }
     }
 
-    public record CommunicationResponse(Long id, Long candidateId, Long interviewId, Channel channel, String recipient,
+    public record CommunicationResponse(Long id, Long candidateId, Long interviewId, TemplatePurpose purpose, Channel channel, String recipient,
                                         String candidateName, Integer templateVersion, String subject, String content,
                                         Status status, String provider, String providerMessageId, String errorMessage,
                                         CallOutcome callOutcome, String notes, Long retryOfId, String initiatedBy,
                                         Instant createdAt, Instant updatedAt) {
         static CommunicationResponse from(Communication c) {
-            return new CommunicationResponse(c.getId(), c.getCandidateId(), c.getInterviewId(), c.getChannel(), c.getRecipient(),
+            return new CommunicationResponse(c.getId(), c.getCandidateId(), c.getInterviewId(), c.getPurpose(), c.getChannel(), c.getRecipient(),
                     c.getCandidateName(), c.getTemplateVersion(), c.getSubject(), c.getContent(), c.getStatus(), c.getProvider(),
                     c.getProviderMessageId(), c.getErrorMessage(), c.getCallOutcome(), c.getNotes(), c.getRetryOfId(),
                     c.getInitiatedBy(), c.getCreatedAt(), c.getUpdatedAt());

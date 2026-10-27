@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
-import { fmtDateTime, fmtRelative } from '../../lib/format';
-import type { CallOutcome, CommChannel, CommStatus, CommunicationRecord, Compose } from '../../lib/types';
+import { TEMPLATE_PURPOSES, fmtDateTime, fmtRelative, labelOf } from '../../lib/format';
+import type { CallOutcome, CommChannel, CommStatus, CommunicationRecord, Compose, TemplatePurpose } from '../../lib/types';
 import { Modal } from '../ui/Modal';
 import { Pill } from '../ui/Pill';
 import { Field } from '../ui/Misc';
@@ -99,26 +99,35 @@ interface PanelProps {
   candidateId: number;
   interviewId?: number | null;
   initialTab?: Tab;
+  initialPurpose?: TemplatePurpose;
   onScheduleInterview?: () => void;
 }
 
 /** Candidate + interview details, both previews, and the WhatsApp / email actions. */
-export function CommunicationPanel({ candidateId, interviewId, initialTab = 'whatsapp', onScheduleInterview }: PanelProps) {
+export function CommunicationPanel({ candidateId, interviewId, initialTab = 'whatsapp', initialPurpose = 'INTERVIEW_INVITATION', onScheduleInterview }: PanelProps) {
   const toast = useToast();
   const invalidate = useInvalidateComms();
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [purpose, setPurpose] = useState<TemplatePurpose>(initialPurpose);
   const [prepared, setPrepared] = useState<CommunicationRecord | null>(null);
   const [emailResult, setEmailResult] = useState<CommunicationRecord | null>(null);
+  const needsInterview = TEMPLATE_PURPOSES.find((p) => p.value === purpose)?.needsInterview ?? true;
   const compose = useQuery({
-    queryKey: ['compose', candidateId, interviewId ?? null],
-    queryFn: () => api.get<Compose>(`/candidates/${candidateId}/compose`, { interviewId: interviewId ?? undefined }),
+    queryKey: ['compose', candidateId, interviewId ?? null, purpose],
+    queryFn: () => api.get<Compose>(`/candidates/${candidateId}/compose`, { interviewId: interviewId ?? undefined, purpose }),
   });
+  const choosePurpose = (p: TemplatePurpose) => {
+    setPurpose(p);
+    setPrepared(null);
+    setEmailResult(null);
+  };
 
   const whatsapp = useMutation({
     mutationFn: async (win: Window | null) => {
       try {
         const res = await api.post<{ communication: CommunicationRecord; url: string }>(`/candidates/${candidateId}/communications/whatsapp`, {
           interviewId: compose.data?.interview?.id ?? null,
+          purpose,
         });
         if (win) {
           win.opener = null;
@@ -151,7 +160,7 @@ export function CommunicationPanel({ candidateId, interviewId, initialTab = 'wha
   });
 
   const sendEmail = useMutation({
-    mutationFn: () => api.post<CommunicationRecord>(`/candidates/${candidateId}/communications/email`, { interviewId: compose.data?.interview?.id ?? null }),
+    mutationFn: () => api.post<CommunicationRecord>(`/candidates/${candidateId}/communications/email`, { interviewId: compose.data?.interview?.id ?? null, purpose }),
     onSuccess: (c) => {
       setEmailResult(c);
       invalidate(candidateId);
@@ -171,12 +180,20 @@ export function CommunicationPanel({ candidateId, interviewId, initialTab = 'wha
     onError: (e) => toast('error', e.message),
   });
 
-  if (compose.isLoading) return <LoadingBlock label="Preparing messages…" />;
-  if (compose.error || !compose.data) return <ErrorState error={compose.error} onRetry={() => compose.refetch()} />;
+  const purposePicker = (
+    <Field label="Message type">
+      <select className="input" value={purpose} onChange={(e) => choosePurpose(e.target.value as TemplatePurpose)}>
+        {TEMPLATE_PURPOSES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+      </select>
+    </Field>
+  );
+  if (compose.isLoading) return <div className="space-y-4">{purposePicker}<LoadingBlock label="Preparing messages…" /></div>;
+  if (compose.error || !compose.data) return <div className="space-y-4">{purposePicker}<ErrorState error={compose.error} onRetry={() => compose.refetch()} /></div>;
   const d = compose.data;
 
   return (
     <div className="space-y-4">
+      {purposePicker}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <section className="rounded-xl border border-line bg-card p-3.5 text-sm">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">Candidate</h3>
@@ -185,6 +202,7 @@ export function CommunicationPanel({ candidateId, interviewId, initialTab = 'wha
           <ContactLine icon={<Phone size={13} />} value={d.contact.whatsappNumber ?? d.contact.mobile} ok={d.contact.mobileValid} problem={d.contact.mobileProblem} />
           <ContactLine icon={<Mail size={13} />} value={d.contact.email} ok={d.contact.emailValid} problem={d.contact.emailProblem} />
         </section>
+        {needsInterview && (
         <section className="rounded-xl border border-line bg-card p-3.5 text-sm">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">Interview details</h3>
           {d.interview ? (
@@ -203,6 +221,7 @@ export function CommunicationPanel({ candidateId, interviewId, initialTab = 'wha
             </div>
           )}
         </section>
+        )}
       </div>
 
       <div className="flex rounded-xl border border-line bg-raised p-1" role="tablist">
@@ -439,7 +458,12 @@ export function CommunicationHistory({ candidateId }: { candidateId: number }) {
           <li key={c.id} className="rounded-xl border border-line/70 bg-card">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
               <Icon size={16} className="shrink-0 text-ink-3" />
-              <span className="text-sm font-medium">{CHANNEL_LABEL[c.channel]}</span>
+              <span className="text-sm font-medium">
+                {CHANNEL_LABEL[c.channel]}
+                {c.channel !== 'CALL' && (
+                  <span className="font-normal text-ink-3"> · {labelOf(TEMPLATE_PURPOSES, c.purpose ?? 'INTERVIEW_INVITATION')}</span>
+                )}
+              </span>
               <CommStatusPill status={c.status} />
               {c.callOutcome && <Pill tone="grey">{OUTCOMES.find((o) => o.value === c.callOutcome)?.label}</Pill>}
               <span className="text-xs text-ink-3">to {c.recipient}</span>
