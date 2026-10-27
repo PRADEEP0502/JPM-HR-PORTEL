@@ -1,53 +1,38 @@
 package com.jpm.hrms.interview;
 
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.jpm.hrms.common.CriteriaRepository;
+import com.jpm.hrms.common.MongoText;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.core.query.Criteria;
 
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
-public interface InterviewRepository extends JpaRepository<Interview, Long>, JpaSpecificationExecutor<Interview> {
-
-    @Override
-    @EntityGraph(attributePaths = {"candidate", "candidate.department"})
-    Page<Interview> findAll(Specification<Interview> spec, Pageable pageable);
-
-    @Override
-    @EntityGraph(attributePaths = {"candidate", "candidate.department"})
-    List<Interview> findAll(Specification<Interview> spec, Sort sort);
+public interface InterviewRepository extends CriteriaRepository<Interview, Long> {
 
     List<Interview> findByCandidateIdOrderByScheduledAtDesc(Long candidateId);
 
     long countByStatusInAndScheduledAtAfter(Collection<InterviewStatus> statuses, Instant after);
 
-    @EntityGraph(attributePaths = {"candidate", "candidate.department"})
     List<Interview> findTop6ByStatusInAndScheduledAtAfterOrderByScheduledAtAsc(Collection<InterviewStatus> statuses, Instant after);
 
-    @EntityGraph(attributePaths = {"candidate"})
-    List<Interview> findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(Collection<InterviewStatus> statuses, Instant from, Instant to);
+    /** Interviews starting in [from, to). */
+    default List<Interview> findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(Collection<InterviewStatus> statuses,
+                                                                                     Instant from, Instant to) {
+        return findAll(Criteria.where("status").in(statuses).and("scheduledAt").gte(from).lt(to),
+                Sort.by(Sort.Direction.ASC, "scheduledAt"));
+    }
 
-    @Query("select i.status, count(i) from Interview i group by i.status")
-    List<Object[]> countGroupedByStatus();
+    void deleteByCandidateIdIn(Collection<Long> candidateIds);
 
-    /** Active interviews for the same interviewer whose start falls inside a window (for clash detection). */
-    @Query("""
-            select i from Interview i
-            where lower(i.interviewer) = lower(:interviewer)
-              and i.status in :statuses
-              and i.scheduledAt > :windowStart and i.scheduledAt < :windowEnd
-              and i.id <> :excludeId
-            """)
-    List<Interview> findClashes(@Param("interviewer") String interviewer,
-                                @Param("statuses") Collection<InterviewStatus> statuses,
-                                @Param("windowStart") Instant windowStart, @Param("windowEnd") Instant windowEnd,
-                                @Param("excludeId") long excludeId);
+    /** Active interviews for the same interviewer (case-insensitive) whose start falls inside a window (clash detection). */
+    default List<Interview> findClashes(String interviewer, Collection<InterviewStatus> statuses,
+                                        Instant windowStart, Instant windowEnd, long excludeId) {
+        return findAll(Criteria.where("interviewer").regex(MongoText.exact(interviewer), "i")
+                .and("status").in(statuses)
+                .and("scheduledAt").gt(windowStart).lt(windowEnd)
+                .and("_id").ne(excludeId), Sort.unsorted());
+    }
 }

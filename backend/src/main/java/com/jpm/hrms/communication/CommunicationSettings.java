@@ -1,38 +1,41 @@
 package com.jpm.hrms.communication;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
 /** Company identity shared by every WhatsApp and email template (single row, admin-managed). */
-@Entity
-@Table(name = "communication_settings")
-public class CommunicationSettings {
+@Document("communication_settings")
+public class CommunicationSettings implements SequencedEntity {
     public static final long SINGLETON_ID = 1L;
     public static final String DEFAULT_COMPANY = "JPM – Junior Processing Mill";
 
     @Id
     private Long id = SINGLETON_ID;
-    @Column(nullable = false)
     private String companyName = DEFAULT_COMPANY;
-    @Column(nullable = false)
     private String defaultVenue = DEFAULT_COMPANY;
-    @Column(nullable = false)
     private String hrSignature = "HR Department\n" + DEFAULT_COMPANY;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
-    @Column(nullable = false)
     private String defaultCountryCode = "91";
     private String updatedBy;
     private Instant updatedAt;
 
-    @PrePersist
-    @PreUpdate
-    void touch() {
+    /** Settings documents keep their fixed id; every save refreshes updatedAt. */
+    @Override
+    public void assignId(Long id) {
+        this.id = id;
+    }
+
+    @Override
+    public void onCreate() {
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 

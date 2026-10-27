@@ -131,3 +131,14 @@ export function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** Profile Match Rating guideline bands (HR makes the final call). */
+export const RATING_BANDS: { min: number; max: number; label: string; tone: Tone }[] = [
+  { min: 1, max: 2, label: 'Not Suitable', tone: 'red' },
+  { min: 3, max: 4, label: 'Low Match', tone: 'orange' },
+  { min: 5, max: 6, label: 'Average Match', tone: 'violet' },
+  { min: 7, max: 8, label: 'Good Match', tone: 'aqua' },
+  { min: 9, max: 10, label: 'Excellent Match', tone: 'green' },
+];
+
+export const ratingBand = (rating: number) => RATING_BANDS.find((b) => rating >= b.min && rating <= b.max)!;

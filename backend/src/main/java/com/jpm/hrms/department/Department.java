@@ -1,24 +1,17 @@
 package com.jpm.hrms.department;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "departments")
-public class Department {
+@Document("departments")
+public class Department implements SequencedEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
     private String name;
 
     private String description;
@@ -34,17 +27,19 @@ public class Department {
         this.description = description;
     }
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = updatedAt = Instant.now();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }

@@ -1,17 +1,15 @@
 package com.jpm.hrms.sync;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
 /** Single-row, admin-editable integration settings. Credentials are deliberately NOT stored here. */
-@Entity
-@Table(name = "integration_settings")
-public class IntegrationSettings {
+@Document("integration_settings")
+public class IntegrationSettings implements SequencedEntity {
     public static final long SINGLETON_ID = 1L;
 
     @Id
@@ -26,9 +24,19 @@ public class IntegrationSettings {
     private String updatedBy;
     private Instant updatedAt;
 
-    @PrePersist
-    @PreUpdate
-    void touch() {
+    /** Settings documents keep their fixed id; every save refreshes updatedAt. */
+    @Override
+    public void assignId(Long id) {
+        this.id = id;
+    }
+
+    @Override
+    public void onCreate() {
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 

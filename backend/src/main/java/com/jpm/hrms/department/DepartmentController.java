@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,7 +52,6 @@ public class DepartmentController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
-    @Transactional
     public DepartmentResponse create(@Valid @RequestBody DepartmentRequest req) {
         String name = req.name().trim();
         if (repo.findByNameIgnoreCase(name).isPresent()) throw ApiException.conflict("A department with this name already exists");
@@ -66,7 +64,6 @@ public class DepartmentController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @Transactional
     public DepartmentResponse update(@PathVariable Long id, @Valid @RequestBody DepartmentRequest req) {
         Department d = repo.findById(id).orElseThrow(() -> ApiException.notFound("Department"));
         String name = req.name().trim();
@@ -76,6 +73,7 @@ public class DepartmentController {
         d.setName(name);
         d.setDescription(StringUtils.hasText(req.description()) ? req.description().trim() : null);
         d.setActive(req.active());
+        repo.save(d);
         audit.record("DEPARTMENT_UPDATED", "DEPARTMENT", d.getId(),
                 "Updated department " + before + " → " + d.getName() + (d.isActive() ? "" : " (inactive)"));
         return DepartmentResponse.from(d);
@@ -85,7 +83,6 @@ public class DepartmentController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     public void delete(@PathVariable Long id) {
         Department d = repo.findById(id).orElseThrow(() -> ApiException.notFound("Department"));
         if (candidates.countByDepartmentId(id) > 0) {

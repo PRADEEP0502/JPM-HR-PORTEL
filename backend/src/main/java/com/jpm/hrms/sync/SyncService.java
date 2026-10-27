@@ -22,9 +22,6 @@ import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
@@ -97,7 +94,6 @@ public class SyncService {
     private final AuditService audit;
     private final AppProperties props;
     private final ObjectMapper mapper;
-    private final TransactionTemplate tx;
     private final Clock clock;
     private final ZoneId zone;
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -105,7 +101,7 @@ public class SyncService {
     public SyncService(GoogleApiClient google, IntegrationSettingsRepository settingsRepo, SyncRunRepository runs,
                        IgnoredRowRepository ignored, CandidateRepository candidates, CandidateDocumentRepository documents,
                        DepartmentRepository departments, AuditService audit, AppProperties props, ObjectMapper mapper,
-                       PlatformTransactionManager txManager, Clock clock, ZoneId businessZone) {
+                       Clock clock, ZoneId businessZone) {
         this.google = google;
         this.settingsRepo = settingsRepo;
         this.runs = runs;
@@ -116,7 +112,6 @@ public class SyncService {
         this.audit = audit;
         this.props = props;
         this.mapper = mapper;
-        this.tx = new TransactionTemplate(txManager);
         this.clock = clock;
         this.zone = businessZone;
     }
@@ -124,7 +119,6 @@ public class SyncService {
     // ---------------------------------------------------------------- settings
 
     /** Loads the settings row, creating it from environment defaults on first use. */
-    @Transactional
     public IntegrationSettings settings() {
         return settingsRepo.findById(IntegrationSettings.SINGLETON_ID).orElseGet(() -> {
             IntegrationSettings s = new IntegrationSettings();
@@ -136,12 +130,10 @@ public class SyncService {
         });
     }
 
-    @Transactional
     public SettingsResponse getSettings() {
         return toResponse(settings());
     }
 
-    @Transactional
     public SettingsResponse updateSettings(SettingsRequest req, String actor) {
         String sheetId = blankToNull(req.spreadsheetId());
         if (sheetId != null && !sheetId.matches("^[A-Za-z0-9_-]{20,100}$")) {
@@ -170,7 +162,7 @@ public class SyncService {
         s.setSyncIntervalMinutes(req.syncIntervalMinutes());
         s.setColumnMapping(mapping.isEmpty() ? null : writeJson(mapping));
         s.setUpdatedBy(actor);
-        settingsRepo.saveAndFlush(s);
+        settingsRepo.save(s);
         audit.record("INTEGRATION_SETTINGS_UPDATED", "SETTINGS", s.getId(),
                 "Sheet " + (sheetId == null ? "(not set)" : mask(sheetId)) + ", range \"" + s.getSheetRange() + "\", auto-sync "
                         + (s.isAutoSyncEnabled() ? "every " + s.getSyncIntervalMinutes() + " min" : "off")
@@ -178,7 +170,6 @@ public class SyncService {
         return toResponse(s);
     }
 
-    @Transactional
     public SyncStatus status() {
         IntegrationSettings s = settings();
         var last = runs.findTopByOrderByStartedAtDesc();
@@ -237,7 +228,7 @@ public class SyncService {
 
     /** Called by the scheduler; skips silently when not due, not configured, or already running. */
     public void runIfDue() {
-        IntegrationSettings s = tx.execute(st -> settings());
+        IntegrationSettings s = settings();
         if (s == null || !s.isAutoSyncEnabled() || !isConfigured()) return;
         var last = runs.findTopByOrderByStartedAtDesc();
         Instant now = clock.instant();
@@ -254,7 +245,7 @@ public class SyncService {
         SyncRun run = runs.save(new SyncRun(triggeredBy));
         List<String> messages = new ArrayList<>();
         try {
-            IntegrationSettings s = tx.execute(st -> settings());
+            IntegrationSettings s = settings();
             if (!google.isConfigured()) throw new SyncFailure("Service-account credentials are not configured on the server.");
             if (s == null || !StringUtils.hasText(s.getSpreadsheetId())) throw new SyncFailure("Spreadsheet ID is not configured.");
 
@@ -280,7 +271,7 @@ public class SyncService {
                     skipped++;
                     String reason = "Row " + p.rowNumber() + ": skipped - " + String.join("; ", p.errors());
                     addMessage(messages, reason);
-                    tx.executeWithoutResult(st -> ignored.save(new IgnoredRow(p.rowKey(), reason)));
+                    ignored.save(new IgnoredRow(p.rowKey(), reason));
                     continue;
                 }
                 String dup = duplicateReason(p);
@@ -288,14 +279,14 @@ public class SyncService {
                     duplicates++;
                     String reason = "Row " + p.rowNumber() + ": duplicate of existing candidate (" + dup + ")";
                     addMessage(messages, reason);
-                    tx.executeWithoutResult(st -> ignored.save(new IgnoredRow(p.rowKey(), reason)));
+                    ignored.save(new IgnoredRow(p.rowKey(), reason));
                     continue;
                 }
                 List<String> rowWarnings = new ArrayList<>(p.warnings());
                 Department dept = p.department() == null ? null : deptByName.get(p.department().toLowerCase(Locale.ROOT));
                 if (p.department() != null && dept == null) rowWarnings.add("department \"" + p.department() + "\" is not configured");
                 try {
-                    Candidate c = tx.execute(st -> importRow(p, dept, rowWarnings));
+                    Candidate c = importRow(p, dept, rowWarnings);
                     created++;
                     if (!rowWarnings.isEmpty()) {
                         warnings++;
@@ -358,8 +349,9 @@ public class SyncService {
         c.setSource(CandidateSource.GOOGLE_SHEETS);
         c.setSourceRowKey(p.rowKey());
         c.setDataIssues(rowWarnings.isEmpty() ? null : truncate(String.join("; ", rowWarnings), 2000));
-        candidates.saveAndFlush(c);
-        CandidateService.assignCode(c);
+        candidates.save(c);
+        CandidateService.assignCode(c, candidates);
+        candidates.save(c);
         addDriveDocs(c, DocType.RESUME, "Resume", p.resumeIds());
         addDriveDocs(c, DocType.AADHAAR, "Aadhaar", p.aadhaarIds());
         addDriveDocs(c, DocType.CERTIFICATE, "Certificate", p.certificateIds());
@@ -385,7 +377,6 @@ public class SyncService {
 
     // ---------------------------------------------------------------- helpers
 
-    @Transactional(readOnly = true)
     public List<SyncRunResponse> recentRuns(int limit) {
         return runs.findAllByOrderByStartedAtDesc(org.springframework.data.domain.PageRequest.of(0, Math.min(Math.max(limit, 1), 50)))
                 .map(SyncRunResponse::from).getContent();

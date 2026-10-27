@@ -1,39 +1,26 @@
 package com.jpm.hrms.user;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "app_users")
-public class AppUser {
+@Document("app_users")
+public class AppUser implements SequencedEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
     private String fullName;
 
     private String email;
 
-    @Column(nullable = false)
     private String passwordHash;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Role role;
 
     private boolean enabled = true;
@@ -43,17 +30,19 @@ public class AppUser {
     private Instant createdAt;
     private Instant updatedAt;
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = updatedAt = Instant.now();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public String getFullName() { return fullName; }

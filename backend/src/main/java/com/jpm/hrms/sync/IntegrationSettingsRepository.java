@@ -1,6 +1,6 @@
 package com.jpm.hrms.sync;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.jpm.hrms.common.CriteriaRepository;
 
-public interface IntegrationSettingsRepository extends JpaRepository<IntegrationSettings, Long> {
+public interface IntegrationSettingsRepository extends CriteriaRepository<IntegrationSettings, Long> {
 }

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, UserCheck, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -15,14 +15,25 @@ import {
   fmtExperience,
 } from '../lib/format';
 import type { CandidateListItem, Page } from '../lib/types';
-import { ApplicationPill, DemoTag, InterviewPill } from '../components/ui/Pill';
+import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../components/ui/Pill';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
-import { EditCandidateModal, StatusModal, type StatusTarget } from '../components/modals/CandidateModals';
+import { EditCandidateModal, RatingModal, StatusModal, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
-const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus'] as const;
+const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating'] as const;
+
+/** Profile Match Rating filter values understood by the API. */
+const RATING_FILTERS = [
+  { value: '7+', label: 'Rating 7 or above' },
+  { value: '9-10', label: '9–10 · Excellent Match' },
+  { value: '7-8', label: '7–8 · Good Match' },
+  { value: '5-6', label: '5–6 · Average Match' },
+  { value: '3-4', label: '3–4 · Low Match' },
+  { value: '1-2', label: '1–2 · Not Suitable' },
+  { value: 'UNRATED', label: 'Not Rated' },
+];
 
 const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
   { key: 'candidateCode', label: 'Candidate ID', sortable: true },
@@ -32,8 +43,10 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
   { key: 'qualification', label: 'Qualification', sortable: true },
   { key: 'experience', label: 'Experience', sortable: true },
   { key: 'applicationDate', label: 'Application Date', sortable: true },
+  { key: 'rating', label: 'Profile Match', sortable: true },
   { key: 'applicationStatus', label: 'Application Status', sortable: true },
   { key: 'interviewStatus', label: 'Interview Status', sortable: true },
+  { key: 'ratingRemark', label: 'HR Remarks' },
 ];
 
 export default function CandidatesPage() {
@@ -43,6 +56,7 @@ export default function CandidatesPage() {
   const [search, setSearch] = useState(params.get('q') ?? '');
   const [editId, setEditId] = useState<number | null>(null);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [exporting, setExporting] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [contact, setContact] = useState<{ candidateId: number; tab: Tab; title: string } | null>(null);
@@ -120,7 +134,7 @@ export default function CandidatesPage() {
             {exporting ? <Spinner size={15} /> : <Download size={15} />} Export to Excel
           </button>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
           <select className="input" aria-label="Department" value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value })}>
             <option value="">All departments</option>
             {departments?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -143,6 +157,22 @@ export default function CandidatesPage() {
             <option value="">Any verification</option>
             {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
+          <select className="input" aria-label="Profile match rating" value={filters.rating} onChange={(e) => update({ rating: e.target.value })}>
+            <option value="">Any rating</option>
+            {RATING_FILTERS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <button
+            className={clsx('justify-start', filters.rating === '7+' ? 'btn-primary' : 'btn-secondary')}
+            aria-pressed={filters.rating === '7+'}
+            title="Show candidates rated 7 or above, highest first"
+            onClick={() =>
+              filters.rating === '7+'
+                ? update({ rating: null })
+                : update({ rating: '7+', sort: 'rating', dir: 'desc' })
+            }
+          >
+            <Star size={15} /> Top matches (7+)
+          </button>
           <button className="btn-ghost justify-start" disabled={activeFilters === 0} onClick={() => update(Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))}>
             <FilterX size={15} /> Clear filters {activeFilters > 0 && `(${activeFilters})`}
           </button>
@@ -163,15 +193,19 @@ export default function CandidatesPage() {
         ) : (
           <>
             <div className={clsx('-mx-4 overflow-x-auto transition-opacity', query.isFetching && 'opacity-70')}>
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1380px]">
                 <thead>
                   <tr className="border-b border-line">
                     {COLUMNS.map((c) => (
-                      <th key={c.key} className="th first:pl-4" aria-sort={sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                        <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => toggleSort(c.key)}>
-                          {c.label}
-                          {sort === c.key ? (dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} className="opacity-40" />}
-                        </button>
+                      <th key={c.key} className="th first:pl-4" aria-sort={!c.sortable ? undefined : sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        {c.sortable ? (
+                          <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => toggleSort(c.key)}>
+                            {c.label}
+                            {sort === c.key ? (dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} className="opacity-40" />}
+                          </button>
+                        ) : (
+                          c.label
+                        )}
                       </th>
                     ))}
                     <th className="th pr-4 text-right">Actions</th>
@@ -192,8 +226,19 @@ export default function CandidatesPage() {
                       <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
                       <td className="td tabular-nums">{fmtDate(c.applicationDate)}</td>
+                      <td className="td">
+                        <button
+                          className="rounded-md hover:opacity-80"
+                          title={c.profileRating == null ? 'Rate this profile' : 'Update rating'}
+                          aria-label={`${c.profileRating == null ? 'Rate' : 'Update rating for'} ${c.fullName}`}
+                          onClick={() => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark })}
+                        >
+                          <RatingPill rating={c.profileRating} />
+                        </button>
+                      </td>
                       <td className="td"><ApplicationPill status={c.applicationStatus} /></td>
                       <td className="td"><InterviewPill status={c.interviewStatus} /></td>
+                      <td className="td max-w-[220px] truncate text-ink-2" title={c.ratingRemark ?? undefined}>{c.ratingRemark ?? <span className="text-ink-3">—</span>}</td>
                       <td className="td pr-4">
                         {(() => {
                           const phoneIssue = phoneProblem(c.mobile);
@@ -237,6 +282,11 @@ export default function CandidatesPage() {
                                     icon: <UserCheck size={15} />,
                                     onClick: () => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus }),
                                   },
+                                  {
+                                    label: c.profileRating == null ? 'Rate profile' : 'Update rating',
+                                    icon: <Star size={15} />,
+                                    onClick: () => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark }),
+                                  },
                                   { label: downloading === c.id ? 'Downloading…' : 'Download resume', icon: <FileDown size={15} />, onClick: () => downloadResume(c) },
                                 ]}
                               />
@@ -263,6 +313,7 @@ export default function CandidatesPage() {
 
       <EditCandidateModal candidateId={editId} onClose={() => setEditId(null)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <CommunicationDialog target={contact} onClose={() => setContact(null)} />
       {call.modal}
     </div>

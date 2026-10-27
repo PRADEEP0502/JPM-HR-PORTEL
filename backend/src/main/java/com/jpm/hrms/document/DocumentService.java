@@ -18,7 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
@@ -64,7 +63,6 @@ public class DocumentService {
      * Stores an uploaded file. When an encryption key is configured every file is encrypted at rest;
      * Aadhaar copies additionally require the key and the candidate's recorded consent.
      */
-    @Transactional
     public DocumentResponse upload(Long candidateId, DocType type, MultipartFile file, boolean consent, String actor) {
         Candidate c = candidates.findById(candidateId).orElseThrow(() -> ApiException.notFound("Candidate"));
         if (file == null || file.isEmpty()) throw ApiException.badRequest("Choose a file to upload");
@@ -104,13 +102,11 @@ public class DocumentService {
         }
     }
 
-    @Transactional
     public ResponseEntity<InputStreamResource> download(Long documentId) {
         CandidateDocument d = docs.findById(documentId).orElseThrow(() -> ApiException.notFound("Document"));
         return stream(d);
     }
 
-    @Transactional
     public ResponseEntity<InputStreamResource> downloadLatestResume(Long candidateId) {
         if (!candidates.existsById(candidateId)) throw ApiException.notFound("Candidate");
         CandidateDocument d = docs.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(candidateId, DocType.RESUME)
@@ -119,7 +115,6 @@ public class DocumentService {
     }
 
     /** Removes a document (e.g. an Aadhaar copy once verification is complete). Drive files are only unlinked. */
-    @Transactional
     public void delete(Long documentId) {
         CandidateDocument d = docs.findById(documentId).orElseThrow(() -> ApiException.notFound("Document"));
         if (d.getStorage() == Storage.LOCAL) {
@@ -133,7 +128,7 @@ public class DocumentService {
             }
         }
         docs.delete(d);
-        audit.record("DOCUMENT_DELETED", "CANDIDATE", d.getCandidate().getId(), label(d.getDocType()) + " deleted: "
+        audit.record("DOCUMENT_DELETED", "CANDIDATE", d.getCandidateId(), label(d.getDocType()) + " deleted: "
                 + d.getFileName() + (d.getStorage() == Storage.DRIVE ? " (link removed; file remains in Google Drive)" : ""));
     }
 
@@ -169,7 +164,7 @@ public class DocumentService {
                 throw new ApiException(HttpStatus.BAD_GATEWAY, "Could not fetch the file from Google Drive: " + e.getMessage());
             }
         }
-        audit.record("DOCUMENT_DOWNLOADED", "CANDIDATE", d.getCandidate().getId(), label(d.getDocType()) + " downloaded: " + name);
+        audit.record("DOCUMENT_DOWNLOADED", "CANDIDATE", d.getCandidateId(), label(d.getDocType()) + " downloaded: " + name);
         var builder = ResponseEntity.ok()
                 // Always served as a download (never rendered inline) to avoid content-sniffing issues.
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)

@@ -1,6 +1,6 @@
 package com.jpm.hrms.sync;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.jpm.hrms.common.CriteriaRepository;
 
-public interface IgnoredRowRepository extends JpaRepository<IgnoredRow, String> {
+public interface IgnoredRowRepository extends CriteriaRepository<IgnoredRow, String> {
 }

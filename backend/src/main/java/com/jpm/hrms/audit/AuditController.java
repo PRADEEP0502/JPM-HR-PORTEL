@@ -1,10 +1,10 @@
 package com.jpm.hrms.audit;
 
+import com.jpm.hrms.common.MongoText;
 import com.jpm.hrms.common.PageResponse;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,16 +30,12 @@ public class AuditController {
                                        @RequestParam(defaultValue = "0") int page,
                                        @RequestParam(defaultValue = "25") int size) {
         PageRequest pr = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(Sort.Direction.DESC, "occurredAt"));
-        // Built with criteria (not ":param is null" JPQL) so PostgreSQL never sees untyped null parameters.
-        Specification<AuditLog> spec = (root, query, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            if (StringUtils.hasText(action)) ps.add(cb.equal(root.get("action"), action));
-            if (StringUtils.hasText(q)) {
-                String like = "%" + q.trim().toLowerCase() + "%";
-                ps.add(cb.or(cb.like(cb.lower(root.get("details")), like), cb.like(cb.lower(root.get("actor")), like)));
-            }
-            return cb.and(ps.toArray(Predicate[]::new));
-        };
-        return PageResponse.of(repo.findAll(spec, pr), a -> a);
+        List<Criteria> cs = new ArrayList<>();
+        if (StringUtils.hasText(action)) cs.add(Criteria.where("action").is(action));
+        if (StringUtils.hasText(q)) {
+            String text = MongoText.contains(q);
+            cs.add(new Criteria().orOperator(Criteria.where("details").regex(text, "i"), Criteria.where("actor").regex(text, "i")));
+        }
+        return PageResponse.of(repo.findAll(cs.isEmpty() ? new Criteria() : new Criteria().andOperator(cs), pr), a -> a);
     }
 }

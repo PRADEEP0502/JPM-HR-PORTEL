@@ -1,13 +1,21 @@
-# Local development profile: embedded H2 database (PostgreSQL compatibility mode) + demo mode on by default.
-# Activate with SPRING_PROFILES_ACTIVE=dev
+# Local development profile. Activate with SPRING_PROFILES_ACTIVE=dev
+#
+# Uses the MongoDB server on this machine (mongodb://localhost:27017/jpm_hrms, e.g. the MongoDB Windows service).
+# MongoDB Atlas: set MONGODB_URI. No MongoDB installed: set EMBEDDED_MONGO=true and the app starts its own
+# development-only server with data kept in ./data/mongo.
+# Set DEMO_MODE=true to seed fictional sample candidates into an empty database.
 spring:
-  datasource:
-    url: ${DB_URL:jdbc:h2:file:./data/hrms-dev-pg;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:}
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/jpm_hrms}
 
 app:
-  demo-mode: ${DEMO_MODE:true}
+  demo-mode: ${DEMO_MODE:false}
+  embedded-mongo:
+    enabled: ${EMBEDDED_MONGO:false}
+    data-dir: ${EMBEDDED_MONGO_DIR:./data/mongo}
+    # Fixed port so MongoDB Compass / mongosh can connect to the dev database: mongodb://127.0.0.1:27018/jpm_hrms
+    port: ${EMBEDDED_MONGO_PORT:27018}
   upload-dir: ${UPLOAD_DIR:./data/uploads-pg}
   # DEV ONLY key so Aadhaar uploads work locally. Never reuse this value in production.
   document-encryption-key: ${DOCUMENT_ENCRYPTION_KEY:T4ryaPbzxEBk/vDMLFc/ihRAuLHJV4qvqdX/iIqT16A=}

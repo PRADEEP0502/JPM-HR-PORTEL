@@ -1,24 +1,15 @@
 package com.jpm.hrms.document;
 
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import com.jpm.hrms.candidate.Candidate;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "candidate_documents")
-public class CandidateDocument {
+@Document("candidate_documents")
+public class CandidateDocument implements SequencedEntity {
 
     /** AADHAAR is a copy of the identity card only (no number is stored or verified); always stored encrypted. */
     public enum DocType { RESUME, AADHAAR, CERTIFICATE, OTHER }
@@ -27,26 +18,18 @@ public class CandidateDocument {
     public enum Storage { LOCAL, DRIVE }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "candidate_id")
-    private Candidate candidate;
+    private Long candidateId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private DocType docType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Storage storage;
 
     private String fileName;
     private String contentType;
     private Long sizeBytes;
     /** Server-side file name (LOCAL) or Drive file id (DRIVE). Never sent to the browser. */
-    @Column(nullable = false)
     private String storageRef;
     private String uploadedBy;
     /** True when the LOCAL file on disk is AES-GCM encrypted (see DocumentCrypto). */
@@ -58,7 +41,7 @@ public class CandidateDocument {
 
     public CandidateDocument(Candidate candidate, DocType docType, Storage storage, String fileName,
                              String contentType, Long sizeBytes, String storageRef, String uploadedBy) {
-        this.candidate = candidate;
+        this.candidateId = candidate.getId();
         this.docType = docType;
         this.storage = storage;
         this.fileName = fileName;
@@ -68,13 +51,15 @@ public class CandidateDocument {
         this.uploadedBy = uploadedBy;
     }
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = Instant.now();
     }
 
     public Long getId() { return id; }
-    public Candidate getCandidate() { return candidate; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
+    public Long getCandidateId() { return candidateId; }
     public DocType getDocType() { return docType; }
     public Storage getStorage() { return storage; }
     public String getFileName() { return fileName; }

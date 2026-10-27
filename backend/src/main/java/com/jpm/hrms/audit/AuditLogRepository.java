@@ -1,11 +1,9 @@
 package com.jpm.hrms.audit;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import com.jpm.hrms.common.CriteriaRepository;
 
 import java.util.List;
 
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSpecificationExecutor<AuditLog> {
-
+public interface AuditLogRepository extends CriteriaRepository<AuditLog, Long> {
     List<AuditLog> findByEntityTypeAndEntityIdOrderByOccurredAtDesc(String entityType, Long entityId);
 }

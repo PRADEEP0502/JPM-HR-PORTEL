@@ -6,14 +6,14 @@ import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
 import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.department.Department;
+import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.department.DepartmentRepository;
 import com.jpm.hrms.interview.Interview;
 import com.jpm.hrms.interview.InterviewRepository;
-import jakarta.persistence.criteria.Predicate;
+import com.jpm.hrms.interview.InterviewViews;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -61,11 +61,15 @@ public class ReportService {
     private final CandidateRepository candidates;
     private final InterviewRepository interviews;
     private final DepartmentRepository departments;
+    private final DepartmentDirectory depts;
+    private final InterviewViews views;
     private final Clock clock;
     private final ZoneId zone;
 
     public ReportService(CandidateRepository candidates, InterviewRepository interviews, DepartmentRepository departments,
-                         Clock clock, ZoneId businessZone) {
+                         DepartmentDirectory depts, InterviewViews views, Clock clock, ZoneId businessZone) {
+        this.depts = depts;
+        this.views = views;
         this.candidates = candidates;
         this.interviews = interviews;
         this.departments = departments;
@@ -73,7 +77,6 @@ public class ReportService {
         this.zone = businessZone;
     }
 
-    @Transactional(readOnly = true)
     public Report build(ReportType type, LocalDate from, LocalDate to) {
         if (from != null && to != null && from.isAfter(to)) {
             throw com.jpm.hrms.common.ApiException.badRequest("'From' date must be on or before 'To' date");
@@ -88,17 +91,18 @@ public class ReportService {
             case SELECTED -> candidateList(type, from, to, statusSpec(ApplicationStatus.SELECTED));
             case REJECTED -> candidateList(type, from, to, statusSpec(ApplicationStatus.REJECTED));
             case PENDING_VERIFICATION -> candidateList(type, from, to,
-                    (root, q, cb) -> cb.equal(root.get("verificationStatus"), VerificationStatus.PENDING));
+                    Criteria.where("verificationStatus").is(VerificationStatus.PENDING));
             case INTERVIEW_STATUS -> interviewReport(from, to);
         };
     }
 
     private Report department(LocalDate from, LocalDate to) {
         List<Candidate> all = candidates.findAll(dateRange(from, to), Sort.unsorted());
+        DepartmentDirectory.Names names = depts.snapshot();
         Map<String, long[]> agg = new LinkedHashMap<>(); // total, new, shortlisted, selected, rejected, pending
         for (Department d : departments.findAllByOrderByNameAsc()) if (d.isActive()) agg.put(d.getName(), new long[6]);
         for (Candidate c : all) {
-            String name = c.getDepartment() == null ? "Unassigned" : c.getDepartment().getName();
+            String name = names.name(c) == null ? "Unassigned" : names.name(c);
             long[] a = agg.computeIfAbsent(name, k -> new long[6]);
             a[0]++;
             switch (c.getApplicationStatus()) {
@@ -166,12 +170,14 @@ public class ReportService {
                 rows, chart);
     }
 
-    private Report candidateList(ReportType type, LocalDate from, LocalDate to, Specification<Candidate> spec) {
-        List<Candidate> list = candidates.findAll(spec.and(dateRange(from, to)), Sort.by(Sort.Direction.DESC, "appliedAt"));
+    private Report candidateList(ReportType type, LocalDate from, LocalDate to, Criteria filter) {
+        List<Candidate> list = candidates.findAll(new Criteria().andOperator(filter, dateRange(from, to)),
+                Sort.by(Sort.Direction.DESC, "appliedAt"));
+        DepartmentDirectory.Names names = depts.snapshot();
         List<Map<String, Object>> rows = new ArrayList<>();
         Map<String, Long> byDept = new LinkedHashMap<>();
         for (Candidate c : list) {
-            String dept = c.getDepartment() != null ? c.getDepartment().getName() : c.getDepartmentRaw() != null ? c.getDepartmentRaw() : "Unassigned";
+            String dept = names.nameOrRaw(c) != null ? names.nameOrRaw(c) : "Unassigned";
             Map<String, Object> r = new LinkedHashMap<>();
             r.put("id", c.getId());
             r.put("candidateCode", c.getCandidateCode());
@@ -198,21 +204,21 @@ public class ReportService {
     }
 
     private Report interviewReport(LocalDate from, LocalDate to) {
-        Specification<Interview> spec = (root, q, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            if (from != null) ps.add(cb.greaterThanOrEqualTo(root.get("scheduledAt"), from.atStartOfDay(zone).toInstant()));
-            if (to != null) ps.add(cb.lessThan(root.get("scheduledAt"), to.plusDays(1).atStartOfDay(zone).toInstant()));
-            return cb.and(ps.toArray(Predicate[]::new));
-        };
+        Criteria range = Criteria.where("scheduledAt");
+        if (from != null) range = range.gte(from.atStartOfDay(zone).toInstant());
+        if (to != null) range = range.lt(to.plusDays(1).atStartOfDay(zone).toInstant());
+        Criteria spec = from == null && to == null ? new Criteria() : range;
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm").withZone(zone);
         List<Interview> list = interviews.findAll(spec, Sort.by(Sort.Direction.DESC, "scheduledAt"));
+        Map<Long, Candidate> byId = views.candidatesOf(list);
         Map<InterviewStatus, Long> counts = new EnumMap<>(InterviewStatus.class);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Interview i : list) {
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("id", i.getCandidate().getId());
-            r.put("candidateCode", i.getCandidate().getCandidateCode());
-            r.put("fullName", i.getCandidate().getFullName());
+            Candidate c = byId.get(i.getCandidateId());
+            r.put("id", i.getCandidateId());
+            r.put("candidateCode", c == null ? null : c.getCandidateCode());
+            r.put("fullName", c == null ? null : c.getFullName());
             r.put("round", i.getRoundName());
             r.put("interviewer", i.getInterviewer());
             r.put("scheduledAt", fmt.format(i.getScheduledAt()));
@@ -234,16 +240,15 @@ public class ReportService {
                 rows, chart);
     }
 
-    private static Specification<Candidate> statusSpec(ApplicationStatus s) {
-        return (root, q, cb) -> cb.equal(root.get("applicationStatus"), s);
+    private static Criteria statusSpec(ApplicationStatus s) {
+        return Criteria.where("applicationStatus").is(s);
     }
 
-    private static Specification<Candidate> dateRange(LocalDate from, LocalDate to) {
-        return (root, q, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            if (from != null) ps.add(cb.greaterThanOrEqualTo(root.get("applicationDate"), from));
-            if (to != null) ps.add(cb.lessThanOrEqualTo(root.get("applicationDate"), to));
-            return cb.and(ps.toArray(Predicate[]::new));
-        };
+    private static Criteria dateRange(LocalDate from, LocalDate to) {
+        if (from == null && to == null) return new Criteria();
+        Criteria c = Criteria.where("applicationDate");
+        if (from != null) c = c.gte(from);
+        if (to != null) c = c.lte(to);
+        return c;
     }
 }

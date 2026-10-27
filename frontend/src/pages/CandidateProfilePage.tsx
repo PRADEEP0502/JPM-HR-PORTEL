@@ -19,6 +19,7 @@ import {
   Lock,
   MessageSquarePlus,
   PenSquare,
+  Star,
   Trash2,
   Upload,
   User,
@@ -30,9 +31,9 @@ import { useToast } from '../lib/toast';
 import { INTERVIEW_MODES, fmtBytes, fmtDate, fmtDateTime, fmtExperience, fmtRelative, labelOf } from '../lib/format';
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
-import { ApplicationPill, DemoTag, InterviewPill, VerificationPill } from '../components/ui/Pill';
+import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
-import { EditCandidateModal, StatusModal, useInvalidateCandidates, type StatusTarget } from '../components/modals/CandidateModals';
+import { EditCandidateModal, RatingModal, StatusModal, useInvalidateCandidates, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
@@ -100,6 +101,7 @@ export default function CandidateProfilePage() {
   });
   const [editing, setEditing] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [interviewEdit, setInterviewEdit] = useState<Interview | null>(null);
   const [contact, setContact] = useState<Tab | null>(null);
@@ -179,7 +181,14 @@ export default function CandidateProfilePage() {
                 <ApplicationPill status={c.applicationStatus} />
                 <InterviewPill status={c.interviewStatus} />
                 <VerificationPill status={c.verificationStatus} />
+                <RatingPill rating={c.profileRating} />
               </div>
+              {c.profileRating != null && (
+                <p className="mt-1.5 max-w-xl text-xs text-ink-3">
+                  Rated by {c.ratedBy ?? '—'}{c.ratedAt && ` · ${fmtRelative(c.ratedAt)}`}
+                  {c.ratingRemark && <span className="block text-ink-2">“{c.ratingRemark}”</span>}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -200,6 +209,12 @@ export default function CandidateProfilePage() {
               onClick={() => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus })}
             >
               <UserCheck size={15} /> Update status
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark })}
+            >
+              <Star size={15} /> {c.profileRating == null ? 'Rate profile' : 'Update rating'}
             </button>
             <button className="btn-secondary" disabled={c.applicationStatus === 'REJECTED'} onClick={() => setScheduling(true)} title={c.applicationStatus === 'REJECTED' ? 'Rejected candidates cannot be scheduled' : undefined}>
               <CalendarPlus size={15} /> Schedule interview
@@ -478,6 +493,7 @@ export default function CandidateProfilePage() {
 
       <EditCandidateModal candidateId={editing ? c.id : null} onClose={() => setEditing(false)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <ScheduleInterviewModal open={scheduling} onClose={() => setScheduling(false)} candidate={{ id: c.id, name: c.fullName, code: c.candidateCode }} />
       <InterviewStatusModal interview={interviewEdit} onClose={() => setInterviewEdit(null)} />
       <CommunicationDialog

@@ -19,7 +19,6 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -61,7 +60,6 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Transactional(noRollbackFor = ApiException.class) // keep the LOGIN_FAILED audit entry
     public LoginResponse login(@Valid @RequestBody LoginRequest req) {
         String username = req.username().trim();
         if (attempts.isLocked(username)) {
@@ -75,6 +73,7 @@ public class AuthController {
         }
         attempts.recordSuccess(username);
         user.setLastLoginAt(Instant.now());
+        users.save(user);
         audit.recordAs(user.getUsername(), "LOGIN", "USER", user.getId(), "Signed in");
 
         Instant now = Instant.now();
@@ -97,13 +96,13 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
-    @Transactional
     public void changePassword(@Valid @RequestBody ChangePasswordRequest req, Authentication auth) {
         AppUser user = users.findByUsernameIgnoreCase(auth.getName()).orElseThrow(() -> ApiException.notFound("User"));
         if (!encoder.matches(req.currentPassword(), user.getPasswordHash())) {
             throw ApiException.badRequest("Current password is incorrect");
         }
         user.setPasswordHash(encoder.encode(req.newPassword()));
+        users.save(user);
         audit.record("PASSWORD_CHANGED", "USER", user.getId(), "Changed own password");
     }
 }

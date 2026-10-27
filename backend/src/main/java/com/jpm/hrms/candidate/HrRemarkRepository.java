@@ -1,9 +1,11 @@
 package com.jpm.hrms.candidate;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.jpm.hrms.common.CriteriaRepository;
 
 import java.util.List;
 
-public interface HrRemarkRepository extends JpaRepository<HrRemark, Long> {
+public interface HrRemarkRepository extends CriteriaRepository<HrRemark, Long> {
     List<HrRemark> findByCandidateIdOrderByCreatedAtDesc(Long candidateId);
+
+    void deleteByCandidateIdIn(List<Long> candidateIds);
 }

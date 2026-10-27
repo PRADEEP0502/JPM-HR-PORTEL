@@ -1,4 +1,4 @@
-# Test profile. The datasource (a real embedded PostgreSQL server) is supplied by PostgresTestSupport.
+# Test profile. A real MongoDB server (embedded, temporary data) is started once per test run.
 spring:
   mail:
     # GreenMail in-process SMTP server (see CommunicationApiTest)
@@ -14,6 +14,10 @@ spring:
       mail.smtp.timeout: 3000
 app:
   demo-mode: false
+  embedded-mongo:
+    enabled: true
+    data-dir:
+    port: 0
   upload-dir: ./target/test-uploads
   document-encryption-key: ZTVOGCquZCPUT4HsFbLLMYK119bzeJAdvmqlOhYFVFM=
   mail:

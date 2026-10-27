@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
-# JPM HRMS - PostgreSQL backup.
+# JPM HRMS - MongoDB backup.
 #
-# Creates a compressed custom-format dump (pg_dump -Fc) plus an archive of the uploaded documents,
-# checks that the dump is readable, and deletes backups older than RETENTION_DAYS.
+# Creates a compressed archive of the database (mongodump --archive --gzip) plus an archive of the uploaded
+# documents, checks that the archive is readable, and deletes backups older than RETENTION_DAYS.
 #
-# Connection settings come from the standard libpq variables (never hard-code passwords):
-#   PGHOST PGPORT PGUSER PGDATABASE, and PGPASSWORD or ~/.pgpass
-# Optional:
+# Requires the free MongoDB Database Tools (mongodump, mongorestore):
+#   https://www.mongodb.com/try/download/database-tools
+#
+# Settings (never hard-code passwords in this file):
+#   MONGODB_URI     connection string, e.g. mongodb+srv://backup-user:<password>@cluster0.xxxx.mongodb.net/jpm_hrms
+#                   Use a read-only user (Atlas role "backup" or "read") for backups.
 #   BACKUP_DIR      where backups are written           (default ./backups)
 #   UPLOAD_DIR      document storage to archive as well  (default: skip)
 #   RETENTION_DAYS  delete backups older than this       (default 14)
 #
-# Example (cron, daily at 01:30):
-#   30 1 * * * PGHOST=localhost PGUSER=jpm_hrms PGDATABASE=jpm_hrms BACKUP_DIR=/var/backups/jpm-hrms \
-#              UPLOAD_DIR=/srv/jpm-hrms/uploads /opt/jpm-hrms/scripts/backup-db.sh >> /var/log/jpm-hrms-backup.log 2>&1
+# Example (cron, daily at 01:30; the URI comes from a root-only env file):
+#   30 1 * * * . /etc/jpm-hrms/backup.env && BACKUP_DIR=/var/backups/jpm-hrms UPLOAD_DIR=/srv/jpm-hrms/uploads \
+#              /opt/jpm-hrms/scripts/backup-db.sh >> /var/log/jpm-hrms-backup.log 2>&1
 set -euo pipefail
 
-: "${PGDATABASE:?Set PGDATABASE (e.g. jpm_hrms)}"
+: "${MONGODB_URI:?Set MONGODB_URI (e.g. mongodb+srv://user:password@cluster/jpm_hrms)}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -24,17 +27,21 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 umask 077   # backups contain personal data: owner-only permissions
 
-DUMP="$BACKUP_DIR/jpm-hrms-db-$STAMP.dump"
-echo "[$(date -Is)] Backing up database '$PGDATABASE' to $DUMP"
-pg_dump --format=custom --compress=9 --no-owner --no-privileges --file="$DUMP" "$PGDATABASE"
+# The URI contains the password: pass it in a private config file, not on the command line (visible in `ps`).
+CONFIG="$(mktemp)"
+trap 'rm -f "$CONFIG"' EXIT
+printf 'uri: "%s"\n' "$MONGODB_URI" > "$CONFIG"
 
-# A backup that cannot be read is not a backup.
-if ! pg_restore --list "$DUMP" > /dev/null; then
-  echo "ERROR: dump $DUMP is not readable" >&2
+ARCHIVE="$BACKUP_DIR/jpm-hrms-db-$STAMP.archive.gz"
+echo "[$(date -Is)] Backing up MongoDB to $ARCHIVE"
+mongodump --config="$CONFIG" --archive="$ARCHIVE" --gzip --quiet
+
+# A backup that cannot be read is not a backup: read the whole archive without writing anything.
+if ! mongorestore --config="$CONFIG" --archive="$ARCHIVE" --gzip --dryRun --quiet; then
+  echo "ERROR: archive $ARCHIVE is not readable" >&2
   exit 1
 fi
-TABLES=$(pg_restore --list "$DUMP" | grep -c " TABLE DATA " || true)
-echo "  dump OK: $(du -h "$DUMP" | cut -f1), $TABLES tables with data"
+echo "  archive OK: $(du -h "$ARCHIVE" | cut -f1)"
 
 if [ -n "${UPLOAD_DIR:-}" ] && [ -d "$UPLOAD_DIR" ]; then
   FILES="$BACKUP_DIR/jpm-hrms-uploads-$STAMP.tar.gz"

@@ -48,6 +48,8 @@ export interface CandidateListItem {
   interviewStatus: InterviewStatus;
   verificationStatus: VerificationStatus;
   source: CandidateSource;
+  profileRating: number | null;
+  ratingRemark: string | null;
 }
 
 export interface DocumentInfo {
@@ -124,6 +126,10 @@ export interface CandidateDetail {
   familyRefName: string | null;
   familyRefRelation: string | null;
   familyRefContact: string | null;
+  profileRating: number | null;
+  ratingRemark: string | null;
+  ratedBy: string | null;
+  ratedAt: string | null;
   source: CandidateSource;
   dataIssues: string | null;
   version: number;

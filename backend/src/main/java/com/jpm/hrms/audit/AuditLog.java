@@ -1,18 +1,15 @@
 package com.jpm.hrms.audit;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "audit_logs")
-public class AuditLog {
+@Document("audit_logs")
+public class AuditLog implements SequencedEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Instant occurredAt;
     private String actor;
@@ -34,6 +31,8 @@ public class AuditLog {
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public Instant getOccurredAt() { return occurredAt; }
     public String getActor() { return actor; }
     public String getAction() { return action; }

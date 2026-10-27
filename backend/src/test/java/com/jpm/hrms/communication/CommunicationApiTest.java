@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetupTest;
-import com.jpm.hrms.PostgresTestSupport;
 import com.jpm.hrms.candidate.Candidate;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateRepository;
@@ -48,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class CommunicationApiTest extends PostgresTestSupport {
+class CommunicationApiTest {
 
     @RegisterExtension
     static GreenMailExtension smtp = new GreenMailExtension(ServerSetupTest.SMTP).withPerMethodLifecycle(false);
@@ -90,9 +89,9 @@ class CommunicationApiTest extends PostgresTestSupport {
         c.setApplicationDate(LocalDate.now(IST));
         c.setAppliedAt(Instant.now());
         c.setSource(CandidateSource.MANUAL);
-        candidates.saveAndFlush(c);
-        CandidateService.assignCode(c);
-        return candidates.saveAndFlush(c);
+        candidates.save(c);
+        CandidateService.assignCode(c, candidates);
+        return candidates.save(c);
     }
 
     private Instant schedule(Candidate c) throws Exception {
@@ -294,7 +293,7 @@ class CommunicationApiTest extends PostgresTestSupport {
         // the earlier record is untouched; candidate rename does not rewrite history either
         Candidate reloaded = candidates.findById(c.getId()).orElseThrow();
         reloaded.setFullName("Renamed Person");
-        candidates.saveAndFlush(reloaded);
+        candidates.save(reloaded);
         JsonNode history = json(call(get("/api/candidates/" + c.getId() + "/communications"), hr, null).andExpect(status().isOk()));
         JsonNode oldRecord = history.get(history.size() - 1);
         assertThat(oldRecord.get("templateVersion").asInt()).isEqualTo(originalVersion);

@@ -5,14 +5,17 @@ import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
+import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.document.CandidateDocument;
 import com.jpm.hrms.interview.InterviewDtos.InterviewResponse;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -30,13 +33,15 @@ public final class CandidateDtos {
                                     Long departmentId, String departmentName, String qualification,
                                     BigDecimal experienceYears, LocalDate applicationDate,
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
-                                    VerificationStatus verificationStatus, CandidateSource source) {
-        public static CandidateListItem from(Candidate c) {
+                                    VerificationStatus verificationStatus, CandidateSource source,
+                                    Integer profileRating, String ratingRemark) {
+        public static CandidateListItem from(Candidate c, DepartmentDirectory.Names depts) {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
-                    c.getDepartment() == null ? null : c.getDepartment().getId(),
-                    c.getDepartment() == null ? c.getDepartmentRaw() : c.getDepartment().getName(),
+                    depts.name(c) == null ? null : c.getDepartmentId(),
+                    depts.nameOrRaw(c),
                     c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getApplicationStatus(),
-                    c.getInterviewStatus(), c.getVerificationStatus(), c.getSource());
+                    c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
+                    c.getProfileRating(), c.getRatingRemark());
         }
     }
 
@@ -77,6 +82,8 @@ public final class CandidateDtos {
             String referenceName, String referenceRelation, String referenceContact,
             // E. family reference
             String familyRefName, String familyRefRelation, String familyRefContact,
+            // F. profile match rating (HR only)
+            Integer profileRating, String ratingRemark, String ratedBy, Instant ratedAt,
             // meta
             CandidateSource source, String dataIssues, long version, Instant updatedAt,
             List<DocumentResponse> documents, List<InterviewResponse> interviews,
@@ -112,6 +119,14 @@ public final class CandidateDtos {
 
     public record StatusUpdateRequest(ApplicationStatus applicationStatus, VerificationStatus verificationStatus,
                                       @Size(max = 2000) String note) {
+    }
+
+    private static final String RATING_RULE = "must be a whole number from 1 to 10";
+
+    /** Profile Match Rating: whole numbers 1-10 only (7.5 or 7.0 are rejected, not rounded). */
+    public record RatingRequest(@NotNull(message = RATING_RULE) @Digits(integer = 2, fraction = 0, message = RATING_RULE)
+                                @Min(value = 1, message = RATING_RULE) @Max(value = 10, message = RATING_RULE) BigDecimal rating,
+                                @Size(max = 2000) String remark) {
     }
 
     public record RemarkRequest(@NotBlank @Size(max = 2000) String remark) {

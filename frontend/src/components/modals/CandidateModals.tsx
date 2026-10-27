@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, VERIFICATION_STATUSES } from '../../lib/format';
+import { APPLICATION_STATUSES, RATING_BANDS, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -222,6 +223,95 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
         </Field>
         <Field label="HR remark (optional)" hint="Saved to the candidate's HR remarks and the status history.">
           <textarea className="input min-h-[84px]" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reason for the change…" />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ profile match rating
+
+export interface RatingTarget {
+  id: number;
+  name: string;
+  code: string;
+  rating: number | null;
+  remark: string | null;
+}
+
+export function RatingModal({ target, onClose }: { target: RatingTarget | null; onClose: () => void }) {
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const [rating, setRating] = useState<number | null>(null);
+  const [remark, setRemark] = useState('');
+
+  useEffect(() => {
+    if (target) {
+      setRating(target.rating);
+      setRemark(target.remark ?? '');
+    }
+  }, [target]);
+
+  const unchanged = !!target && rating === target.rating && remark.trim() === (target.remark ?? '');
+  const save = useMutation({
+    mutationFn: () => api.patch(`/candidates/${target!.id}/rating`, { rating, remark: remark.trim() || null }),
+    onSuccess: () => {
+      toast('success', `Profile match rating ${rating}/10 saved for ${target!.name}`);
+      invalidate();
+      onClose();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  const band = rating == null ? null : ratingBand(rating);
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title={target?.rating == null ? 'Rate profile match' : 'Update profile match rating'}
+      description={target ? `${target.name} · ${target.code}` : undefined}
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={rating == null || unchanged || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Spinner size={14} />} Save rating
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <span className="label">Profile Match Rating (1–10)</span>
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="radiogroup" aria-label="Profile match rating">
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={rating === n}
+                title={ratingBand(n).label}
+                onClick={() => setRating(n)}
+                className={clsx(
+                  'rounded-lg border py-2 text-sm font-semibold tabular-nums transition-colors',
+                  rating === n ? 'border-info bg-info text-white' : 'border-line bg-raised text-ink-2 hover:border-info/60 hover:text-ink',
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-ink-2" aria-live="polite">
+            {band ? <><strong className="text-ink">{rating}/10</strong> · {band.label}</> : 'Not rated yet. Choose a rating after reviewing the application.'}
+          </p>
+        </div>
+        <ul className="grid grid-cols-1 gap-1 rounded-xl border border-line bg-raised/50 p-3 text-xs text-ink-3 sm:grid-cols-2">
+          {RATING_BANDS.map((b) => (
+            <li key={b.label}><span className="tabular-nums text-ink-2">{b.min}–{b.max}</span> {b.label}</li>
+          ))}
+          <li className="sm:col-span-2">These are guidelines; HR makes the final decision.</li>
+        </ul>
+        <Field label="HR remarks (optional)" hint="Explain the rating. Also saved to the candidate's HR remarks history.">
+          <textarea className="input min-h-[84px]" maxLength={2000} value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="Why this rating…" />
         </Field>
       </div>
     </Modal>

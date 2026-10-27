@@ -8,7 +8,6 @@ import com.jpm.hrms.user.UserDtos.UserResponse;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -25,12 +24,10 @@ public class UserService {
         this.audit = audit;
     }
 
-    @Transactional(readOnly = true)
     public List<UserResponse> list() {
         return users.findAll(Sort.by("username")).stream().map(UserResponse::from).toList();
     }
 
-    @Transactional
     public UserResponse create(CreateUserRequest req) {
         if (users.existsByUsernameIgnoreCase(req.username())) {
             throw ApiException.conflict("Username already exists");
@@ -46,7 +43,6 @@ public class UserService {
         return UserResponse.from(u);
     }
 
-    @Transactional
     public UserResponse update(Long id, UpdateUserRequest req, String actingUsername) {
         AppUser u = users.findById(id).orElseThrow(() -> ApiException.notFound("User"));
         boolean selfEdit = u.getUsername().equalsIgnoreCase(actingUsername);
@@ -68,6 +64,7 @@ public class UserService {
             u.setPasswordHash(encoder.encode(req.newPassword()));
             changes.append("password reset; ");
         }
+        users.save(u);
         audit.record("USER_UPDATED", "USER", u.getId(), "Updated user " + u.getUsername()
                 + (changes.isEmpty() ? "" : " (" + changes.toString().trim() + ")"));
         return UserResponse.from(u);

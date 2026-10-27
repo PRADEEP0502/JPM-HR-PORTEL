@@ -1,6 +1,5 @@
 package com.jpm.hrms.sync;
 
-import com.jpm.hrms.PostgresTestSupport;
 import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
 import com.jpm.hrms.communication.CommunicationRepository;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
@@ -27,7 +26,7 @@ import static org.mockito.Mockito.when;
 /** Runs the real sync pipeline against an in-memory DB with the Google API mocked out. */
 @SpringBootTest
 @ActiveProfiles("test")
-class SyncServiceIntegrationTest extends PostgresTestSupport {
+class SyncServiceIntegrationTest {
 
     @MockitoBean
     GoogleApiClient google;
@@ -49,7 +48,7 @@ class SyncServiceIntegrationTest extends PostgresTestSupport {
 
     @BeforeEach
     void setUp() {
-        communications.deleteAllInBatch(); // single statement: retries reference failed attempts
+        communications.deleteAll();
         documents.deleteAll();
         candidates.deleteAll();
         ignored.deleteAll();
@@ -77,16 +76,16 @@ class SyncServiceIntegrationTest extends PostgresTestSupport {
         assertThat(run.messages()).anyMatch(m -> m.contains("Row 3") && m.contains("no valid mobile number or email"));
 
         var asha = candidates.findAll().stream().filter(c -> c.getEmail().equals("asha@example.com")).findFirst().orElseThrow();
-        assertThat(asha.getCandidateCode()).matches("JPM-\\d{4}-\\d{5}");
+        assertThat(asha.getCandidateCode()).matches("\\d{4}-[1-9]\\d*");
         assertThat(asha.getSource()).isEqualTo(CandidateSource.GOOGLE_SHEETS);
         assertThat(asha.getApplicationStatus()).isEqualTo(ApplicationStatus.NEW);
         assertThat(asha.getVerificationStatus()).isEqualTo(VerificationStatus.PENDING);
-        assertThat(asha.getDepartment()).isNotNull();
+        assertThat(asha.getDepartmentId()).isNotNull();
         assertThat(asha.getExperienceYears()).isEqualByComparingTo("3");
         assertThat(documents.findByCandidateIdOrderByCreatedAtDesc(asha.getId())).hasSize(1);
 
         var ravi = candidates.findAll().stream().filter(c -> c.getEmail().equals("ravi@example.com")).findFirst().orElseThrow();
-        assertThat(ravi.getDepartment()).isNull();
+        assertThat(ravi.getDepartmentId()).isNull();
         assertThat(ravi.getDepartmentRaw()).isEqualTo("Astronomy");
         assertThat(ravi.getDataIssues()).contains("unreadable experience").contains("not configured");
 

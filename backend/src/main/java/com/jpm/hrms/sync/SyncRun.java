@@ -1,30 +1,22 @@
 package com.jpm.hrms.sync;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "sync_runs")
-public class SyncRun {
+@Document("sync_runs")
+public class SyncRun implements SequencedEntity {
 
     public enum Status { RUNNING, SUCCESS, PARTIAL, FAILED }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Instant startedAt;
     private Instant finishedAt;
-    @Column(nullable = false)
     private String triggeredBy;
-    @Enumerated(EnumType.STRING)
     private Status status;
     private int rowsRead;
     private int createdCount;
@@ -45,6 +37,8 @@ public class SyncRun {
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public Instant getStartedAt() { return startedAt; }
     public Instant getFinishedAt() { return finishedAt; }
     public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }

@@ -1,40 +1,27 @@
 package com.jpm.hrms.candidate;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import com.jpm.hrms.candidate.CandidateEnums.ApplicationStatus;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
+import com.jpm.hrms.common.SequencedEntity;
 import com.jpm.hrms.department.Department;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "candidates")
-public class Candidate {
+@Document("candidates")
+public class Candidate implements SequencedEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
     private String candidateCode;
 
-    @Column(nullable = false)
     private String fullName;
     private LocalDate dateOfBirth;
     private String mobile;
@@ -51,25 +38,16 @@ public class Candidate {
     private String skills;
     private String expectedSalary;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
-    private Department department;
+    /** Id of the configured department (see {@link com.jpm.hrms.department.DepartmentDirectory} for its name). */
+    private Long departmentId;
     /** Department text as submitted, kept when it does not match a configured department. */
     private String departmentRaw;
 
-    @Column(nullable = false)
     private LocalDate applicationDate;
-    @Column(nullable = false)
     private Instant appliedAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private ApplicationStatus applicationStatus = ApplicationStatus.NEW;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private InterviewStatus interviewStatus = InterviewStatus.NOT_SCHEDULED;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
     private String referenceName;
@@ -81,30 +59,35 @@ public class Candidate {
     private String familyRefRelation;
     private String familyRefContact;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    /** Profile Match Rating (1-10) set by HR after reviewing the application; null = not rated yet. */
+    private Integer profileRating;
+    private String ratingRemark;
+    private String ratedBy;
+    private Instant ratedAt;
+
     private CandidateSource source;
-    @Column(unique = true)
     private String sourceRowKey;
     /** Human-readable notes about missing / invalid fields found during import. */
     private String dataIssues;
 
     @Version
-    private long version;
+    private Long version;
     private Instant createdAt;
     private Instant updatedAt;
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = updatedAt = Instant.now();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public String getCandidateCode() { return candidateCode; }
     public void setCandidateCode(String candidateCode) { this.candidateCode = candidateCode; }
     public String getFullName() { return fullName; }
@@ -133,8 +116,10 @@ public class Candidate {
     public void setSkills(String skills) { this.skills = skills; }
     public String getExpectedSalary() { return expectedSalary; }
     public void setExpectedSalary(String expectedSalary) { this.expectedSalary = expectedSalary; }
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public Long getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
+    /** Convenience for callers holding a Department: stores its id (null clears the department). */
+    public void setDepartment(Department department) { this.departmentId = department == null ? null : department.getId(); }
     public String getDepartmentRaw() { return departmentRaw; }
     public void setDepartmentRaw(String departmentRaw) { this.departmentRaw = departmentRaw; }
     public LocalDate getApplicationDate() { return applicationDate; }
@@ -159,13 +144,21 @@ public class Candidate {
     public void setFamilyRefRelation(String familyRefRelation) { this.familyRefRelation = familyRefRelation; }
     public String getFamilyRefContact() { return familyRefContact; }
     public void setFamilyRefContact(String familyRefContact) { this.familyRefContact = familyRefContact; }
+    public Integer getProfileRating() { return profileRating; }
+    public void setProfileRating(Integer profileRating) { this.profileRating = profileRating; }
+    public String getRatingRemark() { return ratingRemark; }
+    public void setRatingRemark(String ratingRemark) { this.ratingRemark = ratingRemark; }
+    public String getRatedBy() { return ratedBy; }
+    public void setRatedBy(String ratedBy) { this.ratedBy = ratedBy; }
+    public Instant getRatedAt() { return ratedAt; }
+    public void setRatedAt(Instant ratedAt) { this.ratedAt = ratedAt; }
     public CandidateSource getSource() { return source; }
     public void setSource(CandidateSource source) { this.source = source; }
     public String getSourceRowKey() { return sourceRowKey; }
     public void setSourceRowKey(String sourceRowKey) { this.sourceRowKey = sourceRowKey; }
     public String getDataIssues() { return dataIssues; }
     public void setDataIssues(String dataIssues) { this.dataIssues = dataIssues; }
-    public long getVersion() { return version; }
+    public long getVersion() { return version == null ? 0 : version; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

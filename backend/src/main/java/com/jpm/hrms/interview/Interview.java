@@ -1,72 +1,54 @@
 package com.jpm.hrms.interview;
 
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import com.jpm.hrms.candidate.Candidate;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "interviews")
-public class Interview {
+@Document("interviews")
+public class Interview implements SequencedEntity {
 
     public enum Mode { IN_PERSON, VIDEO, PHONE }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "candidate_id")
-    private Candidate candidate;
+    private Long candidateId;
 
-    @Column(nullable = false)
     private Instant scheduledAt;
     private int durationMinutes;
-    @Column(nullable = false)
     private String roundName;
-    @Column(nullable = false)
     private String interviewer;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Mode mode;
     private String location;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private InterviewStatus status;
     private String remarks;
     private String createdBy;
     @Version
-    private long version;
+    private Long version;
     private Instant createdAt;
     private Instant updatedAt;
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = updatedAt = Instant.now();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }
-    public Candidate getCandidate() { return candidate; }
-    public void setCandidate(Candidate candidate) { this.candidate = candidate; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
+    public Long getCandidateId() { return candidateId; }
+    public void setCandidate(Candidate candidate) { this.candidateId = candidate.getId(); }
     public Instant getScheduledAt() { return scheduledAt; }
     public void setScheduledAt(Instant scheduledAt) { this.scheduledAt = scheduledAt; }
     public int getDurationMinutes() { return durationMinutes; }

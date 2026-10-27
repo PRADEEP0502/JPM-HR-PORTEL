@@ -11,14 +11,15 @@ import com.jpm.hrms.candidate.CandidateSpecifications;
 import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.department.Department;
+import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.department.DepartmentRepository;
 import com.jpm.hrms.interview.InterviewDtos.InterviewResponse;
 import com.jpm.hrms.interview.InterviewRepository;
 import com.jpm.hrms.interview.InterviewService;
+import com.jpm.hrms.interview.InterviewViews;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -63,12 +64,17 @@ public class DashboardService {
     private final CandidateRepository candidates;
     private final InterviewRepository interviews;
     private final DepartmentRepository departments;
+    private final DepartmentDirectory depts;
+    private final InterviewViews views;
     private final AppProperties props;
     private final Clock clock;
     private final ZoneId zone;
 
     public DashboardService(CandidateRepository candidates, InterviewRepository interviews, DepartmentRepository departments,
-                            AppProperties props, Clock clock, ZoneId businessZone) {
+                            DepartmentDirectory depts, InterviewViews views, AppProperties props, Clock clock,
+                            ZoneId businessZone) {
+        this.depts = depts;
+        this.views = views;
         this.candidates = candidates;
         this.interviews = interviews;
         this.departments = departments;
@@ -77,10 +83,10 @@ public class DashboardService {
         this.zone = businessZone;
     }
 
-    @Transactional(readOnly = true)
     public DashboardResponse build() {
         Instant now = clock.instant();
         LocalDate today = LocalDate.now(clock);
+        DepartmentDirectory.Names names = depts.snapshot();
 
         Map<ApplicationStatus, Long> byStatus = new EnumMap<>(ApplicationStatus.class);
         for (Object[] r : candidates.countGroupedByApplicationStatus()) byStatus.put((ApplicationStatus) r[0], (Long) r[1]);
@@ -131,29 +137,29 @@ public class DashboardService {
                 .map(d -> new Count(d.departmentId() == null ? "0" : d.departmentId().toString(), d.name(), d.total())).toList();
 
         List<Spotlight> spotlights = List.of(
-                spotlight("PENDING_VERIFICATION", "Pending Verification", pendingVerification,
+                spotlight(names, "PENDING_VERIFICATION", "Pending Verification", pendingVerification,
                         new Filter(null, null, null, null, null, VerificationStatus.PENDING)),
-                spotlight("INTERVIEW", "Interview Stage", byInterview.getOrDefault(InterviewStatus.SCHEDULED, 0L)
+                spotlight(names, "INTERVIEW", "Interview Stage", byInterview.getOrDefault(InterviewStatus.SCHEDULED, 0L)
                                 + byInterview.getOrDefault(InterviewStatus.RESCHEDULED, 0L),
                         new Filter(null, null, null, null, List.of(InterviewStatus.SCHEDULED, InterviewStatus.RESCHEDULED), null)),
-                spotlight("SELECTED", "Selected", byStatus.getOrDefault(ApplicationStatus.SELECTED, 0L),
+                spotlight(names, "SELECTED", "Selected", byStatus.getOrDefault(ApplicationStatus.SELECTED, 0L),
                         new Filter(null, null, null, ApplicationStatus.SELECTED, null, null)));
 
         Instant dayStart = today.atStartOfDay(zone).toInstant();
         Instant dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant();
         var todayAll = interviews.findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(
                 List.of(InterviewStatus.values()), dayStart, dayEnd);
-        List<InterviewResponse> todays = todayAll.stream().map(InterviewResponse::from).toList();
+        List<InterviewResponse> todays = views.toResponses(todayAll);
         List<String> interviewersToday = todayAll.stream().filter(i -> i.getStatus().isActive())
                 .map(i -> i.getInterviewer()).distinct().toList();
-        List<InterviewResponse> upcoming = interviews.findTop6ByStatusInAndScheduledAtAfterOrderByScheduledAtAsc(InterviewService.ACTIVE, now)
-                .stream().map(InterviewResponse::from).toList();
+        List<InterviewResponse> upcoming = views.toResponses(
+                interviews.findTop6ByStatusInAndScheduledAtAfterOrderByScheduledAtAsc(InterviewService.ACTIVE, now));
 
         return new DashboardResponse(now, props.demoMode(),
                 candidates.countBySource(com.jpm.hrms.candidate.CandidateEnums.CandidateSource.DEMO), summary,
                 deptChart, monthly, statusCounts, interviewCounts, expCounts, week, spotlights, todays, upcoming,
                 interviewersToday, deptCounts,
-                candidates.findTop8ByOrderByAppliedAtDesc().stream().map(CandidateListItem::from).toList());
+                candidates.findTop8ByOrderByAppliedAtDesc().stream().map(c -> CandidateListItem.from(c, names)).toList());
     }
 
     /** Totals, today's applications and still-open (no decision yet) counts per department. */
@@ -183,9 +189,9 @@ public class DashboardService {
         return out;
     }
 
-    private Spotlight spotlight(String key, String label, long count, Filter f) {
+    private Spotlight spotlight(DepartmentDirectory.Names names, String key, String label, long count, Filter f) {
         var page = candidates.findAll(CandidateSpecifications.matching(f),
                 PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "updatedAt")));
-        return new Spotlight(key, label, count, page.getContent().stream().map(CandidateListItem::from).toList());
+        return new Spotlight(key, label, count, page.getContent().stream().map(c -> CandidateListItem.from(c, names)).toList());
     }
 }

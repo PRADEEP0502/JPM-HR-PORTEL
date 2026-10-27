@@ -1,7 +1,6 @@
 package com.jpm.hrms.document;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jpm.hrms.PostgresTestSupport;
 import com.jpm.hrms.candidate.Candidate;
 import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateRepository;
@@ -33,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class AadhaarDocumentTest extends PostgresTestSupport {
+class AadhaarDocumentTest {
     @Autowired
     MockMvc mvc;
     @Autowired
@@ -53,9 +52,9 @@ class AadhaarDocumentTest extends PostgresTestSupport {
         c.setApplicationDate(LocalDate.now());
         c.setAppliedAt(Instant.now());
         c.setSource(CandidateSource.MANUAL);
-        candidates.saveAndFlush(c);
-        CandidateService.assignCode(c);
-        candidates.saveAndFlush(c);
+        candidates.save(c);
+        CandidateService.assignCode(c, candidates);
+        candidates.save(c);
 
         String token = login();
         byte[] pdf = "%PDF-1.4 sample aadhaar copy for test".getBytes(StandardCharsets.ISO_8859_1);

@@ -1,38 +1,48 @@
 #!/usr/bin/env bash
 # JPM HRMS - restore a backup made by backup-db.sh.
 #
-#   scripts/restore-db.sh <dump-file> <target-database> [uploads-archive.tar.gz] [upload-parent-dir]
+#   scripts/restore-db.sh <archive-file> [uploads-archive.tar.gz] [upload-parent-dir]
 #
-# The target database is created if it does not exist. If it exists, its objects are dropped and
-# replaced (pg_restore --clean). STOP THE APPLICATION before restoring into the live database.
-# Connection settings: PGHOST PGPORT PGUSER and PGPASSWORD (or ~/.pgpass).
+# Restores into the database named in MONGODB_URI. Collections in the backup REPLACE the existing ones
+# (mongorestore --drop). STOP THE APPLICATION before restoring into the live database.
+#   MONGODB_URI   e.g. mongodb+srv://user:<password>@cluster/jpm_hrms (user needs readWrite on that database)
+#   SOURCE_DB     database name inside the archive (default jpm_hrms) - set it when restoring into another name
 set -euo pipefail
 
-DUMP="${1:?Usage: restore-db.sh <dump-file> <target-database> [uploads.tar.gz] [upload-parent-dir]}"
-TARGET="${2:?Usage: restore-db.sh <dump-file> <target-database> [uploads.tar.gz] [upload-parent-dir]}"
-[ -f "$DUMP" ] || { echo "No such file: $DUMP" >&2; exit 1; }
+ARCHIVE="${1:?Usage: restore-db.sh <archive-file> [uploads.tar.gz] [upload-parent-dir]}"
+[ -f "$ARCHIVE" ] || { echo "No such file: $ARCHIVE" >&2; exit 1; }
+: "${MONGODB_URI:?Set MONGODB_URI (the database to restore into)}"
+export MONGODB_URI
+TARGET_DB="$(printf '%s' "$MONGODB_URI" | sed -E 's#^[a-z+]+://[^/]+/?([^?]*).*#\1#')"
+TARGET_DB="${TARGET_DB:-jpm_hrms}"
+SOURCE_DB="${SOURCE_DB:-jpm_hrms}"
 
 if [ "${CONFIRM:-}" != "yes" ]; then
-  read -r -p "Restore $DUMP into database '$TARGET' (existing data in it will be replaced)? Type yes: " answer
+  read -r -p "Restore $ARCHIVE into database '$TARGET_DB' (its collections will be replaced)? Type yes: " answer
   [ "$answer" = "yes" ] || { echo "Aborted."; exit 1; }
 fi
 
-if ! psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$TARGET'" | grep -q 1; then
-  echo "Creating database $TARGET"
-  createdb "$TARGET"
-fi
+umask 077
+CONFIG="$(mktemp)"
+trap 'rm -f "$CONFIG"' EXIT
+# mongorestore treats a database in the URI as a filter on the archive, which would skip the renamed restore;
+# connect without it and select the source/target namespaces explicitly.
+printf 'uri: "%s"\n' "$(printf '%s' "$MONGODB_URI" | sed -E 's#^([a-z+]+://[^/?]+)/?[^?]*#\1/#')" > "$CONFIG"
 
-echo "Restoring $DUMP into $TARGET"
-pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="$TARGET" "$DUMP"
+echo "Restoring $ARCHIVE into $TARGET_DB"
+mongorestore --config="$CONFIG" --archive="$ARCHIVE" --gzip --drop --quiet \
+  --nsFrom="$SOURCE_DB.*" --nsTo="$TARGET_DB.*"
 
-echo "Restored. Schema version and key row counts:"
-psql -d "$TARGET" -c "SELECT max(version::int) AS schema_version FROM flyway_schema_history WHERE success" \
-                  -c "SELECT (SELECT count(*) FROM candidates) AS candidates, (SELECT count(*) FROM interviews) AS interviews,
-                             (SELECT count(*) FROM communications) AS communications, (SELECT count(*) FROM audit_logs) AS audit_logs"
+echo "Restored. Key document counts:"
+mongosh --quiet --nodb --eval "
+  const db = connect(process.env.MONGODB_URI).getSiblingDB('$TARGET_DB');
+  for (const c of ['candidates', 'interviews', 'communications', 'audit_logs', 'app_users']) {
+    print('  ' + c.padEnd(16) + db.getCollection(c).countDocuments());
+  }"
 
-if [ -n "${3:-}" ]; then
-  DEST="${4:?Give the parent directory of UPLOAD_DIR to restore documents into}"
+if [ -n "${2:-}" ]; then
+  DEST="${3:?Give the parent directory of UPLOAD_DIR to restore documents into}"
   echo "Restoring documents into $DEST"
-  tar -xzf "$3" -C "$DEST"
+  tar -xzf "$2" -C "$DEST"
 fi
 echo "Done."

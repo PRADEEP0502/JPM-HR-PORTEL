@@ -21,16 +21,13 @@
         <java.version>25</java.version>
         <poi.version>5.3.0</poi.version>
         <google-auth.version>1.30.0</google-auth.version>
+        <embed-mongo.version>4.20.0</embed-mongo.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -49,15 +46,21 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Database -->
+        <!-- Database: MongoDB (Atlas in the cloud, or any MongoDB 6+ server) -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
         </dependency>
+        <!--
+          Real MongoDB server started by the app itself, for local development (dev profile, when MONGODB_URI
+          is empty) and for tests. Downloads the official MongoDB binaries on first use. Never used in production.
+        -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
+            <groupId>de.flapdoodle.embed</groupId>
+            <artifactId>de.flapdoodle.embed.mongo</artifactId>
+            <version>${embed-mongo.version}</version>
         </dependency>
+        <!-- JDBC drivers used only by the one-time legacy importer (old H2 / PostgreSQL database -> MongoDB). -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -92,13 +95,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Real PostgreSQL server for tests (downloads platform binaries via Maven) -->
-        <dependency>
-            <groupId>io.zonky.test</groupId>
-            <artifactId>embedded-postgres</artifactId>
-            <version>2.0.7</version>
             <scope>test</scope>
         </dependency>
         <!-- In-process SMTP server to test real email sending -->

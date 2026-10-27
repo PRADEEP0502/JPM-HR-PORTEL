@@ -11,18 +11,13 @@ server:
 spring:
   application:
     name: jpm-hrms
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/jpm_hrms}
-    username: ${DB_USERNAME:jpm_hrms}
-    password: ${DB_PASSWORD:}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: none          # schema is managed by Flyway (src/main/resources/db/migration)
-    properties:
-      hibernate.jdbc.time_zone: UTC
-  flyway:
-    enabled: true
+  data:
+    mongodb:
+      # MongoDB Atlas: mongodb+srv://<user>:<password>@<cluster>/jpm_hrms?retryWrites=true&w=majority
+      # Self-hosted:   mongodb://<user>:<password>@<host>:27017/jpm_hrms
+      # The database name comes from the path in the URI. Indexes are created by MongoIndexes at startup.
+      uri: ${MONGODB_URI:mongodb://localhost:27017/jpm_hrms}
+      auto-index-creation: false
   # Outgoing email (SMTP). Leave MAIL_HOST empty to disable sending - previews still work.
   mail:
     host: ${MAIL_HOST:}
@@ -75,3 +70,9 @@ app:
     spreadsheet-id: ${GOOGLE_SHEET_ID:}
     sheet-range: ${GOOGLE_SHEET_RANGE:Form Responses 1}
     form-url: ${GOOGLE_FORM_URL:}
+  # ONE-TIME migration from the previous SQL database (see README "Migrating existing data to MongoDB").
+  # Leave empty in normal operation.
+  legacy-import:
+    jdbc-url: ${LEGACY_JDBC_URL:}
+    username: ${LEGACY_JDBC_USERNAME:}
+    password: ${LEGACY_JDBC_PASSWORD:}

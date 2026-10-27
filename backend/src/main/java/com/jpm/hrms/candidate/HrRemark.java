@@ -1,32 +1,21 @@
 package com.jpm.hrms.candidate;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "hr_remarks")
-public class HrRemark {
+@Document("hr_remarks")
+public class HrRemark implements SequencedEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "candidate_id")
-    private Candidate candidate;
+    private Long candidateId;
 
-    @Column(nullable = false)
     private String author;
 
-    @Column(nullable = false)
     private String remark;
 
     private Instant createdAt;
@@ -35,13 +24,15 @@ public class HrRemark {
     }
 
     public HrRemark(Candidate candidate, String author, String remark) {
-        this.candidate = candidate;
+        this.candidateId = candidate.getId();
         this.author = author;
         this.remark = remark;
         this.createdAt = Instant.now();
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public String getAuthor() { return author; }
     public String getRemark() { return remark; }
     public Instant getCreatedAt() { return createdAt; }

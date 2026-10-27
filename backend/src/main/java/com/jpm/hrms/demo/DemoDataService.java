@@ -10,6 +10,7 @@ import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.candidate.CandidateService;
 import com.jpm.hrms.candidate.HrRemark;
 import com.jpm.hrms.candidate.HrRemarkRepository;
+import com.jpm.hrms.communication.CommunicationRepository;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.department.Department;
 import com.jpm.hrms.department.DepartmentRepository;
@@ -21,12 +22,10 @@ import com.jpm.hrms.interview.InterviewService;
 import com.jpm.hrms.user.AppUser;
 import com.jpm.hrms.user.AppUserRepository;
 import com.jpm.hrms.user.Role;
-import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -91,14 +90,14 @@ public class DemoDataService {
     private final InterviewService interviewService;
     private final PasswordEncoder encoder;
     private final AuditService audit;
-    private final EntityManager em;
+    private final CommunicationRepository communications;
     private final Clock clock;
     private final ZoneId zone;
 
     public DemoDataService(AppProperties props, CandidateRepository candidates, DepartmentRepository departments,
                            InterviewRepository interviews, HrRemarkRepository remarks, CandidateDocumentRepository documents,
                            AppUserRepository users, InterviewService interviewService, PasswordEncoder encoder,
-                           AuditService audit, EntityManager em, Clock clock, ZoneId businessZone) {
+                           AuditService audit, CommunicationRepository communications, Clock clock, ZoneId businessZone) {
         this.props = props;
         this.candidates = candidates;
         this.departments = departments;
@@ -109,7 +108,7 @@ public class DemoDataService {
         this.interviewService = interviewService;
         this.encoder = encoder;
         this.audit = audit;
-        this.em = em;
+        this.communications = communications;
         this.clock = clock;
         this.zone = businessZone;
     }
@@ -122,13 +121,15 @@ public class DemoDataService {
             {"Sister", "Kavitha", "Revathi", "Deepa", "Sangeetha", "Uma"}};
 
     /** Fills a sample family reference on demo candidates that do not have one (never touches real candidates). */
-    @Transactional
     public void backfillDemoFamilyReferences() {
         if (!props.demoMode()) return;
         int filled = 0;
         for (Candidate c : candidates.findBySource(CandidateSource.DEMO)) {
             if (c.getFamilyRefName() != null) continue;
-            if (applyFamilyReference(c, new Random(c.getId() * 31L))) filled++;
+            if (applyFamilyReference(c, new Random(c.getId() * 31L))) {
+                candidates.save(c);
+                filled++;
+            }
         }
         if (filled > 0) log.info("Demo mode: added sample family references to {} demo candidates", filled);
     }
@@ -143,7 +144,6 @@ public class DemoDataService {
         return true;
     }
 
-    @Transactional
     public void seedIfEmpty() {
         if (!props.demoMode() || candidates.count() > 0) return;
         log.info("Demo mode: seeding sample data (all rows are marked source=DEMO)");
@@ -211,8 +211,9 @@ public class DemoDataService {
             }
             applyFamilyReference(c, new Random(n * 31L + 7));
             c.setSource(CandidateSource.DEMO);
-            candidates.saveAndFlush(c);
-            CandidateService.assignCode(c);
+            candidates.save(c);
+            CandidateService.assignCode(c, candidates);
+            candidates.save(c);
 
             if (rnd.nextInt(4) != 0) {
                 String file = c.getFullName().replace(' ', '_') + "_Resume.pdf";
@@ -261,7 +262,7 @@ public class DemoDataService {
         i.setStatus(status);
         i.setRemarks(remarksText);
         i.setCreatedBy("hr");
-        interviews.saveAndFlush(i);
+        interviews.save(i);
     }
 
     private Instant pastSlot(Random rnd, LocalDate today, int daysAgo) {
@@ -311,16 +312,15 @@ public class DemoDataService {
     }
 
     /** Permanently removes every DEMO-sourced candidate (and their interviews, remarks and documents). */
-    @Transactional
     public int purge() {
         List<Candidate> demo = candidates.findBySource(CandidateSource.DEMO);
         if (demo.isEmpty()) return 0;
         List<Long> ids = demo.stream().map(Candidate::getId).toList();
-        em.createQuery("delete from Communication c where c.candidateId in :ids").setParameter("ids", ids).executeUpdate();
-        em.createQuery("delete from Interview i where i.candidate.id in :ids").setParameter("ids", ids).executeUpdate();
-        em.createQuery("delete from HrRemark r where r.candidate.id in :ids").setParameter("ids", ids).executeUpdate();
-        em.createQuery("delete from CandidateDocument d where d.candidate.id in :ids").setParameter("ids", ids).executeUpdate();
-        em.createQuery("delete from Candidate c where c.id in :ids").setParameter("ids", ids).executeUpdate();
+        communications.deleteByCandidateIdIn(ids);
+        interviews.deleteByCandidateIdIn(ids);
+        remarks.deleteByCandidateIdIn(ids);
+        documents.deleteByCandidateIdIn(ids);
+        candidates.deleteAllById(ids);
         audit.record("DEMO_DATA_PURGED", "CANDIDATE", null, "Removed " + ids.size() + " demo candidates");
         return ids.size();
     }

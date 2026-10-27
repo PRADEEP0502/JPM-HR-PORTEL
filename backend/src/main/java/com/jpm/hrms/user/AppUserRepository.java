@@ -1,10 +1,10 @@
 package com.jpm.hrms.user;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.jpm.hrms.common.CriteriaRepository;
 
 import java.util.Optional;
 
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface AppUserRepository extends CriteriaRepository<AppUser, Long> {
     Optional<AppUser> findByUsernameIgnoreCase(String username);
 
     boolean existsByUsernameIgnoreCase(String username);

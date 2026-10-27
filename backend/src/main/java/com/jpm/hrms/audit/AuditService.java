@@ -3,8 +3,6 @@ package com.jpm.hrms.audit;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -19,12 +17,10 @@ public class AuditService {
         this.repo = repo;
     }
 
-    @Transactional(propagation = Propagation.REQUIRED)
     public void record(String action, String entityType, Long entityId, String details) {
         recordAs(currentActor(), action, entityType, entityId, details);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED)
     public void recordAs(String actor, String action, String entityType, Long entityId, String details) {
         String safeDetails = details == null ? null : details.length() > 2000 ? details.substring(0, 1997) + "..." : details;
         repo.save(new AuditLog(Instant.now(), actor, action, entityType, entityId, safeDetails));

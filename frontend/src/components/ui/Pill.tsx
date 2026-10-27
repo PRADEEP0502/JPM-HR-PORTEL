@@ -6,6 +6,7 @@ import {
   applicationTone,
   interviewTone,
   labelOf,
+  ratingBand,
   type Tone,
 } from '../../lib/format';
 import type { ApplicationStatus, InterviewStatus, VerificationStatus } from '../../lib/types';
@@ -54,3 +55,12 @@ export const DemoTag = () => (
     Demo
   </span>
 );
+
+export const RatingPill = ({ rating }: { rating: number | null }) =>
+  rating == null ? (
+    <Pill tone="grey">Not Rated</Pill>
+  ) : (
+    <Pill tone={ratingBand(rating).tone}>
+      <span className="tabular-nums">{rating}/10</span> · {ratingBand(rating).label}
+    </Pill>
+  );

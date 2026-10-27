@@ -1,35 +1,25 @@
 package com.jpm.hrms.communication;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
 /** An approved template version. Rows are never edited after creation (only deactivated). */
-@Entity
-@Table(name = "message_templates")
-public class MessageTemplate {
+@Document("message_templates")
+public class MessageTemplate implements SequencedEntity {
 
     public enum TemplateChannel { WHATSAPP, EMAIL }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private TemplateChannel channel;
     private int version;
     private String subject;
-    @Column(nullable = false)
     private String body;
     private boolean active;
-    @Column(nullable = false)
     private String createdBy;
     private Instant createdAt;
 
@@ -47,6 +37,8 @@ public class MessageTemplate {
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public TemplateChannel getChannel() { return channel; }
     public int getVersion() { return version; }
     public String getSubject() { return subject; }

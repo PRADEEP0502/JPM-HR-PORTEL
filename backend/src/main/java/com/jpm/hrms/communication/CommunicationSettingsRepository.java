@@ -1,6 +1,6 @@
 package com.jpm.hrms.communication;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.jpm.hrms.common.CriteriaRepository;
 
-public interface CommunicationSettingsRepository extends JpaRepository<CommunicationSettings, Long> {
+public interface CommunicationSettingsRepository extends CriteriaRepository<CommunicationSettings, Long> {
 }

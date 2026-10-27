@@ -1,5 +1,6 @@
 package com.jpm.hrms.interview;
 
+import com.jpm.hrms.candidate.Candidate;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -17,10 +18,10 @@ public final class InterviewDtos {
                                     String departmentName, Instant scheduledAt, int durationMinutes, String roundName,
                                     String interviewer, Interview.Mode mode, String location, InterviewStatus status,
                                     String remarks, String createdBy, Instant updatedAt) {
-        public static InterviewResponse from(Interview i) {
-            var c = i.getCandidate();
-            String dept = c.getDepartment() != null ? c.getDepartment().getName() : c.getDepartmentRaw();
-            return new InterviewResponse(i.getId(), c.getId(), c.getCandidateCode(), c.getFullName(), dept,
+        /** {@code departmentName} is the configured department's name or the submitted department text. */
+        public static InterviewResponse from(Interview i, Candidate c, String departmentName) {
+            return new InterviewResponse(i.getId(), i.getCandidateId(), c == null ? null : c.getCandidateCode(),
+                    c == null ? "(candidate not found)" : c.getFullName(), departmentName,
                     i.getScheduledAt(), i.getDurationMinutes(), i.getRoundName(), i.getInterviewer(), i.getMode(),
                     i.getLocation(), i.getStatus(), i.getRemarks(), i.getCreatedBy(), i.getUpdatedAt());
         }

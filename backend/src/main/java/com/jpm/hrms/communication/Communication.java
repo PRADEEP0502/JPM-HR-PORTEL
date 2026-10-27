@@ -1,15 +1,9 @@
 package com.jpm.hrms.communication;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.jpm.hrms.common.SequencedEntity;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 
 import java.time.Instant;
 
@@ -17,9 +11,8 @@ import java.time.Instant;
  * One call / WhatsApp / email action. Recipient, candidate name and content are snapshots, so the
  * record stays accurate if the candidate's details or the template change later.
  */
-@Entity
-@Table(name = "communications")
-public class Communication {
+@Document("communications")
+public class Communication implements SequencedEntity {
 
     public enum Channel { CALL, WHATSAPP, EMAIL }
 
@@ -33,48 +26,40 @@ public class Communication {
     public enum CallOutcome { CONNECTED, NO_ANSWER, BUSY, SWITCHED_OFF, WRONG_NUMBER, CALL_BACK_LATER }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(nullable = false)
     private Long candidateId;
     private Long interviewId;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Channel channel;
-    @Column(nullable = false)
     private String recipient;
-    @Column(nullable = false)
     private String candidateName;
     private Long templateId;
     private Integer templateVersion;
     private String subject;
     private String content;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Status status;
     private String provider;
     private String providerMessageId;
     private String errorMessage;
-    @Enumerated(EnumType.STRING)
     private CallOutcome callOutcome;
     private String notes;
     private Long retryOfId;
-    @Column(nullable = false)
     private String initiatedBy;
     private Instant createdAt;
     private Instant updatedAt;
 
-    @PrePersist
-    void onCreate() {
+    @Override
+    public void onCreate() {
         createdAt = updatedAt = Instant.now();
     }
 
-    @PreUpdate
-    void onUpdate() {
+    @Override
+    public void onUpdate() {
         updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }
+    @Override
+    public void assignId(Long id) { this.id = id; }
     public Long getCandidateId() { return candidateId; }
     public void setCandidateId(Long candidateId) { this.candidateId = candidateId; }
     public Long getInterviewId() { return interviewId; }

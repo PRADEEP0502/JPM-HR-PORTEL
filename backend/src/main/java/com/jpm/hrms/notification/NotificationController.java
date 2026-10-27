@@ -4,6 +4,7 @@ import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.common.ApiException;
 import com.jpm.hrms.interview.InterviewRepository;
 import com.jpm.hrms.interview.InterviewService;
+import com.jpm.hrms.interview.InterviewViews;
 import com.jpm.hrms.sync.SyncRun;
 import com.jpm.hrms.sync.SyncRunRepository;
 import com.jpm.hrms.user.AppUser;
@@ -11,7 +12,6 @@ import com.jpm.hrms.user.AppUserRepository;
 import com.jpm.hrms.user.Role;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,11 +42,13 @@ public class NotificationController {
     private final InterviewRepository interviews;
     private final SyncRunRepository syncRuns;
     private final AppUserRepository users;
+    private final InterviewViews views;
     private final Clock clock;
     private final DateTimeFormatter time;
 
     public NotificationController(CandidateRepository candidates, InterviewRepository interviews, SyncRunRepository syncRuns,
-                                  AppUserRepository users, Clock clock, ZoneId businessZone) {
+                                  AppUserRepository users, InterviewViews views, Clock clock, ZoneId businessZone) {
+        this.views = views;
         this.candidates = candidates;
         this.interviews = interviews;
         this.syncRuns = syncRuns;
@@ -56,7 +58,6 @@ public class NotificationController {
     }
 
     @GetMapping
-    @Transactional(readOnly = true)
     public NotificationList list(Authentication auth) {
         AppUser me = users.findByUsernameIgnoreCase(auth.getName()).orElseThrow(() -> ApiException.notFound("User"));
         Instant now = clock.instant();
@@ -68,9 +69,12 @@ public class NotificationController {
                     c.getFullName() + " (" + c.getCandidateCode() + ") applied", c.getCreatedAt(),
                     "/candidates/" + c.getId(), c.getCreatedAt().isAfter(seen)));
         }
-        for (var i : interviews.findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(InterviewService.ACTIVE, now, now.plus(Duration.ofHours(24)))) {
+        var soon = interviews.findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(InterviewService.ACTIVE, now, now.plus(Duration.ofHours(24)));
+        var names = views.candidatesOf(soon);
+        for (var i : soon) {
+            String who = names.containsKey(i.getCandidateId()) ? names.get(i.getCandidateId()).getFullName() : "Candidate";
             items.add(new Notification("int-" + i.getId(), "UPCOMING_INTERVIEW", "Interview within 24 hours",
-                    i.getCandidate().getFullName() + " - " + i.getRoundName() + " at " + time.format(i.getScheduledAt()),
+                    who + " - " + i.getRoundName() + " at " + time.format(i.getScheduledAt()),
                     i.getUpdatedAt(), "/interviews", i.getUpdatedAt().isAfter(seen)));
         }
         if (me.getRole() == Role.ADMIN) {
@@ -85,8 +89,10 @@ public class NotificationController {
     }
 
     @PostMapping("/read")
-    @Transactional
     public void markRead(Authentication auth) {
-        users.findByUsernameIgnoreCase(auth.getName()).ifPresent(u -> u.setNotificationsSeenAt(clock.instant()));
+        users.findByUsernameIgnoreCase(auth.getName()).ifPresent(u -> {
+            u.setNotificationsSeenAt(clock.instant());
+            users.save(u);
+        });
     }
 }

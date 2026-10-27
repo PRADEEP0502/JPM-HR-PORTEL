@@ -4,6 +4,7 @@ import com.jpm.hrms.audit.AuditService;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
 import com.jpm.hrms.candidate.CandidateDtos.DocumentResponse;
+import com.jpm.hrms.candidate.CandidateDtos.RatingRequest;
 import com.jpm.hrms.candidate.CandidateDtos.RemarkRequest;
 import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
@@ -13,7 +14,9 @@ import com.jpm.hrms.candidate.CandidateEnums.ExperienceBucket;
 import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import com.jpm.hrms.candidate.CandidateEnums.VerificationStatus;
 import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
+import com.jpm.hrms.candidate.CandidateSpecifications.RatingFilter;
 import com.jpm.hrms.common.PageResponse;
+import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.document.CandidateDocument.DocType;
 import com.jpm.hrms.document.DocumentService;
 import com.jpm.hrms.report.ExcelExporter;
@@ -48,8 +51,11 @@ public class CandidateController {
     private final CandidateService service;
     private final DocumentService documents;
     private final AuditService audit;
+    private final DepartmentDirectory depts;
 
-    public CandidateController(CandidateService service, DocumentService documents, AuditService audit) {
+    public CandidateController(CandidateService service, DocumentService documents, AuditService audit,
+                               DepartmentDirectory depts) {
+        this.depts = depts;
         this.service = service;
         this.documents = documents;
         this.audit = audit;
@@ -62,11 +68,13 @@ public class CandidateController {
                                                 @RequestParam(required = false) ApplicationStatus applicationStatus,
                                                 @RequestParam(required = false) List<InterviewStatus> interviewStatus,
                                                 @RequestParam(required = false) VerificationStatus verificationStatus,
+                                                @RequestParam(required = false) String rating,
                                                 @RequestParam(defaultValue = "0") int page,
                                                 @RequestParam(defaultValue = "10") int size,
                                                 @RequestParam(defaultValue = "applicationDate") String sort,
                                                 @RequestParam(defaultValue = "desc") String dir) {
-        return service.list(new Filter(q, departmentId, experience, applicationStatus, interviewStatus, verificationStatus),
+        return service.list(new Filter(q, departmentId, experience, applicationStatus, interviewStatus, verificationStatus,
+                        RatingFilter.parse(rating)),
                 page, size, sort, dir);
     }
 
@@ -78,10 +86,12 @@ public class CandidateController {
                                          @RequestParam(required = false) ApplicationStatus applicationStatus,
                                          @RequestParam(required = false) List<InterviewStatus> interviewStatus,
                                          @RequestParam(required = false) VerificationStatus verificationStatus,
+                                         @RequestParam(required = false) String rating,
                                          @RequestParam(defaultValue = "applicationDate") String sort,
                                          @RequestParam(defaultValue = "desc") String dir) {
         List<Candidate> all = service.listAll(new Filter(q, departmentId, experience, applicationStatus, interviewStatus,
-                verificationStatus), sort, dir);
+                verificationStatus, RatingFilter.parse(rating)), sort, dir);
+        DepartmentDirectory.Names names = depts.snapshot();
         List<List<Object>> rows = new ArrayList<>();
         for (Candidate c : all) {
             List<Object> r = new ArrayList<>();
@@ -89,10 +99,11 @@ public class CandidateController {
             r.add(c.getFullName());
             r.add(c.getMobile());
             r.add(c.getEmail());
-            r.add(c.getDepartment() != null ? c.getDepartment().getName() : c.getDepartmentRaw());
+            r.add(names.nameOrRaw(c));
             r.add(c.getQualification());
             r.add(c.getExperienceYears());
             r.add(c.getApplicationDate());
+            r.add(c.getProfileRating() == null ? "Not Rated" : c.getProfileRating());
             r.add(c.getApplicationStatus().label);
             r.add(c.getInterviewStatus().label);
             r.add(c.getVerificationStatus().label);
@@ -100,7 +111,7 @@ public class CandidateController {
         }
         byte[] bytes = ExcelExporter.build("Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Qualification", "Experience (yrs)",
-                        "Application Date", "Application Status", "Interview Status", "Verification"), rows);
+                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification"), rows);
         audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to Excel");
         return ExcelExporter.response("candidates", bytes);
     }
@@ -118,6 +129,12 @@ public class CandidateController {
     @PatchMapping("/candidates/{id}/status")
     public CandidateDetail updateStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateRequest req, Authentication auth) {
         return service.updateStatus(id, req, auth.getName());
+    }
+
+    /** Profile Match Rating (1-10), set by HR / admin after reviewing the application. Never exposed to candidates. */
+    @PatchMapping("/candidates/{id}/rating")
+    public CandidateDetail rate(@PathVariable Long id, @Valid @RequestBody RatingRequest req, Authentication auth) {
+        return service.rate(id, req, auth.getName());
     }
 
     @PostMapping("/candidates/{id}/remarks")

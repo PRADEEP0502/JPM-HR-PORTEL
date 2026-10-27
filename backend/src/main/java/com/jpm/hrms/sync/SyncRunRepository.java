@@ -1,14 +1,15 @@
 package com.jpm.hrms.sync;
 
+import com.jpm.hrms.common.CriteriaRepository;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-public interface SyncRunRepository extends JpaRepository<SyncRun, Long> {
+public interface SyncRunRepository extends CriteriaRepository<SyncRun, Long> {
     Optional<SyncRun> findTopByOrderByStartedAtDesc();
 
     Optional<SyncRun> findTopByStatusInOrderByStartedAtDesc(List<SyncRun.Status> statuses);
