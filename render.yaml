@@ -1,0 +1,32 @@
+# Render Blueprint for the JPM HR Portal backend (Render dashboard -> New -> Blueprint -> this repository).
+# Values marked "sync: false" are secrets: Render asks for them when the Blueprint is created. Never commit them.
+services:
+  - type: web
+    name: jpm-hr-portal-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free            # sleeps after 15 min without traffic; disk is wiped on restart (files go to GridFS)
+    region: singapore     # closest Render region to India
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: MONGODB_URI            # Atlas: mongodb+srv://<app-user>:<password>@cluster0.2yw233u.mongodb.net/jpm_hrms?retryWrites=true&w=majority
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DOCUMENT_ENCRYPTION_KEY # base64 of 32 random bytes: openssl rand -base64 32 (keep a copy safely)
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS    # your Vercel address, e.g. https://jpm-hr-portal.vercel.app
+        sync: false
+      - key: BOOTSTRAP_ADMIN_USERNAME
+        value: admin
+      - key: BOOTSTRAP_ADMIN_PASSWORD # only used when the database has no users yet
+        sync: false
+      - key: FILE_STORAGE
+        value: gridfs
+      - key: DEMO_MODE
+        value: "false"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      # Optional, add when ready: MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM, MAIL_FROM_NAME,
+      # GOOGLE_SERVICE_ACCOUNT_FILE (upload the JSON key as a Render "Secret File"), MALWARE_SCAN_MODE.
