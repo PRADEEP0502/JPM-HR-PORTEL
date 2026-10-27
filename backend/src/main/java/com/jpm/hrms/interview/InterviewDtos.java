@@ -33,7 +33,7 @@ public final class InterviewDtos {
     public record ScheduleRequest(@NotNull Long candidateId,
                                   @NotNull Instant scheduledAt,
                                   @Min(15) @Max(480) int durationMinutes,
-                                  @NotBlank @Size(max = 100) String roundName,
+                                  @Size(max = 100) String roundName,
                                   @NotBlank @Size(max = 150) String interviewer,
                                   @NotNull Interview.Mode mode,
                                   @Size(max = 300) String location,
@@ -41,7 +41,7 @@ public final class InterviewDtos {
     }
 
     public record UpdateDetailsRequest(@Min(15) @Max(480) int durationMinutes,
-                                       @NotBlank @Size(max = 100) String roundName,
+                                       @Size(max = 100) String roundName,
                                        @NotBlank @Size(max = 150) String interviewer,
                                        @NotNull Interview.Mode mode,
                                        @Size(max = 300) String location,

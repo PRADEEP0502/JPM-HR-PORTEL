@@ -12,7 +12,6 @@ import { Avatar, Field } from '../ui/Misc';
 import { Spinner } from '../ui/States';
 import { useInvalidateCandidates } from './CandidateModals';
 
-const ROUNDS = ['Screening', 'Technical Round', 'HR Round', 'Managerial Round', 'Final Round'];
 
 function minDateTime() {
   const d = new Date(Date.now() + 5 * 60_000);
@@ -93,7 +92,6 @@ export function ScheduleInterviewModal({ open, onClose, candidate }: { open: boo
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
   const [duration, setDuration] = useState(45);
-  const [round, setRound] = useState(ROUNDS[0]);
   const [interviewer, setInterviewer] = useState('');
   const [mode, setMode] = useState<InterviewMode>('IN_PERSON');
   const [location, setLocation] = useState('');
@@ -137,7 +135,6 @@ export function ScheduleInterviewModal({ open, onClose, candidate }: { open: boo
         candidateId: picked!.id,
         scheduledAt: new Date(`${date}T${time}`).toISOString(),
         durationMinutes: duration,
-        roundName: round,
         interviewer: interviewer.trim(),
         mode,
         location: location.trim() || null,
@@ -234,11 +231,6 @@ export function ScheduleInterviewModal({ open, onClose, candidate }: { open: boo
         <Field label="Interview venue" className="sm:col-span-2" hint="Fixed venue from Settings → Communication; used in WhatsApp and email.">
           <input className="input cursor-not-allowed opacity-80" readOnly value={settings.data?.defaultVenue ?? 'Loading…'} aria-readonly="true" />
         </Field>
-        <Field label="Round *">
-          <select className="input" value={round} onChange={(e) => setRound(e.target.value)}>
-            {ROUNDS.map((r) => <option key={r}>{r}</option>)}
-          </select>
-        </Field>
         <Field
           label="Interviewer *"
           hint={
@@ -333,7 +325,7 @@ export function InterviewStatusModal({ interview, onClose }: { interview: Interv
       open={!!interview}
       onClose={onClose}
       title="Update interview"
-      description={interview ? `${interview.candidateName} · ${interview.roundName} · ${fmtDateTime(interview.scheduledAt)}` : undefined}
+      description={interview ? `${interview.candidateName} · ${fmtDateTime(interview.scheduledAt)}` : undefined}
       footer={
         <>
           <button className="btn-ghost" onClick={onClose}>Close</button>

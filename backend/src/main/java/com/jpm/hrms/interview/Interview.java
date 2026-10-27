@@ -64,6 +64,8 @@ public class Interview implements SequencedEntity {
     public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
     public String getRoundName() { return roundName; }
     public void setRoundName(String roundName) { this.roundName = roundName; }
+    /** Text for activity and notifications; interviews no longer have rounds, so this is usually "Interview". */
+    public String label() { return roundName == null || roundName.isBlank() ? "Interview" : roundName; }
     public String getInterviewer() { return interviewer; }
     public void setInterviewer(String interviewer) { this.interviewer = interviewer; }
     public Mode getMode() { return mode; }

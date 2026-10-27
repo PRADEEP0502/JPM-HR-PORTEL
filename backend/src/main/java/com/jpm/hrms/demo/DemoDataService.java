@@ -263,7 +263,7 @@ public class DemoDataService {
         i.setCandidate(c);
         i.setScheduledAt(at);
         i.setDurationMinutes(new int[]{30, 45, 60}[rnd.nextInt(3)]);
-        i.setRoundName(round);
+        i.setRoundName(null);
         i.setInterviewer(INTERVIEWERS[rnd.nextInt(INTERVIEWERS.length)]);
         i.setMode(Interview.Mode.values()[rnd.nextInt(3)]);
         i.setLocation(i.getMode() == Interview.Mode.IN_PERSON ? "JPM Office, Conference Room " + (1 + rnd.nextInt(4)) : null);

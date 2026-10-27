@@ -97,7 +97,7 @@ public class InterviewService {
         i.setCandidate(c);
         i.setScheduledAt(req.scheduledAt());
         i.setDurationMinutes(req.durationMinutes());
-        i.setRoundName(req.roundName().trim());
+        i.setRoundName(trimToNull(req.roundName()));
         i.setInterviewer(req.interviewer().trim());
         i.setMode(req.mode());
         i.setLocation(trimToNull(req.location()));
@@ -108,7 +108,7 @@ public class InterviewService {
         interviews.save(i);
         refreshCandidateInterviewStatus(c);
         audit.record("INTERVIEW_SCHEDULED", "CANDIDATE", c.getId(),
-                i.getRoundName() + " with " + i.getInterviewer() + " on " + displayFormat.format(i.getScheduledAt()));
+                i.label() + " with " + i.getInterviewer() + " on " + displayFormat.format(i.getScheduledAt()));
         return views.toResponse(i);
     }
 
@@ -119,7 +119,7 @@ public class InterviewService {
             checkClash(req.interviewer().trim(), i.getScheduledAt(), req.durationMinutes(), i.getId());
         }
         i.setDurationMinutes(req.durationMinutes());
-        i.setRoundName(req.roundName().trim());
+        i.setRoundName(trimToNull(req.roundName()));
         i.setInterviewer(req.interviewer().trim());
         i.setMode(req.mode());
         i.setLocation(trimToNull(req.location()));
@@ -127,7 +127,7 @@ public class InterviewService {
         i.setInterviewerUsername(interviewers.resolveInterviewerUsername(req.interviewer()));
         interviews.save(i);
         audit.record("INTERVIEW_UPDATED", "CANDIDATE", i.getCandidateId(),
-                "Updated " + i.getRoundName() + " details (interviewer " + i.getInterviewer() + ")");
+                "Updated " + i.label() + " details (interviewer " + i.getInterviewer() + ")");
         return views.toResponse(i);
     }
 
@@ -144,15 +144,15 @@ public class InterviewService {
                 if (i.getScheduledAt().isAfter(now)) {
                     throw ApiException.badRequest("An interview cannot be marked completed before its scheduled time");
                 }
-                detail = i.getRoundName() + " marked completed";
+                detail = i.label() + " marked completed";
             }
-            case CANCELLED -> detail = i.getRoundName() + " cancelled";
+            case CANCELLED -> detail = i.label() + " cancelled";
             case RESCHEDULED -> {
                 if (req.newScheduledAt() == null) throw ApiException.badRequest("A new date and time is required to reschedule");
                 if (req.newScheduledAt().equals(i.getScheduledAt())) throw ApiException.badRequest("Choose a different date or time");
                 validateFutureTime(req.newScheduledAt());
                 checkClash(i.getInterviewer(), req.newScheduledAt(), i.getDurationMinutes(), i.getId());
-                detail = i.getRoundName() + " rescheduled from " + displayFormat.format(i.getScheduledAt())
+                detail = i.label() + " rescheduled from " + displayFormat.format(i.getScheduledAt())
                         + " to " + displayFormat.format(req.newScheduledAt());
                 i.setScheduledAt(req.newScheduledAt());
             }

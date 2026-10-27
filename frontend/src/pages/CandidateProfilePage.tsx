@@ -315,7 +315,7 @@ export default function CandidateProfilePage() {
                   return (
                     <li key={i.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line/70 bg-card px-3 py-2.5">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{i.roundName} <span className="font-normal text-ink-3">with {i.interviewer}</span></p>
+                        <p className="text-sm font-medium">Interview <span className="font-normal text-ink-3">with {i.interviewer}</span></p>
                         <p className="text-xs text-ink-3">{fmtDateTime(i.scheduledAt)} · {i.durationMinutes} min · {labelOf(INTERVIEW_MODES, i.mode)}{i.location ? ` · ${i.location}` : ''}</p>
                         {i.remarks && <p className="mt-1 text-xs text-ink-2">“{i.remarks}”</p>}
                         {i.feedback && (

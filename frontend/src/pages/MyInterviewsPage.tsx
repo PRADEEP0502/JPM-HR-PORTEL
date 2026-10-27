@@ -47,7 +47,7 @@ export default function MyInterviewsPage() {
                   <InterviewPill status={i.status} />
                 </span>
                 <span className="mt-1 block text-xs text-ink-3">
-                  {i.roundName} · {fmtDateTime(i.scheduledAt)}
+                  {fmtDateTime(i.scheduledAt)}
                   {i.feedback && <span className="ml-1 text-good">· feedback given</span>}
                 </span>
               </button>
@@ -102,7 +102,7 @@ function InterviewDetail({ item }: { item: AssignedInterview }) {
           </div>
         </div>
         <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <Detail icon={<CalendarClock size={15} />} label="Interview" value={`${i.roundName} · ${fmtDateTime(i.scheduledAt)} · ${i.durationMinutes} min`} />
+          <Detail icon={<CalendarClock size={15} />} label="Interview" value={`${fmtDateTime(i.scheduledAt)} · ${i.durationMinutes} min`} />
           <Detail icon={<MapPin size={15} />} label="Mode" value={`${labelOf(INTERVIEW_MODES, i.mode)}${i.location ? ` · ${i.location}` : ''}`} />
           <Detail icon={<GraduationCap size={15} />} label="Qualification" value={[c?.qualification, c?.institution, c?.passingYear].filter(Boolean).join(' · ') || '—'} />
           <Detail label="Experience" value={c ? fmtExperience(c.experienceYears) : '—'} />

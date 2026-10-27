@@ -210,7 +210,7 @@ export function CommunicationPanel({ candidateId, interviewId, initialTab = 'wha
               <dt className="text-ink-3">Date</dt><dd>{d.interview.date}</dd>
               <dt className="text-ink-3">Time</dt><dd>{d.interview.time}</dd>
               <dt className="text-ink-3">Venue</dt><dd>{d.interview.venue}</dd>
-              <dt className="text-ink-3">Round</dt><dd>{d.interview.roundName} · {d.interview.interviewer}</dd>
+              <dt className="text-ink-3">Interviewer</dt><dd>{d.interview.interviewer}</dd>
             </dl>
           ) : (
             <div className="space-y-2">

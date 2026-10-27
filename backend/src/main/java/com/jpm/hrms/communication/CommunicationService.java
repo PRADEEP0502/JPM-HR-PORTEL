@@ -86,8 +86,7 @@ public class CommunicationService {
             TemplateRenderer.INTERVIEW_TIME, "interview time",
             TemplateRenderer.VENUE, "interview venue (Settings → Communication)",
             TemplateRenderer.COMPANY_NAME, "company name (Settings → Communication)",
-            TemplateRenderer.HR_SIGNATURE, "HR signature (Settings → Communication)",
-            TemplateRenderer.INTERVIEW_ROUND, "interview round");
+            TemplateRenderer.HR_SIGNATURE, "HR signature (Settings → Communication)");
 
     private final CommunicationSettingsRepository settingsRepo;
     private final MessageTemplateRepository templates;
@@ -225,7 +224,6 @@ public class CommunicationService {
         values.put(TemplateRenderer.DEPARTMENT, "Engineering");
         values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(sampleTime));
         values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(sampleTime));
-        values.put(TemplateRenderer.INTERVIEW_ROUND, "Technical Round");
         String renderedSubject = null;
         String renderedBody = null;
         if (problems.isEmpty()) {
@@ -278,7 +276,6 @@ public class CommunicationService {
         if (interview != null) {
             values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(interview.getScheduledAt()));
             values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(interview.getScheduledAt()));
-            values.put(TemplateRenderer.INTERVIEW_ROUND, interview.getRoundName());
         }
         return new Context(c, interview, s, ContactValidator.checkPhone(c.getMobile(), s.getDefaultCountryCode()),
                 ContactValidator.checkEmail(c.getEmail()), problems, values);

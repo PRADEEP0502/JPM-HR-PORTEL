@@ -226,7 +226,6 @@ function InterviewTable({ d }: { d: Dashboard }) {
               <tr className="border-b border-line/70">
                 <th className="th">Candidate</th>
                 <th className="th">Department</th>
-                <th className="th">Round</th>
                 <th className="th">Interviewer</th>
                 <th className="th">{range === 'today' ? 'Time' : 'Date & time'}</th>
                 <th className="th text-right">Status</th>
@@ -241,7 +240,6 @@ function InterviewTable({ d }: { d: Dashboard }) {
                     </Link>
                   </td>
                   <td className="td">{i.departmentName ?? '—'}</td>
-                  <td className="td">{i.roundName}</td>
                   <td className="td">
                     {i.interviewer}
                     <span className="block text-xs text-ink-3">{labelOf(INTERVIEW_MODES, i.mode)}</span>

@@ -24,7 +24,6 @@ public final class TemplateRenderer {
     public static final String VENUE = "Venue";
     public static final String COMPANY_NAME = "CompanyName";
     public static final String HR_SIGNATURE = "HRSignature";
-    public static final String INTERVIEW_ROUND = "InterviewRound";
 
     /** Placeholders a template may use, with a human description shown in the admin UI. */
     public static final Map<String, String> PLACEHOLDERS = new LinkedHashMap<>();
@@ -37,11 +36,10 @@ public final class TemplateRenderer {
         PLACEHOLDERS.put(VENUE, "Configured interview venue");
         PLACEHOLDERS.put(COMPANY_NAME, "Configured company name");
         PLACEHOLDERS.put(HR_SIGNATURE, "Configured HR signature");
-        PLACEHOLDERS.put(INTERVIEW_ROUND, "Interview round, e.g. HR Round");
     }
 
     /** Placeholders that only exist when the message is about a specific interview. */
-    public static final List<String> INTERVIEW_PLACEHOLDERS = List.of(INTERVIEW_DATE, INTERVIEW_TIME, INTERVIEW_ROUND);
+    public static final List<String> INTERVIEW_PLACEHOLDERS = List.of(INTERVIEW_DATE, INTERVIEW_TIME);
 
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 

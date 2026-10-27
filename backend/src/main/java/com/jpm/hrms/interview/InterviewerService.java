@@ -126,7 +126,7 @@ public class InterviewerService {
         i.setFeedbackAt(Instant.now());
         interviews.save(i);
         audit.record("INTERVIEW_FEEDBACK", "CANDIDATE", i.getCandidateId(), (update ? "Interview feedback updated" : "Interview feedback recorded")
-                + " for " + i.getRoundName() + ": " + req.recommendation().name().replace('_', ' ').toLowerCase());
+                + " for " + i.label() + ": " + req.recommendation().name().replace('_', ' ').toLowerCase());
         return myInterview(id, username);
     }
 

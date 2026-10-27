@@ -107,7 +107,6 @@ export default function InterviewsPage() {
                     <th className="th pl-4">Candidate</th>
                     <th className="th">Date</th>
                     <th className="th">Time</th>
-                    <th className="th">Round</th>
                     <th className="th">Interviewer</th>
                     <th className="th">Mode</th>
                     <th className="th">Status</th>
@@ -132,7 +131,6 @@ export default function InterviewsPage() {
                         </td>
                         <td className="td tabular-nums">{fmtDate(i.scheduledAt)}</td>
                         <td className="td tabular-nums">{fmtTime(i.scheduledAt)} <span className="text-ink-3">· {i.durationMinutes}m</span></td>
-                        <td className="td">{i.roundName}</td>
                         <td className="td">{i.interviewer}</td>
                         <td className="td">
                           {labelOf(INTERVIEW_MODES, i.mode)}

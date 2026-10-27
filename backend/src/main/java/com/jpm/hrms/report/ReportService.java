@@ -239,7 +239,6 @@ public class ReportService {
             r.put("id", i.getCandidateId());
             r.put("candidateCode", c == null ? null : c.getCandidateCode());
             r.put("fullName", c == null ? null : c.getFullName());
-            r.put("round", i.getRoundName());
             r.put("interviewer", i.getInterviewer());
             r.put("scheduledAt", fmt.format(i.getScheduledAt()));
             r.put("mode", i.getMode().name().replace('_', ' '));
@@ -254,7 +253,7 @@ public class ReportService {
         }
         return new Report(ReportType.INTERVIEW_STATUS, ReportType.INTERVIEW_STATUS.title, from, to, clock.instant(),
                 List.of(new Column("candidateCode", "Candidate ID"), new Column("fullName", "Name"),
-                        new Column("round", "Round"), new Column("interviewer", "Interviewer"),
+                        new Column("interviewer", "Interviewer"),
                         new Column("scheduledAt", "Date & Time"), new Column("mode", "Mode"),
                         new Column("status", "Status"), new Column("remarks", "Remarks")),
                 rows, chart);

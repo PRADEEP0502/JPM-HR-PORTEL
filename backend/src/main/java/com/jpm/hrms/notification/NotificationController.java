@@ -74,7 +74,7 @@ public class NotificationController {
         for (var i : soon) {
             String who = names.containsKey(i.getCandidateId()) ? names.get(i.getCandidateId()).getFullName() : "Candidate";
             items.add(new Notification("int-" + i.getId(), "UPCOMING_INTERVIEW", "Interview within 24 hours",
-                    who + " - " + i.getRoundName() + " at " + time.format(i.getScheduledAt()),
+                    who + " - " + i.label() + " at " + time.format(i.getScheduledAt()),
                     i.getUpdatedAt(), "/interviews", i.getUpdatedAt().isAfter(seen)));
         }
         if (me.getRole() == Role.ADMIN) {
