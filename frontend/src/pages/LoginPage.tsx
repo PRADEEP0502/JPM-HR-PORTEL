@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle, FlaskConical, Lock, User } from 'lucide-react';
+import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { usePublicInfo } from '../lib/queries';
 import { Logo } from '../components/layout/AppLayout';
@@ -7,7 +8,9 @@ import { Spinner } from '../components/ui/States';
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const { data: info, isError } = usePublicInfo();
+  const { data: info, isError, isPending, failureCount } = usePublicInfo();
+  // The first check failed and retries are running: the backend is most likely waking up from sleep.
+  const waking = isPending && failureCount > 0;
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +23,9 @@ export default function LoginPage() {
     try {
       await login(username.trim(), password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed');
+      const starting = err instanceof ApiError && [0, 502, 503, 504].includes(err.status);
+      setError(starting ? 'The server is still starting up. Please wait a moment and sign in again.'
+        : err instanceof Error ? err.message : 'Sign-in failed');
     } finally {
       setBusy(false);
     }
@@ -42,8 +47,14 @@ export default function LoginPage() {
               <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
             </div>
           )}
+          {waking && (
+            <div className="flex items-start gap-2 rounded-xl border border-info/40 bg-info/10 px-3 py-2.5 text-sm text-[#8fb4f5]" role="status">
+              <Spinner size={16} className="mt-0.5 shrink-0" />
+              <span>Starting the server… it sleeps when no one has used it for a while. This can take about a minute; this page keeps trying automatically.</span>
+            </div>
+          )}
           {isError && (
-            <div className="rounded-xl border border-warn/40 bg-warn/10 px-3 py-2.5 text-sm text-[#f3c08a]">The server is not reachable. Make sure the backend is running.</div>
+            <div className="rounded-xl border border-warn/40 bg-warn/10 px-3 py-2.5 text-sm text-[#f3c08a]">The server is not reachable right now. Please refresh the page in a few minutes, or contact your administrator.</div>
           )}
           <label className="block">
             <span className="label">Username</span>

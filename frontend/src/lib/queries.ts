@@ -19,6 +19,9 @@ export const usePublicInfo = () =>
     queryKey: ['public-info'],
     queryFn: () => api.get<{ appName: string; demoMode: boolean; timezone: string }>('/public/info'),
     staleTime: Infinity,
+    // Free hosting puts the backend to sleep; waking it takes up to a minute or two. Keep trying for ~3 minutes.
+    retry: 36,
+    retryDelay: 5000,
   });
 
 export const useNotifications = () =>
