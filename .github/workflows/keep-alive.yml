@@ -1,0 +1,25 @@
+# Keeps the free Render backend awake (it sleeps after 15 minutes without traffic, and waking takes ~1 minute).
+# Runs every 10 minutes. GitHub may start scheduled runs a few minutes late, so an external monitor
+# (e.g. UptimeRobot on /actuator/health every 5 minutes) is a good second safety net.
+# One always-awake free service uses ~744 of Render's 750 free hours per month.
+name: Keep backend awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://jpm-hr-portel.onrender.com/actuator/health) || true
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "Backend did not answer with 200"
