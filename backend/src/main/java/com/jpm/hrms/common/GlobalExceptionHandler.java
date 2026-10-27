@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiError> handleUploadSize(MaxUploadSizeExceededException ex) {
-        return build(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds the 10 MB limit", null);
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "The file is larger than the upload limit (10 MB unless an administrator changed it)", null);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)

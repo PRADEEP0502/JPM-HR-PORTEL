@@ -47,10 +47,10 @@ public final class CandidateDtos {
 
     public record DocumentResponse(Long id, CandidateDocument.DocType docType, CandidateDocument.Storage storage,
                                    String fileName, String contentType, Long sizeBytes, String uploadedBy, boolean encrypted,
-                                   Instant createdAt) {
+                                   Instant createdAt, CandidateDocument.ScanStatus scanStatus) {
         public static DocumentResponse from(CandidateDocument d) {
             return new DocumentResponse(d.getId(), d.getDocType(), d.getStorage(), d.getFileName(), d.getContentType(),
-                    d.getSizeBytes(), d.getUploadedBy(), d.isEncrypted(), d.getCreatedAt());
+                    d.getSizeBytes(), d.getUploadedBy(), d.isEncrypted(), d.getCreatedAt(), d.getScanStatus());
         }
     }
 

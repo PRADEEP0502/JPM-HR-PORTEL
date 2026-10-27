@@ -156,7 +156,7 @@ public class CandidateService {
                         .map(i -> InterviewResponse.from(i, c, d == null ? c.getDepartmentRaw() : d.getName())).toList(),
                 remarks.findByCandidateIdOrderByCreatedAtDesc(id).stream().map(RemarkResponse::from).toList(),
                 auditLogs.findByEntityTypeAndEntityIdOrderByOccurredAtDesc("CANDIDATE", id).stream()
-                        .filter(a -> !"DOCUMENT_DOWNLOADED".equals(a.getAction()))
+                        .filter(a -> !"DOCUMENT_DOWNLOADED".equals(a.getAction()) && !"DOCUMENT_VIEWED".equals(a.getAction()))
                         .limit(50).map(ActivityResponse::from).toList(),
                 statusHistory.findByCandidateIdOrderByChangedAtDesc(id).stream().map(StatusChangeResponse::from).toList(),
                 ratingHistory.findByCandidateIdOrderByRatedAtDesc(id).stream().map(RatingChangeResponse::from).toList());

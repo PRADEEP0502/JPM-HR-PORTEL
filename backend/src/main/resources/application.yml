@@ -33,8 +33,8 @@ spring:
       mail.smtp.writetimeout: 15000
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:10MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:11MB}
 
 management:
   endpoints:
@@ -51,6 +51,16 @@ app:
   timezone: ${APP_TIMEZONE:Asia/Kolkata}
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   upload-dir: ${UPLOAD_DIR:./data/uploads}
+  files:
+    # local = private folder (UPLOAD_DIR); gridfs = stored in MongoDB GridFS (no server disk needed, part of mongodump)
+    storage: ${FILE_STORAGE:local}
+    allowed-extensions: ${UPLOAD_ALLOWED_EXTENSIONS:pdf,jpg,jpeg,png}
+    malware-scan:
+      # off = no scanning (development only); clamav = scan every upload with a ClamAV daemon (clamd)
+      mode: ${MALWARE_SCAN_MODE:off}
+      clamav-host: ${CLAMAV_HOST:localhost}
+      clamav-port: ${CLAMAV_PORT:3310}
+      fail-closed: ${MALWARE_SCAN_FAIL_CLOSED:true}
   # Base64 32-byte AES key for documents at rest. Required for Aadhaar uploads.  openssl rand -base64 32
   document-encryption-key: ${DOCUMENT_ENCRYPTION_KEY:}
   security:

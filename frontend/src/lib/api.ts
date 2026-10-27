@@ -84,6 +84,23 @@ export const api = {
   del: <T>(path: string) => request<T>('DELETE', path),
   upload: <T>(path: string, form: FormData) => request<T>('POST', path, form, true),
 
+  /** Authenticated file fetch for the in-browser viewer; the file never gets a public URL. */
+  async blob(path: string, params: Query = {}): Promise<Blob> {
+    const token = tokenStore.get();
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    } catch {
+      throw new ApiError(0, 'Cannot reach the server.');
+    }
+    if (res.status === 401) {
+      onUnauthorized();
+      throw new ApiError(401, 'Your session has expired.');
+    }
+    if (!res.ok) throw await toError(res);
+    return res.blob();
+  },
+
   /** Authenticated file download (Excel exports, resumes) - streamed to a Blob, then saved. */
   async download(path: string, params: Query = {}, fallbackName = 'download'): Promise<void> {
     const token = tokenStore.get();

@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   ClipboardList,
   Download,
+  Eye,
   FileText,
   GraduationCap,
   History,
@@ -35,6 +36,7 @@ import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/t
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
+import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
 import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, useInvalidateCandidates, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
@@ -105,6 +107,7 @@ export default function CandidateProfilePage() {
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [viewing, setViewing] = useState<ViewTarget | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [interviewEdit, setInterviewEdit] = useState<Interview | null>(null);
   const [contact, setContact] = useState<Tab | null>(null);
@@ -390,6 +393,14 @@ export default function CandidateProfilePage() {
                                 )}
                               </p>
                             </div>
+                            <button
+                              className="btn-ghost p-2"
+                              onClick={() => setViewing({ title: `${c.fullName} - ${d.docType === 'RESUME' ? 'Resume' : 'Document'}`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'document' })}
+                              aria-label={`View ${d.fileName ?? 'document'}`}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
                             <button className="btn-ghost p-2" onClick={() => download(d)} disabled={downloading === d.id} aria-label={`Download ${d.fileName ?? 'document'}`} title="Download">
                               {downloading === d.id ? <Spinner size={15} /> : <Download size={15} />}
                             </button>
@@ -433,7 +444,7 @@ export default function CandidateProfilePage() {
                 ref={fileInput}
                 type="file"
                 className="hidden"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
@@ -464,7 +475,7 @@ export default function CandidateProfilePage() {
                 </p>
               </div>
             )}
-            <p className="mt-2 text-xs text-ink-3">PDF, DOC, DOCX, JPG or PNG up to 10 MB. Uploads, downloads and deletions are logged.</p>
+            <p className="mt-2 text-xs text-ink-3">PDF, JPG or PNG up to 10 MB. Files are checked and kept in private storage; uploads, views, downloads and deletions are logged.</p>
           </section>
 
           <section className="panel p-5">
@@ -553,6 +564,7 @@ export default function CandidateProfilePage() {
       <EditCandidateModal candidateId={editing ? c.id : null} onClose={() => setEditing(false)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
+      <DocumentViewer target={viewing} onClose={() => setViewing(null)} />
       <ArchiveModal target={archiving ? { id: c.id, name: c.fullName, code: c.candidateCode, archived: c.archived } : null} onClose={() => setArchiving(false)} />
       <ScheduleInterviewModal open={scheduling} onClose={() => setScheduling(false)} candidate={{ id: c.id, name: c.fullName, code: c.candidateCode }} />
       <InterviewStatusModal interview={interviewEdit} onClose={() => setInterviewEdit(null)} />

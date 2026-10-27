@@ -14,8 +14,14 @@ public class CandidateDocument implements SequencedEntity {
     /** AADHAAR is a copy of the identity card only (no number is stored or verified); always stored encrypted. */
     public enum DocType { RESUME, AADHAAR, CERTIFICATE, OTHER }
 
-    /** LOCAL = file uploaded to this server; DRIVE = Google Drive file uploaded through the Google Form. */
-    public enum Storage { LOCAL, DRIVE }
+    /**
+     * Where the file lives: LOCAL = private folder on the server (UPLOAD_DIR); GRIDFS = MongoDB GridFS;
+     * DRIVE = Google Drive file uploaded through the Google Form (read through the service account).
+     */
+    public enum Storage { LOCAL, GRIDFS, DRIVE }
+
+    /** Result of the malware scan at upload time; NOT_SCANNED when scanning is off or the file came from Google Drive. */
+    public enum ScanStatus { NOT_SCANNED, CLEAN }
 
     @Id
     private Long id;
@@ -29,11 +35,12 @@ public class CandidateDocument implements SequencedEntity {
     private String fileName;
     private String contentType;
     private Long sizeBytes;
-    /** Server-side file name (LOCAL) or Drive file id (DRIVE). Never sent to the browser. */
+    /** Random storage key (LOCAL path or GridFS id) or Drive file id. Never sent to the browser. */
     private String storageRef;
     private String uploadedBy;
     /** True when the LOCAL file on disk is AES-GCM encrypted (see DocumentCrypto). */
     private boolean encrypted;
+    private ScanStatus scanStatus;
     private Instant createdAt;
 
     protected CandidateDocument() {
@@ -69,5 +76,7 @@ public class CandidateDocument implements SequencedEntity {
     public String getUploadedBy() { return uploadedBy; }
     public boolean isEncrypted() { return encrypted; }
     public void setEncrypted(boolean encrypted) { this.encrypted = encrypted; }
+    public ScanStatus getScanStatus() { return scanStatus; }
+    public void setScanStatus(ScanStatus scanStatus) { this.scanStatus = scanStatus; }
     public Instant getCreatedAt() { return createdAt; }
 }

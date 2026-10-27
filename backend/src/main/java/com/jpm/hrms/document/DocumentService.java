@@ -7,7 +7,11 @@ import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.common.ApiException;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.document.CandidateDocument.DocType;
+import com.jpm.hrms.document.CandidateDocument.ScanStatus;
 import com.jpm.hrms.document.CandidateDocument.Storage;
+import com.jpm.hrms.document.scan.MalwareScanner;
+import com.jpm.hrms.document.storage.FileStorage;
+import com.jpm.hrms.document.storage.FileStorages;
 import com.jpm.hrms.sync.GoogleApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,39 +28,59 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
 
+/**
+ * Candidate documents: validated (extension allow-list + real file signature), malware-scanned, stored under a
+ * random key in private storage, and served only to signed-in users after a permission check by the caller.
+ */
 @Service
 public class DocumentService {
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
-    private static final Map<String, String> ALLOWED = Map.of(
+    /** Every type the server knows how to verify; app.files.allowed-extensions selects which are accepted. */
+    private static final Map<String, String> KNOWN = Map.of(
             "pdf", "application/pdf",
             "doc", "application/msword",
             "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "jpg", "image/jpeg",
             "jpeg", "image/jpeg",
             "png", "image/png");
+    /** Types a browser may show inline in the resume viewer. Everything else is always downloaded. */
+    private static final Set<String> VIEWABLE = Set.of("application/pdf", "image/jpeg", "image/png");
 
     private final CandidateDocumentRepository docs;
     private final CandidateRepository candidates;
     private final GoogleApiClient google;
     private final DocumentCrypto crypto;
+    private final FileStorages storages;
+    private final MalwareScanner scanner;
     private final AuditService audit;
-    private final Path root;
+    private final List<String> allowed;
+    private final boolean failClosed;
 
     public DocumentService(CandidateDocumentRepository docs, CandidateRepository candidates, GoogleApiClient google,
-                           DocumentCrypto crypto, AuditService audit, AppProperties props) {
+                           DocumentCrypto crypto, FileStorages storages, MalwareScanner scanner, AuditService audit,
+                           AppProperties props) {
         this.docs = docs;
         this.candidates = candidates;
         this.google = google;
         this.crypto = crypto;
+        this.storages = storages;
+        this.scanner = scanner;
         this.audit = audit;
-        this.root = Path.of(props.uploadDir()).toAbsolutePath().normalize();
+        this.allowed = props.files().allowedExtensions().stream().map(e -> e.trim().toLowerCase(Locale.ROOT))
+                .filter(KNOWN::containsKey).toList();
+        this.failClosed = props.files().malwareScan().failClosed();
+    }
+
+    /** Human-readable list of accepted types, e.g. "PDF, JPG, JPEG, PNG". */
+    public String acceptedTypes() {
+        return String.join(", ", allowed.stream().map(e -> e.toUpperCase(Locale.ROOT)).toList());
     }
 
     /**
@@ -72,59 +96,80 @@ public class DocumentService {
                 throw ApiException.badRequest("Aadhaar uploads are disabled until DOCUMENT_ENCRYPTION_KEY is configured on the server");
             }
         }
+        // Only the base name is used, for display; the storage key is random (no user-controlled paths).
         String original = file.getOriginalFilename() == null ? "document" : Path.of(file.getOriginalFilename()).getFileName().toString();
         String ext = original.contains(".") ? original.substring(original.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
-        String contentType = ALLOWED.get(ext);
-        if (contentType == null) throw ApiException.badRequest("Only PDF, DOC, DOCX, JPG and PNG files are allowed");
+        if (!allowed.contains(ext)) throw ApiException.badRequest("Only " + acceptedTypes() + " files are allowed");
+        String contentType = KNOWN.get(ext);
         try {
             byte[] bytes = file.getBytes();
             if (!signatureMatches(ext, Arrays.copyOf(bytes, Math.min(bytes.length, 8)))) {
                 throw ApiException.badRequest("The file content does not match its ." + ext + " extension");
             }
+            ScanStatus scanStatus = scan(c, original, bytes, actor);
             boolean encrypt = crypto.isConfigured();
-            Path dir = root.resolve(String.valueOf(c.getId()));
-            Files.createDirectories(dir);
-            String stored = UUID.randomUUID() + (encrypt ? ".enc" : "." + ext);
-            Path target = dir.resolve(stored).normalize();
-            if (!target.startsWith(root)) throw ApiException.badRequest("Invalid file name");
-            Files.write(target, encrypt ? crypto.encrypt(bytes) : bytes);
-
+            FileStorage storage = storages.forNewFiles();
+            String key = storage.store(String.valueOf(c.getId()), encrypt ? "enc" : ext, encrypt ? crypto.encrypt(bytes) : bytes);
             String safeName = original.replaceAll("[\\r\\n\"\\\\/]", "_");
-            CandidateDocument d = new CandidateDocument(c, type, Storage.LOCAL, safeName, contentType,
-                    (long) bytes.length, c.getId() + "/" + stored, actor);
+            CandidateDocument d = new CandidateDocument(c, type, storage.kind(), safeName, contentType, (long) bytes.length, key, actor);
             d.setEncrypted(encrypt);
+            d.setScanStatus(scanStatus);
             docs.save(d);
             audit.record("DOCUMENT_UPLOADED", "CANDIDATE", c.getId(), label(type) + " uploaded: " + safeName
-                    + (type == DocType.AADHAAR ? " (candidate consent confirmed, encrypted)" : ""));
+                    + (type == DocType.AADHAAR ? " (candidate consent confirmed, encrypted)" : "")
+                    + (scanStatus == ScanStatus.CLEAN ? " - malware scan clean" : ""));
             return DocumentResponse.from(d);
         } catch (IOException e) {
+            log.error("Could not store uploaded file for candidate {}: {}", c.getId(), e.getMessage());
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store the uploaded file");
         }
     }
 
-    public ResponseEntity<InputStreamResource> download(Long documentId) {
+    private ScanStatus scan(Candidate c, String name, byte[] bytes, String actor) {
+        MalwareScanner.Verdict v = scanner.scan(bytes);
+        return switch (v.outcome()) {
+            case CLEAN -> ScanStatus.CLEAN;
+            case NOT_SCANNED -> ScanStatus.NOT_SCANNED;
+            case INFECTED -> {
+                audit.recordAs(actor, "UPLOAD_REJECTED_MALWARE", "CANDIDATE", c.getId(), "Upload rejected: " + name + " (" + v.detail() + ")");
+                throw ApiException.badRequest("This file was rejected because the malware scanner flagged it");
+            }
+            case ERROR -> {
+                log.warn("Malware scan failed: {}", v.detail());
+                if (failClosed) {
+                    throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Uploads are paused: the malware scanner is not available. Try again later.");
+                }
+                yield ScanStatus.NOT_SCANNED;
+            }
+        };
+    }
+
+    /** {@code inline} = shown in the resume viewer (PDF / images only); otherwise always a download. */
+    public ResponseEntity<InputStreamResource> download(Long documentId, boolean inline) {
         CandidateDocument d = docs.findById(documentId).orElseThrow(() -> ApiException.notFound("Document"));
-        return stream(d);
+        return stream(d, inline);
     }
 
     public ResponseEntity<InputStreamResource> downloadLatestResume(Long candidateId) {
+        return latestResume(candidateId, false);
+    }
+
+    public ResponseEntity<InputStreamResource> latestResume(Long candidateId, boolean inline) {
         if (!candidates.existsById(candidateId)) throw ApiException.notFound("Candidate");
         CandidateDocument d = docs.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(candidateId, DocType.RESUME)
                 .orElseThrow(() -> ApiException.notFound("Resume for this candidate"));
-        return stream(d);
+        return stream(d, inline);
     }
 
     /** Removes a document (e.g. an Aadhaar copy once verification is complete). Drive files are only unlinked. */
     public void delete(Long documentId) {
         CandidateDocument d = docs.findById(documentId).orElseThrow(() -> ApiException.notFound("Document"));
-        if (d.getStorage() == Storage.LOCAL) {
-            Path file = root.resolve(d.getStorageRef()).normalize();
-            if (file.startsWith(root)) {
-                try {
-                    Files.deleteIfExists(file);
-                } catch (IOException e) {
-                    log.warn("Could not delete stored file for document {}", d.getId());
-                }
+        FileStorage storage = storages.of(d.getStorage());
+        if (storage != null) {
+            try {
+                storage.delete(d.getStorageRef());
+            } catch (IOException e) {
+                log.warn("Could not delete stored file for document {}", d.getId());
             }
         }
         docs.delete(d);
@@ -132,22 +177,18 @@ public class DocumentService {
                 + d.getFileName() + (d.getStorage() == Storage.DRIVE ? " (link removed; file remains in Google Drive)" : ""));
     }
 
-    private ResponseEntity<InputStreamResource> stream(CandidateDocument d) {
+    private ResponseEntity<InputStreamResource> stream(CandidateDocument d, boolean inline) {
         InputStream body;
         String name = d.getFileName();
         Long size;
-        if (d.getStorage() == Storage.LOCAL) {
-            Path file = root.resolve(d.getStorageRef()).normalize();
-            if (!file.startsWith(root) || !Files.isReadable(file)) throw ApiException.notFound("Stored file");
+        FileStorage storage = storages.of(d.getStorage());
+        if (storage != null) {
             try {
-                if (d.isEncrypted()) {
-                    byte[] plain = crypto.decrypt(Files.readAllBytes(file));
-                    body = new ByteArrayInputStream(plain);
-                    size = (long) plain.length;
-                } else {
-                    body = Files.newInputStream(file);
-                    size = Files.size(file);
-                }
+                if (!storage.exists(d.getStorageRef())) throw ApiException.notFound("Stored file");
+                byte[] stored = storage.read(d.getStorageRef());
+                byte[] plain = d.isEncrypted() ? crypto.decrypt(stored) : stored;
+                body = new ByteArrayInputStream(plain);
+                size = (long) plain.length;
             } catch (IOException e) {
                 throw ApiException.notFound("Stored file");
             } catch (IllegalStateException e) {
@@ -164,15 +205,27 @@ public class DocumentService {
                 throw new ApiException(HttpStatus.BAD_GATEWAY, "Could not fetch the file from Google Drive: " + e.getMessage());
             }
         }
-        audit.record("DOCUMENT_DOWNLOADED", "CANDIDATE", d.getCandidateId(), label(d.getDocType()) + " downloaded: " + name);
+        String type = contentTypeOf(d, name);
+        boolean showInline = inline && VIEWABLE.contains(type);
+        audit.record(showInline ? "DOCUMENT_VIEWED" : "DOCUMENT_DOWNLOADED", "CANDIDATE", d.getCandidateId(),
+                label(d.getDocType()) + (showInline ? " viewed: " : " downloaded: ") + name);
+        String fileName = name == null ? "document" : name;
         var builder = ResponseEntity.ok()
-                // Always served as a download (never rendered inline) to avoid content-sniffing issues.
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(name == null ? "document" : name, StandardCharsets.UTF_8).build().toString())
-                .header(HttpHeaders.CACHE_CONTROL, "no-store");
+                // Downloads are never rendered by the browser; the viewer only gets PDF / images with their real type.
+                .contentType(showInline ? MediaType.parseMediaType(type) : MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, (showInline ? ContentDisposition.inline() : ContentDisposition.attachment())
+                        .filename(fileName, StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
         if (size != null) builder.contentLength(size);
         return builder.body(new InputStreamResource(body));
+    }
+
+    private static String contentTypeOf(CandidateDocument d, String name) {
+        if (d.getContentType() != null) return d.getContentType();
+        String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
+        String ext = n.contains(".") ? n.substring(n.lastIndexOf('.') + 1) : "";
+        return KNOWN.getOrDefault(ext, MediaType.APPLICATION_OCTET_STREAM_VALUE);
     }
 
     private static String label(DocType t) {

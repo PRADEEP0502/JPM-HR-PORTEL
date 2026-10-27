@@ -18,6 +18,7 @@ import com.jpm.hrms.department.Department;
 import com.jpm.hrms.department.DepartmentRepository;
 import com.jpm.hrms.document.CandidateDocument;
 import com.jpm.hrms.document.CandidateDocumentRepository;
+import com.jpm.hrms.document.storage.FileStorages;
 import com.jpm.hrms.interview.Interview;
 import com.jpm.hrms.interview.InterviewRepository;
 import com.jpm.hrms.interview.InterviewService;
@@ -32,8 +33,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,7 +41,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Seeds clearly-labelled sample data (source = DEMO) for demo mode, and removes it again.
@@ -93,6 +91,7 @@ public class DemoDataService {
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final CommunicationRepository communications;
+    private final FileStorages storages;
     private final StatusChangeRepository statusHistory;
     private final RatingChangeRepository ratingHistory;
     private final Clock clock;
@@ -102,8 +101,9 @@ public class DemoDataService {
                            InterviewRepository interviews, HrRemarkRepository remarks, CandidateDocumentRepository documents,
                            AppUserRepository users, InterviewService interviewService, PasswordEncoder encoder,
                            AuditService audit, CommunicationRepository communications,
-                           StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory, Clock clock,
-                           ZoneId businessZone) {
+                           StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory, FileStorages storages,
+                           Clock clock, ZoneId businessZone) {
+        this.storages = storages;
         this.statusHistory = statusHistory;
         this.ratingHistory = ratingHistory;
         this.props = props;
@@ -307,13 +307,11 @@ public class DemoDataService {
                 + "4 0 obj<</Length " + stream.length() + ">>stream\n" + stream + "\nendstream endobj\n"
                 + "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF";
         try {
-            Path dir = Path.of(props.uploadDir()).toAbsolutePath().normalize().resolve(String.valueOf(c.getId()));
-            Files.createDirectories(dir);
-            String stored = UUID.randomUUID() + ".pdf";
             byte[] bytes = pdf.getBytes(StandardCharsets.ISO_8859_1);
-            Files.write(dir.resolve(stored), bytes);
-            documents.save(new CandidateDocument(c, CandidateDocument.DocType.RESUME, CandidateDocument.Storage.LOCAL,
-                    fileName, "application/pdf", (long) bytes.length, c.getId() + "/" + stored, DEMO_ACTOR));
+            var storage = storages.forNewFiles();
+            String key = storage.store(String.valueOf(c.getId()), "pdf", bytes);
+            documents.save(new CandidateDocument(c, CandidateDocument.DocType.RESUME, storage.kind(),
+                    fileName, "application/pdf", (long) bytes.length, key, DEMO_ACTOR));
         } catch (IOException e) {
             log.warn("Could not write demo resume file: {}", e.getMessage());
         }

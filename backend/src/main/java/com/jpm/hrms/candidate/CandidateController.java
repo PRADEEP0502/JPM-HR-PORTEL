@@ -143,8 +143,8 @@ public class CandidateController {
     }
 
     @GetMapping("/candidates/{id}/resume")
-    public ResponseEntity<InputStreamResource> resume(@PathVariable Long id) {
-        return documents.downloadLatestResume(id);
+    public ResponseEntity<InputStreamResource> resume(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean inline) {
+        return documents.latestResume(id, inline);
     }
 
     @DeleteMapping("/documents/{documentId}")
@@ -154,7 +154,8 @@ public class CandidateController {
     }
 
     @GetMapping("/documents/{documentId}/download")
-    public ResponseEntity<InputStreamResource> download(@PathVariable Long documentId) {
-        return documents.download(documentId);
+    /** {@code inline=true} returns PDF / images with their real type for the in-browser resume viewer. */
+    public ResponseEntity<InputStreamResource> download(@PathVariable Long documentId, @RequestParam(defaultValue = "false") boolean inline) {
+        return documents.download(documentId, inline);
     }
 }

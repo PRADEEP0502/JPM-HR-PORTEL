@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -19,6 +19,7 @@ import type { CandidateListItem, Page } from '../lib/types';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../components/ui/Pill';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
+import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
 import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type ArchiveTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
@@ -59,6 +60,7 @@ export default function CandidatesPage() {
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveTarget | null>(null);
+  const [viewing, setViewing] = useState<ViewTarget | null>(null);
   const [exporting, setExporting] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [contact, setContact] = useState<{ candidateId: number; tab: Tab; title: string } | null>(null);
@@ -307,6 +309,11 @@ export default function CandidatesPage() {
                                     icon: <Star size={15} />,
                                     onClick: () => setRatingTarget({ id: c.id, name: c.fullName, code: c.candidateCode, rating: c.profileRating, remark: c.ratingRemark }),
                                   },
+                                  {
+                                    label: 'View resume',
+                                    icon: <FileText size={15} />,
+                                    onClick: () => setViewing({ title: `${c.fullName} - Resume`, path: `/candidates/${c.id}/resume`, fileName: `${c.candidateCode}-resume` }),
+                                  },
                                   { label: downloading === c.id ? 'Downloading…' : 'Download resume', icon: <FileDown size={15} />, onClick: () => downloadResume(c) },
                                   {
                                     label: c.archived ? 'Restore from archive' : 'Archive',
@@ -340,6 +347,7 @@ export default function CandidatesPage() {
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <ArchiveModal target={archiveTarget} onClose={() => setArchiveTarget(null)} />
+      <DocumentViewer target={viewing} onClose={() => setViewing(null)} />
       <CommunicationDialog target={contact} onClose={() => setContact(null)} />
       {call.modal}
     </div>

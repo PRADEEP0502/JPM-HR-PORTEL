@@ -14,7 +14,8 @@ public record AppProperties(
         String documentEncryptionKey,
         @DefaultValue Security security,
         @DefaultValue Mail mail,
-        @DefaultValue Google google) {
+        @DefaultValue Google google,
+        @DefaultValue Files files) {
 
     public record Security(String jwtSecret,
                            @DefaultValue("480") long tokenTtlMinutes,
@@ -30,5 +31,25 @@ public record AppProperties(
                          String spreadsheetId,
                          @DefaultValue("Form Responses 1") String sheetRange,
                          String formUrl) {
+    }
+
+    /**
+     * Uploaded documents. storage = local (private folder UPLOAD_DIR) or gridfs (inside MongoDB, included in mongodump
+     * backups). Only the listed extensions are accepted, and the file content must match the extension.
+     */
+    public record Files(@DefaultValue("local") String storage,
+                        @DefaultValue({"pdf", "jpg", "jpeg", "png"}) List<String> allowedExtensions,
+                        @DefaultValue MalwareScan malwareScan) {
+    }
+
+    /**
+     * Malware scanning of uploads. mode = off (development) or clamav (a ClamAV clamd daemon reachable over TCP).
+     * failClosed = reject uploads while the scanner is unreachable (recommended in production).
+     */
+    public record MalwareScan(@DefaultValue("off") String mode,
+                              @DefaultValue("localhost") String clamavHost,
+                              @DefaultValue("3310") int clamavPort,
+                              @DefaultValue("15000") int timeoutMs,
+                              @DefaultValue("true") boolean failClosed) {
     }
 }

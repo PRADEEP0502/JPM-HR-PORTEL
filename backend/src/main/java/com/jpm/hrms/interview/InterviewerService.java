@@ -106,9 +106,9 @@ public class InterviewerService {
         return new AssignedInterview(views.toResponse(i), c == null ? null : summary(c, depts.snapshot()));
     }
 
-    public ResponseEntity<InputStreamResource> resume(Long id, String username) {
+    public ResponseEntity<InputStreamResource> resume(Long id, String username, boolean inline) {
         Interview i = assigned(id, username);
-        return documentService.downloadLatestResume(i.getCandidateId());
+        return documentService.latestResume(i.getCandidateId(), inline);
     }
 
     public AssignedInterview recordFeedback(Long id, FeedbackRequest req, String username) {

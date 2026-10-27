@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -45,8 +46,9 @@ public class InterviewerController {
 
     @GetMapping("/api/my/interviews/{id}/resume")
     @PreAuthorize("hasRole('INTERVIEWER')")
-    public ResponseEntity<InputStreamResource> resume(@PathVariable Long id, Authentication auth) {
-        return service.resume(id, auth.getName());
+    public ResponseEntity<InputStreamResource> resume(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean inline,
+                                                      Authentication auth) {
+        return service.resume(id, auth.getName(), inline);
     }
 
     @PostMapping("/api/my/interviews/{id}/feedback")
