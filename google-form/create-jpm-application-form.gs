@@ -38,7 +38,7 @@ var DEPARTMENTS = {
 };
 
 // Response sheet of the form that is already live (used only by updateExistingForm).
-var RESPONSE_SPREADSHEET_ID = '1vzyLJXwbTzchDVyYegagKZwCHKCX_WJQ-1NUW2ThUA4';
+var RESPONSE_SPREADSHEET_ID = '1QlF0mX1fMO2DWJjj1RG9noQiu2dYHRYCJXUJx9hDaAw';
 
 var SUBWORK_SECTION_PREFIX = 'Sub-work – ';
 var DECLARATION = 'I confirm that the information given is true, and I consent to ' + COMPANY +
