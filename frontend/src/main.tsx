@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import { ApiError } from './lib/api';
 import App from './App';
+import { ServerWakingBar } from './components/ui/ServerWakingBar';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ToastProvider>
+          <ServerWakingBar />
           <AuthProvider>
             <App />
           </AuthProvider>

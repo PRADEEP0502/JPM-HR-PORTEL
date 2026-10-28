@@ -42,6 +42,60 @@ export function qs(params: Query): string {
   return s ? `?${s}` : '';
 }
 
+// ---------------------------------------------------------------- server waking up
+// The free backend host sleeps when unused; the first requests then fail with 502/503 (or time out) for up to
+// a minute or two while it starts. Those requests are retried instead of shown as errors.
+
+const WAKE_DEADLINE_MS = 120_000;
+const wakeListeners = new Set<(waking: boolean) => void>();
+let wakingCount = 0;
+
+/** Subscribe to "server is starting" (true) / "server answered" (false). Returns an unsubscribe function. */
+export function onServerWaking(fn: (waking: boolean) => void): () => void {
+  wakeListeners.add(fn);
+  return () => wakeListeners.delete(fn);
+}
+
+function setWaking(delta: number) {
+  const before = wakingCount > 0;
+  wakingCount = Math.max(0, wakingCount + delta);
+  if (before !== wakingCount > 0) wakeListeners.forEach((fn) => fn(wakingCount > 0));
+}
+
+/** Responses from the hosting layer (not from the app, which always answers errors in JSON). */
+function isHostUnavailable(res: Response, retryTimeouts: boolean): boolean {
+  const statuses = retryTimeouts ? [502, 503, 504] : [502, 503];
+  return statuses.includes(res.status) && !(res.headers.get('Content-Type') ?? '').includes('application/json');
+}
+
+/**
+ * fetch() that waits for a sleeping backend. Reads (and sign-in) are retried on network errors and 502/503/504;
+ * changes only on 502/503, which mean the request never reached the app, so nothing can be saved twice.
+ */
+async function fetchWaiting(url: string, init: RequestInit, safeToRepeat: boolean): Promise<Response> {
+  const start = Date.now();
+  let waiting = false;
+  try {
+    for (let attempt = 0; ; attempt++) {
+      let res: Response | null = null;
+      try {
+        res = await fetch(url, init);
+      } catch (e) {
+        if (!safeToRepeat || Date.now() - start > WAKE_DEADLINE_MS) throw e;
+      }
+      if (res && !isHostUnavailable(res, safeToRepeat)) return res;
+      if (res && Date.now() - start > WAKE_DEADLINE_MS) return res;
+      if (!waiting) {
+        waiting = true;
+        setWaking(1);
+      }
+      await new Promise((r) => setTimeout(r, Math.min(3000 + attempt * 1000, 6000)));
+    }
+  } finally {
+    if (waiting) setWaking(-1);
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown, isForm = false): Promise<T> {
   const headers: Record<string, string> = {};
   const token = tokenStore.get();
@@ -49,13 +103,13 @@ async function request<T>(method: string, path: string, body?: unknown, isForm =
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   let res: Response;
   try {
-    res = await fetch(`${BASE}/api${path}`, {
+    res = await fetchWaiting(`${BASE}/api${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
-    });
+    }, method === 'GET' || path === '/auth/login');
   } catch {
-    throw new ApiError(0, 'Cannot reach the server. Check your connection and that the backend is running.');
+    throw new ApiError(0, 'Cannot reach the server. Check your connection and try again.');
   }
   if (res.status === 401 && path !== '/auth/login') {
     onUnauthorized();
@@ -89,7 +143,7 @@ export const api = {
     const token = tokenStore.get();
     let res: Response;
     try {
-      res = await fetch(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      res = await fetchWaiting(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, true);
     } catch {
       throw new ApiError(0, 'Cannot reach the server.');
     }
@@ -106,7 +160,7 @@ export const api = {
     const token = tokenStore.get();
     let res: Response;
     try {
-      res = await fetch(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      res = await fetchWaiting(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, true);
     } catch {
       throw new ApiError(0, 'Cannot reach the server.');
     }
