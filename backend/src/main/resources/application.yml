@@ -57,6 +57,9 @@ app:
   # Demo mode seeds clearly-labelled sample candidates (source = DEMO) into an empty database.
   demo-mode: ${DEMO_MODE:false}
   timezone: ${APP_TIMEZONE:Asia/Kolkata}
+  # Free Render: ping our own public URL every 10 min so the service never sleeps (Render sets RENDER_EXTERNAL_URL).
+  # Empty = off (local development, paid plans).
+  keep-awake-url: ${KEEP_AWAKE_URL:${RENDER_EXTERNAL_URL:}}
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   upload-dir: ${UPLOAD_DIR:./data/uploads}
   files:
