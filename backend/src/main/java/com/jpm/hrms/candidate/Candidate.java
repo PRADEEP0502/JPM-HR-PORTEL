@@ -42,6 +42,8 @@ public class Candidate implements SequencedEntity {
     private Long departmentId;
     /** Department text as submitted, kept when it does not match a configured department. */
     private String departmentRaw;
+    /** Sub-work (position) within the department, e.g. "Machine Operator". */
+    private String position;
 
     private LocalDate applicationDate;
     private Instant appliedAt;
@@ -128,6 +130,8 @@ public class Candidate implements SequencedEntity {
     public void setDepartment(Department department) { this.departmentId = department == null ? null : department.getId(); }
     public String getDepartmentRaw() { return departmentRaw; }
     public void setDepartmentRaw(String departmentRaw) { this.departmentRaw = departmentRaw; }
+    public String getPosition() { return position; }
+    public void setPosition(String position) { this.position = position; }
     public LocalDate getApplicationDate() { return applicationDate; }
     public void setApplicationDate(LocalDate applicationDate) { this.applicationDate = applicationDate; }
     public Instant getAppliedAt() { return appliedAt; }

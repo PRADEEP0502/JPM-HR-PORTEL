@@ -162,7 +162,7 @@ public class CandidateService {
                 c.getFullName(), c.getDateOfBirth(), c.getMobile(), c.getEmail(), c.getAddress(),
                 c.getQualification(), c.getInstitution(), c.getPassingYear(),
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
-                d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(),
+                d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(),
                 c.getApplicationDate(), c.getAppliedAt(),
                 c.getApplicationStatus(), c.getInterviewStatus(), c.getVerificationStatus(),
                 c.getReferenceName(), c.getReferenceRelation(), c.getReferenceContact(),
@@ -217,6 +217,7 @@ public class CandidateService {
             changed.add("Department");
             c.setDepartment(dept);
         }
+        set(changed, "Sub-work", c.getPosition(), trim(req.position()), c::setPosition);
         set(changed, "Reference name", c.getReferenceName(), trim(req.referenceName()), c::setReferenceName);
         set(changed, "Reference relation", c.getReferenceRelation(), trim(req.referenceRelation()), c::setReferenceRelation);
         set(changed, "Reference contact", c.getReferenceContact(), trim(req.referenceContact()), c::setReferenceContact);

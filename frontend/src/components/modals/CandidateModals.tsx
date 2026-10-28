@@ -57,6 +57,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
     const f: Form = {};
     TEXT_FIELDS.forEach(({ key }) => (f[key] = detail.data[key] == null ? '' : String(detail.data[key])));
     f.departmentId = detail.data.departmentId == null ? '' : String(detail.data.departmentId);
+    f.position = detail.data.position ?? '';
     setForm(f);
     setErrors({});
   }, [detail.data]);
@@ -68,6 +69,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
         passingYear: form.passingYear ? Number(form.passingYear) : null,
         experienceYears: form.experienceYears ? Number(form.experienceYears) : null,
         departmentId: form.departmentId ? Number(form.departmentId) : null,
+        position: form.position?.trim() ? form.position.trim() : null,
         version: detail.data!.version,
       }),
     onSuccess: () => {
@@ -138,8 +140,8 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
             </Field>
             </Fragment>
           ))}
-          <Field label="Department" className="sm:col-span-2" hint={detail.data.departmentRaw && !detail.data.departmentId ? `Submitted as "${detail.data.departmentRaw}"` : undefined}>
-            <select className="input" value={form.departmentId ?? ''} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+          <Field label="Department" hint={detail.data.departmentRaw && !detail.data.departmentId ? `Submitted as "${detail.data.departmentRaw}"` : undefined}>
+            <select className="input" value={form.departmentId ?? ''} onChange={(e) => setForm({ ...form, departmentId: e.target.value, position: '' })}>
               <option value="">Unassigned</option>
               {departments?.map((d) => (
                 <option key={d.id} value={d.id} disabled={!d.active && String(d.id) !== form.departmentId}>
@@ -147,6 +149,19 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Sub-work">
+            {(() => {
+              const options = departments?.find((d) => String(d.id) === form.departmentId)?.positions ?? [];
+              // keep a submitted value that is not (or no longer) in the department's list
+              const all = form.position && !options.includes(form.position) ? [form.position, ...options] : options;
+              return (
+                <select className="input" value={form.position ?? ''} disabled={all.length === 0} onChange={(e) => setForm({ ...form, position: e.target.value })}>
+                  <option value="">{all.length === 0 ? 'No sub-work set for this department' : 'Not specified'}</option>
+                  {all.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              );
+            })()}
           </Field>
         </div>
       )}

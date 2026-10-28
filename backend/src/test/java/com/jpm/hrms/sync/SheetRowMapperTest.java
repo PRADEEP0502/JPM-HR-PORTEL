@@ -42,6 +42,20 @@ class SheetRowMapperTest {
         assertThat(p.referenceName()).isEqualTo("Ravi K");
     }
 
+    @Test
+    void takesSubWorkFromTheAnsweredDepartmentSection() {
+        var res = SheetRowMapper.resolveColumns(List.of("Timestamp", "Full Name", "Email", "Department",
+                "Position (Production)", "Position (Quality Control)", "Position (Office)", "Declaration"), Map.of());
+        assertThat(res.problems()).isEmpty();
+        assertThat(res.columns()).containsEntry(SheetField.DEPARTMENT, 3);
+        assertThat(res.positionColumns()).containsExactly(4, 5, 6);
+        assertThat(res.unmappedHeaders()).containsExactly("Declaration");
+        var p = SheetRowMapper.parse(List.of("10/20/2026 9:15:00", "Asha Rao", "asha@example.com", "Office", "", "", "Accountant"),
+                2, res.columns(), res.positionColumns(), IST, TODAY);
+        assertThat(p.department()).isEqualTo("Office");
+        assertThat(p.position()).isEqualTo("Accountant");
+    }
+
     /** Exact header row produced by google-form/create-jpm-application-form.gs (+ the 3 manual upload questions). */
     @Test
     void recognisesEveryColumnOfTheJpmGoogleForm() {

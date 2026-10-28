@@ -36,14 +36,16 @@ public final class SheetRowMapper {
             DateTimeFormatter.ofPattern("uuuu-MM-dd H:mm:ss"),
             DateTimeFormatter.ofPattern("d/M/uuuu, H:mm:ss"));
 
-    public record ColumnResolution(Map<SheetField, Integer> columns, List<String> unmappedHeaders, List<String> problems) {
+    /** positionColumns: every "Position (<Department>)" column of a branching form, in sheet order. */
+    public record ColumnResolution(Map<SheetField, Integer> columns, List<Integer> positionColumns,
+                                   List<String> unmappedHeaders, List<String> problems) {
     }
 
     public record ParsedRow(int rowNumber, String rowKey, Instant appliedAt, LocalDate applicationDate,
                             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
                             String qualification, String institution, Integer passingYear, String previousCompany,
                             BigDecimal experienceYears, String previousDesignation, String skills, String expectedSalary,
-                            String department, String referenceName, String referenceRelation, String referenceContact,
+                            String department, String position, String referenceName, String referenceRelation, String referenceContact,
                             String familyRefName, String familyRefRelation, String familyRefContact,
                             List<String> resumeIds, List<String> aadhaarIds, List<String> certificateIds, List<String> otherDocIds,
                             List<String> errors, List<String> warnings) {
@@ -116,12 +118,27 @@ public final class SheetRowMapper {
         if (!cols.containsKey(SheetField.MOBILE) && !cols.containsKey(SheetField.EMAIL)) {
             problems.add("Neither a mobile number nor an email column was found.");
         }
+        List<Integer> positionCols = new ArrayList<>();
+        for (int i = 0; i < headers.size(); i++) {
+            String h = SheetField.normalize(headers.get(i));
+            boolean isPosition = Integer.valueOf(i).equals(cols.get(SheetField.POSITION))
+                    || !used.contains(i) && (h.startsWith("position") || h.startsWith("subwork"));
+            if (isPosition) {
+                positionCols.add(i);
+                used.add(i);
+            }
+        }
         List<String> unmapped = new ArrayList<>();
         for (int i = 0; i < headers.size(); i++) if (!used.contains(i) && !headers.get(i).isBlank()) unmapped.add(headers.get(i));
-        return new ColumnResolution(cols, unmapped, problems);
+        return new ColumnResolution(cols, positionCols, unmapped, problems);
     }
 
     public static ParsedRow parse(List<Object> row, int rowNumber, Map<SheetField, Integer> cols, ZoneId zone, LocalDate today) {
+        return parse(row, rowNumber, cols, List.of(), zone, today);
+    }
+
+    public static ParsedRow parse(List<Object> row, int rowNumber, Map<SheetField, Integer> cols, List<Integer> positionCols,
+                                  ZoneId zone, LocalDate today) {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
@@ -188,6 +205,7 @@ public final class SheetRowMapper {
                 FieldParsers.truncate(text(row, cols, SheetField.SKILLS), 2000),
                 FieldParsers.truncate(text(row, cols, SheetField.EXPECTED_SALARY), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.DEPARTMENT), 150),
+                FieldParsers.truncate(firstAnswer(row, cols, positionCols), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_NAME), 150),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_RELATION), 150),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_CONTACT), 200),
@@ -236,6 +254,16 @@ public final class SheetRowMapper {
 
     private static String text(List<Object> row, Map<SheetField, Integer> cols, SheetField f) {
         return FieldParsers.clean(cell(row, cols, f));
+    }
+
+    /** A branching form fills only the position question of the chosen department's section. */
+    private static String firstAnswer(List<Object> row, Map<SheetField, Integer> cols, List<Integer> positionCols) {
+        if (positionCols.isEmpty()) return text(row, cols, SheetField.POSITION);
+        for (int idx : positionCols) {
+            String v = idx < row.size() ? FieldParsers.clean(row.get(idx)) : null;
+            if (v != null) return v;
+        }
+        return null;
     }
 
     private static int indexOfNormalized(List<String> headers, String normalized) {

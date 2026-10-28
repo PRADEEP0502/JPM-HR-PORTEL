@@ -264,7 +264,7 @@ public class SyncService {
             for (int i = 1; i < values.size(); i++) {
                 List<Object> row = values.get(i);
                 if (row.stream().allMatch(v -> v == null || v.toString().isBlank())) continue;
-                ParsedRow p = SheetRowMapper.parse(row, i + 1, res.columns(), zone, today);
+                ParsedRow p = SheetRowMapper.parse(row, i + 1, res.columns(), res.positionColumns(), zone, today);
                 if (candidates.existsBySourceRowKey(p.rowKey()) || ignored.existsById(p.rowKey())) continue;
 
                 if (!p.isValid()) {
@@ -338,6 +338,7 @@ public class SyncService {
         c.setExpectedSalary(p.expectedSalary());
         c.setDepartment(dept);
         c.setDepartmentRaw(p.department());
+        c.setPosition(p.position());
         c.setApplicationDate(p.applicationDate());
         c.setAppliedAt(p.appliedAt());
         c.setReferenceName(p.referenceName());

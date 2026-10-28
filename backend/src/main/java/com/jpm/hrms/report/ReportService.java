@@ -204,6 +204,7 @@ public class ReportService {
             r.put("fullName", c.getFullName());
             r.put("mobile", c.getMobile());
             r.put("department", dept);
+            r.put("position", c.getPosition());
             r.put("qualification", c.getQualification());
             r.put("experienceYears", c.getExperienceYears());
             r.put("applicationDate", c.getApplicationDate());
@@ -215,7 +216,7 @@ public class ReportService {
         }
         List<Column> cols = new ArrayList<>(List.of(new Column("candidateCode", "Candidate ID"), new Column("fullName", "Name"),
                 new Column("mobile", "Mobile"), new Column("department", "Department"),
-                new Column("qualification", "Qualification"), new Column("experienceYears", "Experience (yrs)"),
+                new Column("position", "Sub-work"), new Column("qualification", "Qualification"), new Column("experienceYears", "Experience (yrs)"),
                 new Column("applicationDate", "Application Date"), new Column("applicationStatus", "Application Status"),
                 new Column("interviewStatus", "Interview Status")));
         if (type == ReportType.PENDING_VERIFICATION) cols.add(new Column("dataIssues", "Data Issues"));

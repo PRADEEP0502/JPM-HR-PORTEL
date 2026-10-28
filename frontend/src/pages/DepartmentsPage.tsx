@@ -20,16 +20,23 @@ function DepartmentModal({ dept, open, onClose }: { dept: Department | null; ope
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+  const [positions, setPositions] = useState('');
   useEffect(() => {
     if (open) {
       setName(dept?.name ?? '');
       setDescription(dept?.description ?? '');
       setActive(dept?.active ?? true);
+      setPositions((dept?.positions ?? []).join('\n'));
     }
   }, [open, dept]);
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), description: description.trim() || null, active };
+      const body = {
+        name: name.trim(),
+        description: description.trim() || null,
+        active,
+        positions: positions.split('\n').map((p) => p.trim()).filter(Boolean),
+      };
       return dept ? api.put(`/departments/${dept.id}`, body) : api.post('/departments', body);
     },
     onSuccess: () => {
@@ -56,6 +63,9 @@ function DepartmentModal({ dept, open, onClose }: { dept: Department | null; ope
       <div className="space-y-4">
         <Field label="Name *" hint="Google Form answers are matched to departments by this name (case-insensitive).">
           <input className="input" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Sub-work" hint="One per line, e.g. Machine Operator. Use the same names as the Google Form.">
+          <textarea className="input min-h-[120px]" value={positions} onChange={(e) => setPositions(e.target.value)} placeholder={'Machine Operator\nHelper\nSupervisor'} />
         </Field>
         <Field label="Description">
           <textarea className="input min-h-[72px]" maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -156,7 +166,16 @@ export default function DepartmentsPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 font-medium">{d.name} {!d.active && <Pill tone="grey">Inactive</Pill>}</p>
-                  <p className="mt-0.5 text-xs text-ink-3">{d.description ?? 'No description'}</p>
+                  {d.description && <p className="mt-0.5 text-xs text-ink-3">{d.description}</p>}
+                  {d.positions.length > 0 ? (
+                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`${d.name} sub-work`}>
+                      {d.positions.map((p) => (
+                        <li key={p} className="rounded-md border border-line/70 px-2 py-0.5 text-xs text-ink-2">{p}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-ink-3">No sub-work added</p>
+                  )}
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1">

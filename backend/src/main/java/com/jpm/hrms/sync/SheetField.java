@@ -23,7 +23,9 @@ public enum SheetField {
     PREVIOUS_DESIGNATION("Previous designation", false, "previous designation", "current designation", "designation", "last designation"),
     SKILLS("Skills", false, "skills", "key skills", "technical skills"),
     EXPECTED_SALARY("Expected salary", false, "expected salary", "expected ctc", "salary expectation"),
-    DEPARTMENT("Department", false, "department", "applied department", "applying for", "department applied for", "position", "post applied for"),
+    DEPARTMENT("Department", false, "department", "applied department", "applying for", "department applied for"),
+    /** Sub-work: the form has one "Position (<Department>)" question per department section; the first answered one is used. */
+    POSITION("Sub-work / position", false, "position", "sub work", "subwork", "post applied for", "position applied for", "job role", "role"),
     REFERENCE_NAME("Reference name", false, "reference name", "referee name", "reference"),
     REFERENCE_RELATION("Reference relationship / designation", false, "reference relationship", "reference designation", "relationship", "reference relation", "relationship or designation"),
     REFERENCE_CONTACT("Reference contact", false, "reference contact", "reference contact details", "reference phone", "referee contact"),

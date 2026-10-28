@@ -221,7 +221,7 @@ export default function CandidatesPage() {
                         <span className="font-mono">{c.candidateCode}</span>
                         {c.source === 'DEMO' && <DemoTag />}
                         {c.archived && <span className="rounded border border-line px-1 text-[10px] font-semibold uppercase">Archived</span>}
-                        · {c.departmentName ?? 'Unassigned'}
+                        · {c.departmentName ?? 'Unassigned'}{c.position ? ` – ${c.position}` : ''}
                       </p>
                     </div>
                     <ApplicationPill status={c.applicationStatus} />
@@ -275,7 +275,10 @@ export default function CandidatesPage() {
                         {c.verificationStatus === 'PENDING' && <span className="block text-[11px] text-warn">Verification pending</span>}
                       </td>
                       <td className="td tabular-nums">{c.mobile ?? '—'}</td>
-                      <td className="td">{c.departmentName ?? <span className="text-ink-3">Unassigned</span>}</td>
+                      <td className="td">
+                        {c.departmentName ?? <span className="text-ink-3">Unassigned</span>}
+                        {c.position && <span className="block text-xs text-ink-3">{c.position}</span>}
+                      </td>
                       <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
                       <td className="td tabular-nums">{fmtDate(c.applicationDate)}</td>

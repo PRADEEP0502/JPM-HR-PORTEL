@@ -181,7 +181,7 @@ export default function CandidateProfilePage() {
             <div className="pb-1">
               <h2 className="flex flex-wrap items-center gap-2 text-xl font-semibold">{c.fullName} {c.source === 'DEMO' && <DemoTag />}</h2>
               <p className="text-sm text-ink-3">
-                <span className="font-mono">{c.candidateCode}</span> · {c.departmentName ?? (c.departmentRaw ? `${c.departmentRaw} (not configured)` : 'Unassigned')} · Applied {fmtDate(c.applicationDate)}
+                <span className="font-mono">{c.candidateCode}</span> · {c.departmentName ?? (c.departmentRaw ? `${c.departmentRaw} (not configured)` : 'Unassigned')}{c.position ? ` – ${c.position}` : ''} · Applied {fmtDate(c.applicationDate)}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <ApplicationPill status={c.applicationStatus} />
@@ -300,6 +300,7 @@ export default function CandidateProfilePage() {
             icon={<ClipboardList size={16} />}
             rows={[
               ['Applied department', c.departmentName ?? c.departmentRaw],
+              ['Sub-work', c.position],
               ['Application date', fmtDateTime(c.appliedAt)],
               ['Current status', <ApplicationPill status={c.applicationStatus} />],
               ['Source', c.source === 'GOOGLE_SHEETS' ? 'Google Form' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Manual'],

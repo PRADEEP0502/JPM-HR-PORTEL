@@ -19,19 +19,34 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/departments")
 public class DepartmentController {
 
-    public record DepartmentRequest(@NotBlank @Size(max = 100) String name, @Size(max = 500) String description, boolean active) {
+    public record DepartmentRequest(@NotBlank @Size(max = 100) String name, @Size(max = 500) String description, boolean active,
+                                    @Size(max = 50) List<@Size(max = 100) String> positions) {
     }
 
-    public record DepartmentResponse(Long id, String name, String description, boolean active) {
+    public record DepartmentResponse(Long id, String name, String description, boolean active, List<String> positions) {
         static DepartmentResponse from(Department d) {
-            return new DepartmentResponse(d.getId(), d.getName(), d.getDescription(), d.isActive());
+            return new DepartmentResponse(d.getId(), d.getName(), d.getDescription(), d.isActive(), d.getPositions());
         }
+    }
+
+    /** Trimmed, blanks dropped, duplicates (ignoring case) removed; order kept. */
+    static List<String> cleanPositions(List<String> raw) {
+        Map<String, String> byKey = new LinkedHashMap<>();
+        if (raw != null) {
+            for (String p : raw) {
+                if (StringUtils.hasText(p)) byKey.putIfAbsent(p.trim().toLowerCase(Locale.ROOT), p.trim());
+            }
+        }
+        return List.copyOf(byKey.values());
     }
 
     private final DepartmentRepository repo;
@@ -57,6 +72,7 @@ public class DepartmentController {
         if (repo.findByNameIgnoreCase(name).isPresent()) throw ApiException.conflict("A department with this name already exists");
         Department d = new Department(name, StringUtils.hasText(req.description()) ? req.description().trim() : null);
         d.setActive(req.active());
+        d.setPositions(cleanPositions(req.positions()));
         repo.save(d);
         audit.record("DEPARTMENT_CREATED", "DEPARTMENT", d.getId(), "Created department " + d.getName());
         return DepartmentResponse.from(d);
@@ -73,6 +89,7 @@ public class DepartmentController {
         d.setName(name);
         d.setDescription(StringUtils.hasText(req.description()) ? req.description().trim() : null);
         d.setActive(req.active());
+        d.setPositions(cleanPositions(req.positions()));
         repo.save(d);
         audit.record("DEPARTMENT_UPDATED", "DEPARTMENT", d.getId(),
                 "Updated department " + before + " → " + d.getName() + (d.isActive() ? "" : " (inactive)"));

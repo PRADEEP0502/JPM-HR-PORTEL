@@ -42,6 +42,8 @@ export interface Department {
   name: string;
   description: string | null;
   active: boolean;
+  /** Sub-work (positions) offered in this department. */
+  positions: string[];
 }
 
 export interface CandidateListItem {
@@ -52,6 +54,7 @@ export interface CandidateListItem {
   email: string | null;
   departmentId: number | null;
   departmentName: string | null;
+  position: string | null;
   qualification: string | null;
   experienceYears: number | null;
   applicationDate: string;
@@ -132,6 +135,7 @@ export interface CandidateDetail {
   departmentId: number | null;
   departmentName: string | null;
   departmentRaw: string | null;
+  position: string | null;
   applicationDate: string;
   appliedAt: string;
   applicationStatus: ApplicationStatus;

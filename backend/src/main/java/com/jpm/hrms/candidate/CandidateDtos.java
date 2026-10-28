@@ -30,7 +30,7 @@ public final class CandidateDtos {
     }
 
     public record CandidateListItem(Long id, String candidateCode, String fullName, String mobile, String email,
-                                    Long departmentId, String departmentName, String qualification,
+                                    Long departmentId, String departmentName, String position, String qualification,
                                     BigDecimal experienceYears, LocalDate applicationDate,
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
                                     VerificationStatus verificationStatus, CandidateSource source,
@@ -38,7 +38,7 @@ public final class CandidateDtos {
         public static CandidateListItem from(Candidate c, DepartmentDirectory.Names depts) {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
                     depts.name(c) == null ? null : c.getDepartmentId(),
-                    depts.nameOrRaw(c),
+                    depts.nameOrRaw(c), c.getPosition(),
                     c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getApplicationStatus(),
                     c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
                     c.getProfileRating(), c.getRatingRemark(), c.isArchived());
@@ -76,7 +76,7 @@ public final class CandidateDtos {
             String previousCompany, BigDecimal experienceYears, String previousDesignation, String skills,
             String expectedSalary,
             // D. application
-            Long departmentId, String departmentName, String departmentRaw, LocalDate applicationDate, Instant appliedAt,
+            Long departmentId, String departmentName, String departmentRaw, String position, LocalDate applicationDate, Instant appliedAt,
             ApplicationStatus applicationStatus, InterviewStatus interviewStatus, VerificationStatus verificationStatus,
             // E. references
             String referenceName, String referenceRelation, String referenceContact,
@@ -127,6 +127,7 @@ public final class CandidateDtos {
             @Size(max = 2000) String skills,
             @Size(max = 100) String expectedSalary,
             Long departmentId,
+            @Size(max = 100) String position,
             @Size(max = 150) String referenceName,
             @Size(max = 150) String referenceRelation,
             @Size(max = 200) String referenceContact,

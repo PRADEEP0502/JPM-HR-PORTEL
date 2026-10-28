@@ -6,6 +6,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document("departments")
 public class Department implements SequencedEntity {
@@ -15,6 +17,8 @@ public class Department implements SequencedEntity {
     private String name;
 
     private String description;
+    /** Sub-work (positions) a candidate can apply for in this department, in display order. */
+    private List<String> positions = new ArrayList<>();
     private boolean active = true;
     private Instant createdAt;
     private Instant updatedAt;
@@ -44,6 +48,8 @@ public class Department implements SequencedEntity {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public List<String> getPositions() { return positions == null ? List.of() : positions; }
+    public void setPositions(List<String> positions) { this.positions = new ArrayList<>(positions); }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 }

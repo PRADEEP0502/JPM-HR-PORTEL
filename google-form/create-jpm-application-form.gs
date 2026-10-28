@@ -11,29 +11,38 @@
  *      Run it ONCE: every run creates a new form and a new response sheet.
  *   6. Add the three file-upload questions by hand (Apps Script cannot create them) - see the log.
  *
+ * ALREADY HAVE THE FORM?  Don't create a new one. Set RESPONSE_SPREADSHEET_ID below, then run
+ *   updateExistingForm  - it (re)builds the Department → Sub-work sections and the declaration text
+ *   in your current form. Safe to run again whenever DEPARTMENTS changes; answers are not touched.
+ *
  * The question titles below match what the JPM HRMS dashboard sync recognises automatically.
  * If you rename a question, either keep the meaning (e.g. "Mobile Number") or set a column
  * mapping override in the dashboard (Settings → Google Sheets integration → Column mapping).
  */
 
 // ---------------------------------------------------------------------------------------------
-// EDIT THESE IF NEEDED. Departments must match the departments configured in the dashboard
-// (Departments page) exactly - otherwise candidates are imported as "Unassigned".
+// EDIT THESE IF NEEDED. Departments and sub-work must match the dashboard's Departments page
+// exactly - otherwise candidates are imported as "Unassigned".
 // ---------------------------------------------------------------------------------------------
 var COMPANY = 'JPM – Junior Processing Mill';
 // 10-digit Indian mobile. Also accepts the +91 / 91 / 0 prefixes and one space or dash in the
 // middle (e.g. "98765 43210") - the same numbers the dashboard accepts and normalises.
 var MOBILE_PATTERN = '^(\\+?91[ -]?|0)?[6-9][0-9]{4}[ -]?[0-9]{5}$';
 
-var DEPARTMENTS = [
-  'Customer Support',
-  'Design',
-  'Engineering',
-  'Finance',
-  'Human Resources',
-  'Operations',
-  'Sales & Marketing'
-];
+// Department → its sub-work. The candidate picks a department, then sees only that department's sub-work.
+var DEPARTMENTS = {
+  'Production': ['Machine Operator', 'Helper', 'Supervisor'],
+  'Quality Control': ['QC Inspector', 'Lab Assistant'],
+  'Maintenance': ['Electrician'],
+  'Office': ['Accountant', 'Data Entry', 'Administrative Officer', 'Receptionist', 'HR']
+};
+
+// Response sheet of the form that is already live (used only by updateExistingForm).
+var RESPONSE_SPREADSHEET_ID = '1R_3osmqlcBTH_jwzWpErYNH2Mmn9nIkbiqWbOQh4D9A';
+
+var SUBWORK_SECTION_PREFIX = 'Sub-work – ';
+var DECLARATION = 'I confirm that the information given is true, and I consent to ' + COMPANY +
+                  ' using it, including any Aadhaar copy I upload, for recruitment and identity verification only.';
 
 function createJpmApplicationForm() {
   var form = FormApp.create('JPM – Job Application Form');
@@ -107,7 +116,7 @@ function createJpmApplicationForm() {
   form.addListItem()
       .setTitle('Department')
       .setHelpText('Department you are applying for')
-      .setChoiceValues(DEPARTMENTS)
+      .setChoiceValues(Object.keys(DEPARTMENTS))
       .setRequired(true);
 
   // ---------------- Section 5: References ----------------
@@ -138,9 +147,10 @@ function createJpmApplicationForm() {
 
   form.addCheckboxItem()
       .setTitle('Declaration')
-      .setChoiceValues(['I confirm that the information given is true, and I consent to ' + COMPANY +
-                        ' using it for recruitment purposes.'])
+      .setChoiceValues([DECLARATION])
       .setRequired(true);
+
+  setUpDepartmentSections_(form);
 
   // ---------------- Response sheet ----------------
   var created = SpreadsheetApp.create('JPM – Job Applications (Responses)');
@@ -195,4 +205,57 @@ function createJpmApplicationForm() {
   ];
   Logger.log(lines.join('\n'));
   return { formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), spreadsheetId: ss.getId() };
+}
+
+/** Adds the Department → Sub-work sections and the Aadhaar consent declaration to the form that is already live. */
+function updateExistingForm() {
+  var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
+  if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
+  var form = FormApp.openByUrl(formUrl);
+  setUpDepartmentSections_(form);
+
+  var declaration = findItem_(form, 'Declaration', FormApp.ItemType.CHECKBOX);
+  if (declaration) declaration.asCheckboxItem().setChoiceValues([DECLARATION]);
+
+  Logger.log('Form updated: ' + Object.keys(DEPARTMENTS).length + ' departments with sub-work. ' +
+             'Check it here: ' + form.getEditUrl());
+}
+
+/**
+ * One section per department, right after the "Department" question, holding a "Position (<Department>)"
+ * question with that department's sub-work. Choosing a department jumps to its section, and every section
+ * continues to "References". Sections from an earlier run are replaced.
+ */
+function setUpDepartmentSections_(form) {
+  form.getItems().forEach(function (item) {
+    var title = item.getTitle();
+    var isOldSection = item.getType() === FormApp.ItemType.PAGE_BREAK && title.indexOf(SUBWORK_SECTION_PREFIX) === 0;
+    var isOldQuestion = item.getType() === FormApp.ItemType.LIST && /^Position \(/.test(title);
+    if (isOldSection || isOldQuestion) form.deleteItem(item);
+  });
+
+  var department = findItem_(form, 'Department', FormApp.ItemType.LIST);
+  var references = findItem_(form, 'References', FormApp.ItemType.PAGE_BREAK);
+  if (!department || !references) throw new Error('The form needs a "Department" dropdown and a "References" section.');
+
+  var list = department.asListItem();
+  var insertAt = department.getIndex() + 1;
+  var choices = Object.keys(DEPARTMENTS).map(function (name) {
+    var section = form.addPageBreakItem()
+        .setTitle(SUBWORK_SECTION_PREFIX + name)
+        .setHelpText('Choose the work you are applying for in ' + name + '.')
+        .setGoToPage(references.asPageBreakItem());
+    form.moveItem(section.getIndex(), insertAt++);
+    var question = form.addListItem()
+        .setTitle('Position (' + name + ')')
+        .setChoiceValues(DEPARTMENTS[name])
+        .setRequired(true);
+    form.moveItem(question.getIndex(), insertAt++);
+    return list.createChoice(name, section);
+  });
+  list.setChoices(choices);
+}
+
+function findItem_(form, title, type) {
+  return form.getItems(type).filter(function (item) { return item.getTitle() === title; })[0] || null;
 }
