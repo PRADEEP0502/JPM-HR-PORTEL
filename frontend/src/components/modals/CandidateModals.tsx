@@ -18,6 +18,8 @@ export function useInvalidateCandidates() {
 // ------------------------------------------------------------------ edit
 
 type Form = Record<string, string>;
+type UploadType = 'RESUME' | 'AADHAAR';
+const UPLOADS: Record<UploadType, string> = { RESUME: 'Resume', AADHAAR: 'Aadhaar card' };
 const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string }[] = [
   { key: 'fullName', label: 'Full name *', max: 150 },
   { key: 'dateOfBirth', label: 'Date of birth', type: 'date' },
@@ -53,11 +55,16 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
   });
   const [form, setForm] = useState<Form>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // documents attached while adding a candidate; uploaded right after the candidate is created
+  const [files, setFiles] = useState<Partial<Record<UploadType, File>>>({});
+  const [consent, setConsent] = useState(false);
 
   useEffect(() => {
     if (!isNew) return;
     setForm({});
     setErrors({});
+    setFiles({});
+    setConsent(false);
   }, [isNew]);
 
   useEffect(() => {
@@ -80,10 +87,25 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
         position: form.position?.trim() ? form.position.trim() : null,
         version: isNew ? 0 : detail.data!.version,
       };
-      return isNew ? api.post<CandidateDetail>('/candidates', body) : api.put<CandidateDetail>(`/candidates/${candidateId}`, body);
+      if (!isNew) return api.put<CandidateDetail>(`/candidates/${candidateId}`, body).then((c) => ({ c, failed: [] as string[] }));
+      return api.post<CandidateDetail>('/candidates', body).then(async (c) => {
+        // The candidate exists now, so a failed upload is reported but does not undo the add.
+        const failed: string[] = [];
+        for (const [type, file] of Object.entries(files) as [UploadType, File][]) {
+          const fd = new FormData();
+          fd.append('file', file);
+          try {
+            await api.upload(`/candidates/${c.id}/documents?type=${type}${type === 'AADHAAR' ? `&consent=${consent}` : ''}`, fd);
+          } catch (e) {
+            failed.push(`${UPLOADS[type]}: ${(e as Error).message}`);
+          }
+        }
+        return { c, failed };
+      });
     },
-    onSuccess: (c) => {
-      toast('success', isNew ? `Candidate ${c.candidateCode} added` : 'Candidate details updated');
+    onSuccess: ({ c, failed }) => {
+      if (failed.length) toast('error', `Candidate ${c.candidateCode} added, but upload failed - ${failed.join('; ')}. Add it from the profile.`);
+      else toast('success', isNew ? `Candidate ${c.candidateCode} added` : 'Candidate details updated');
       invalidate();
       onClose();
     },
@@ -98,6 +120,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
     if (!form.fullName?.trim()) errs.fullName = 'Name is required';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) errs.email = 'Enter a valid email';
     if (isNew && !form.mobile?.trim()) errs.mobile = 'Mobile number is required';
+    if (files.AADHAAR && !consent) errs.aadhaarConsent = 'Confirm the candidate consented to share their Aadhaar';
     else if (form.mobile && form.mobile.replace(/\D/g, '').length < 10) errs.mobile = 'Enter at least 10 digits';
     if (form.familyRefContact && form.familyRefContact.replace(/\D/g, '').length < 10) errs.familyRefContact = 'Enter at least 10 digits';
     if (form.passingYear &&(Number(form.passingYear) < 1950 || Number(form.passingYear) > new Date().getFullYear() + 1)) errs.passingYear = 'Enter a valid year';
@@ -175,6 +198,43 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
               );
             })()}
           </Field>
+          {isNew && (
+            <>
+              <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">Documents</h3>
+              {(Object.keys(UPLOADS) as UploadType[]).map((type) => (
+                <Field key={type} label={UPLOADS[type]} hint={files[type] ? `${files[type]!.name} · ${(files[type]!.size / 1024 / 1024).toFixed(1)} MB` : 'PDF, JPG or PNG up to 10 MB'}>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="input file:mr-3 file:rounded-lg file:border-0 file:bg-raised file:px-3 file:py-1 file:text-sm file:text-ink"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.size > 10 * 1024 * 1024) {
+                        toast('error', 'File exceeds the 10 MB limit');
+                        e.target.value = '';
+                        return;
+                      }
+                      setFiles((prev) => {
+                        const next = { ...prev };
+                        if (f) next[type] = f;
+                        else delete next[type];
+                        return next;
+                      });
+                    }}
+                  />
+                </Field>
+              ))}
+              {files.AADHAAR && (
+                <div className="sm:col-span-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#22a559]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                    <span>The candidate has consented to share a copy of their Aadhaar card for verification.</span>
+                  </label>
+                  {errors.aadhaarConsent && <span className="mt-1 block text-xs text-bad">{errors.aadhaarConsent}</span>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </Modal>
