@@ -38,8 +38,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -70,11 +72,15 @@ public class CandidateService {
     private final RatingChangeRepository ratingHistory;
     private final AuditLogRepository auditLogs;
     private final AuditService audit;
+    private final Clock clock;
+    private final ZoneId zone;
 
     public CandidateService(CandidateRepository repo, DepartmentRepository departments, DepartmentDirectory depts,
                             CandidateDocumentRepository documents, InterviewRepository interviews, HrRemarkRepository remarks,
                             StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory,
-                            AuditLogRepository auditLogs, AuditService audit) {
+                            AuditLogRepository auditLogs, AuditService audit, Clock clock, ZoneId businessZone) {
+        this.clock = clock;
+        this.zone = businessZone;
         this.statusHistory = statusHistory;
         this.ratingHistory = ratingHistory;
         this.repo = repo;
@@ -181,11 +187,40 @@ public class CandidateService {
                 ratingHistory.findByCandidateIdOrderByRatedAtDesc(id).stream().map(RatingChangeResponse::from).toList());
     }
 
+    /** Adds an applicant HR received outside the Google Form (walk-in, phone, referral). */
+    public CandidateDetail create(UpdateCandidateRequest req, String actor) {
+        if (!StringUtils.hasText(req.mobile())) throw ApiException.badRequest("Mobile number is required");
+        String mobile = FieldParsers.normalizeMobile(req.mobile());
+        if (mobile != null && repo.existsByMobile(mobile)) {
+            throw ApiException.conflict("A candidate with this mobile number already exists");
+        }
+        Candidate c = new Candidate();
+        c.setSource(CandidateSource.MANUAL);
+        c.setApplicationDate(LocalDate.now(clock.withZone(zone)));
+        c.setAppliedAt(clock.instant());
+        apply(c, req);
+        repo.save(c);
+        assignCode(c, repo);
+        repo.save(c);
+        audit.record("CANDIDATE_CREATED", "CANDIDATE", c.getId(), "Added manually by " + actor);
+        return detail(c.getId());
+    }
+
     public CandidateDetail update(Long id, UpdateCandidateRequest req) {
         Candidate c = get(id);
         if (c.getVersion() != req.version()) {
             throw new OptimisticLockingFailureException("Candidate " + id + " was changed by someone else");
         }
+        List<String> changed = apply(c, req);
+        if (!changed.isEmpty()) {
+            audit.record("CANDIDATE_UPDATED", "CANDIDATE", c.getId(), "Edited: " + String.join(", ", changed));
+            repo.save(c);
+        }
+        return detail(id);
+    }
+
+    /** Copies the editable fields onto the candidate and returns the names of those that changed. */
+    private List<String> apply(Candidate c, UpdateCandidateRequest req) {
         List<String> changed = new ArrayList<>();
         String mobile = null;
         if (StringUtils.hasText(req.mobile())) {
@@ -224,11 +259,7 @@ public class CandidateService {
         set(changed, "Family reference name", c.getFamilyRefName(), trim(req.familyRefName()), c::setFamilyRefName);
         set(changed, "Family reference relationship", c.getFamilyRefRelation(), trim(req.familyRefRelation()), c::setFamilyRefRelation);
         set(changed, "Family reference contact", c.getFamilyRefContact(), trim(req.familyRefContact()), c::setFamilyRefContact);
-        if (!changed.isEmpty()) {
-            audit.record("CANDIDATE_UPDATED", "CANDIDATE", c.getId(), "Edited: " + String.join(", ", changed));
-            repo.save(c);
-        }
-        return detail(id);
+        return changed;
     }
 
     public CandidateDetail updateStatus(Long id, StatusUpdateRequest req, String actor) {

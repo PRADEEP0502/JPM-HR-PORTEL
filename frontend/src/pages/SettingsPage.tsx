@@ -520,6 +520,20 @@ function DemoTab() {
     },
     onError: (e) => toast('error', e.message),
   });
+  const reset = useMutation({
+    mutationFn: () => api.post<{ removed: number }>('/admin/candidates/reset', { confirm: 'DELETE ALL' }),
+    onSuccess: (r) => {
+      toast('success', `Deleted ${r.removed} candidate(s)`);
+      CANDIDATE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k }));
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const confirmReset = () => {
+    const typed = window.prompt('This permanently deletes EVERY candidate and cannot be undone.\n\nType DELETE ALL to confirm.');
+    if (typed === null) return;
+    if (typed.trim() !== 'DELETE ALL') toast('error', 'Not deleted - you must type DELETE ALL exactly');
+    else reset.mutate();
+  };
   const count = data?.demoCandidates ?? 0;
   return (
     <section className="panel space-y-4 p-5">
@@ -544,6 +558,13 @@ function DemoTab() {
           onClick={() => window.confirm(`Permanently delete ${count} demo candidates? This cannot be undone.`) && purge.mutate()}
         >
           {purge.isPending ? <Spinner size={14} /> : <Trash2 size={15} />} Remove demo data
+        </button>
+      </div>
+      <div className="rounded-xl border border-bad/30 bg-bad/5 p-4 text-sm">
+        <p className="font-medium">Delete all candidates</p>
+        <p className="mt-1 text-ink-3">Permanently deletes every candidate (Google Form, manual and demo) with their interviews, remarks, messages and documents. Departments, users and settings are kept. Google Form responses already imported are not imported again; only new responses arrive on the next sync.</p>
+        <button className="btn-danger mt-3" disabled={reset.isPending} onClick={confirmReset}>
+          {reset.isPending ? <Spinner size={14} /> : <Trash2 size={15} />} Delete all candidates
         </button>
       </div>
     </section>

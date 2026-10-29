@@ -1,6 +1,7 @@
 package com.jpm.hrms.candidate;
 
 import com.jpm.hrms.audit.AuditService;
+import com.jpm.hrms.common.ApiException;
 import com.jpm.hrms.candidate.CandidateDtos.ArchiveRequest;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
@@ -38,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -47,9 +49,11 @@ public class CandidateController {
     private final DocumentService documents;
     private final AuditService audit;
     private final DepartmentDirectory depts;
+    private final CandidateResetService reset;
 
     public CandidateController(CandidateService service, DocumentService documents, AuditService audit,
-                               DepartmentDirectory depts) {
+                               DepartmentDirectory depts, CandidateResetService reset) {
+        this.reset = reset;
         this.depts = depts;
         this.service = service;
         this.documents = documents;
@@ -118,6 +122,26 @@ public class CandidateController {
     @GetMapping("/candidates/{id}")
     public CandidateDetail detail(@PathVariable Long id) {
         return service.detail(id);
+    }
+
+    /** Adds an applicant by hand (source MANUAL); the Google Form is not needed. */
+    @PostMapping("/candidates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CandidateDetail create(@Valid @RequestBody UpdateCandidateRequest req, Authentication auth) {
+        return service.create(req, auth.getName());
+    }
+
+    public record ResetRequest(String confirm) {
+    }
+
+    /** Permanently deletes every candidate. The caller must send {"confirm": "DELETE ALL"}. */
+    @PostMapping("/admin/candidates/reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map<String, Integer> resetAll(@RequestBody ResetRequest req, Authentication auth) {
+        if (req == null || !"DELETE ALL".equals(req.confirm())) {
+            throw ApiException.badRequest("Type DELETE ALL to confirm");
+        }
+        return Map.of("removed", reset.deleteAll(auth.getName()));
     }
 
     @PutMapping("/candidates/{id}")

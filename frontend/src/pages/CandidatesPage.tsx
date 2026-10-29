@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -56,7 +56,7 @@ export default function CandidatesPage() {
   const toast = useToast();
   const { data: departments } = useDepartments();
   const [search, setSearch] = useState(params.get('q') ?? '');
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | 'new' | null>(null);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveTarget | null>(null);
@@ -134,6 +134,9 @@ export default function CandidatesPage() {
           </label>
           <button className="btn-secondary" onClick={() => query.refetch()} disabled={query.isFetching} title="Refresh">
             <RefreshCcw size={15} className={clsx(query.isFetching && 'animate-spin')} /> <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button className="btn-secondary" onClick={() => setEditId('new')}>
+            <UserPlus size={15} /> <span className="hidden sm:inline">Add candidate</span>
           </button>
           <button className="btn-primary" onClick={exportExcel} disabled={exporting || !data?.totalElements}>
             {exporting ? <Spinner size={15} /> : <Download size={15} />} Export to Excel

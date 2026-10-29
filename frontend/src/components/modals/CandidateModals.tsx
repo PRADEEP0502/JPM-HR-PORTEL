@@ -40,17 +40,25 @@ const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; m
   { key: 'familyRefContact', label: 'Family member contact number', type: 'tel', max: 20 },
 ];
 
-export function EditCandidateModal({ candidateId, onClose }: { candidateId: number | null; onClose: () => void }) {
+/** Edits a candidate, or adds one by hand when candidateId is 'new'. */
+export function EditCandidateModal({ candidateId, onClose }: { candidateId: number | 'new' | null; onClose: () => void }) {
   const toast = useToast();
   const invalidate = useInvalidateCandidates();
   const { data: departments } = useDepartments();
+  const isNew = candidateId === 'new';
   const detail = useQuery({
     queryKey: ['candidate', candidateId],
     queryFn: () => api.get<CandidateDetail>(`/candidates/${candidateId}`),
-    enabled: candidateId !== null,
+    enabled: typeof candidateId === 'number',
   });
   const [form, setForm] = useState<Form>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isNew) return;
+    setForm({});
+    setErrors({});
+  }, [isNew]);
 
   useEffect(() => {
     if (!detail.data) return;
@@ -63,17 +71,19 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
   }, [detail.data]);
 
   const save = useMutation({
-    mutationFn: () =>
-      api.put<CandidateDetail>(`/candidates/${candidateId}`, {
+    mutationFn: () => {
+      const body = {
         ...Object.fromEntries(TEXT_FIELDS.map(({ key }) => [key, form[key]?.trim() ? form[key].trim() : null])),
         passingYear: form.passingYear ? Number(form.passingYear) : null,
         experienceYears: form.experienceYears ? Number(form.experienceYears) : null,
         departmentId: form.departmentId ? Number(form.departmentId) : null,
         position: form.position?.trim() ? form.position.trim() : null,
-        version: detail.data!.version,
-      }),
-    onSuccess: () => {
-      toast('success', 'Candidate details updated');
+        version: isNew ? 0 : detail.data!.version,
+      };
+      return isNew ? api.post<CandidateDetail>('/candidates', body) : api.put<CandidateDetail>(`/candidates/${candidateId}`, body);
+    },
+    onSuccess: (c) => {
+      toast('success', isNew ? `Candidate ${c.candidateCode} added` : 'Candidate details updated');
       invalidate();
       onClose();
     },
@@ -87,7 +97,8 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
     const errs: Record<string, string> = {};
     if (!form.fullName?.trim()) errs.fullName = 'Name is required';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) errs.email = 'Enter a valid email';
-    if (form.mobile && form.mobile.replace(/\D/g, '').length < 10) errs.mobile = 'Enter at least 10 digits';
+    if (isNew && !form.mobile?.trim()) errs.mobile = 'Mobile number is required';
+    else if (form.mobile && form.mobile.replace(/\D/g, '').length < 10) errs.mobile = 'Enter at least 10 digits';
     if (form.familyRefContact && form.familyRefContact.replace(/\D/g, '').length < 10) errs.familyRefContact = 'Enter at least 10 digits';
     if (form.passingYear &&(Number(form.passingYear) < 1950 || Number(form.passingYear) > new Date().getFullYear() + 1)) errs.passingYear = 'Enter a valid year';
     if (form.experienceYears && (Number(form.experienceYears) < 0 || Number(form.experienceYears) > 60)) errs.experienceYears = '0–60 years';
@@ -101,20 +112,21 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
       open={candidateId !== null}
       onClose={onClose}
       size="lg"
-      title="Edit candidate details"
-      description={detail.data ? `${detail.data.candidateCode} · changes are recorded in the audit log` : undefined}
+      title={isNew ? 'Add candidate' : 'Edit candidate details'}
+      description={isNew ? 'For applicants who did not use the Google Form (walk-in, phone, referral)'
+        : detail.data ? `${detail.data.candidateCode} · changes are recorded in the audit log` : undefined}
       footer={
         <>
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" disabled={!detail.data || save.isPending} onClick={() => validate() && save.mutate()}>
-            {save.isPending && <Spinner size={14} />} Save changes
+          <button className="btn-primary" disabled={(!isNew && !detail.data) || save.isPending} onClick={() => validate() && save.mutate()}>
+            {save.isPending && <Spinner size={14} />} {isNew ? 'Add candidate' : 'Save changes'}
           </button>
         </>
       }
     >
       {detail.isLoading && <LoadingBlock />}
       {detail.error && <ErrorState error={detail.error} onRetry={() => detail.refetch()} />}
-      {detail.data && (
+      {(isNew || detail.data) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <datalist id="family-relations">
             {['Father', 'Mother', 'Spouse', 'Brother', 'Sister', 'Son', 'Daughter', 'Guardian'].map((r) => <option key={r} value={r} />)}
@@ -140,7 +152,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
             </Field>
             </Fragment>
           ))}
-          <Field label="Department" hint={detail.data.departmentRaw && !detail.data.departmentId ? `Submitted as "${detail.data.departmentRaw}"` : undefined}>
+          <Field label="Department" hint={detail.data?.departmentRaw && !detail.data.departmentId ? `Submitted as "${detail.data.departmentRaw}"` : undefined}>
             <select className="input" value={form.departmentId ?? ''} onChange={(e) => setForm({ ...form, departmentId: e.target.value, position: '' })}>
               <option value="">Unassigned</option>
               {departments?.map((d) => (
