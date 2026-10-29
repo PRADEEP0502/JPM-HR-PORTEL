@@ -256,6 +256,73 @@ function setUpDepartmentSections_(form) {
   list.setChoices(choices);
 }
 
+/**
+ * Submits 5 sample applications to the live form (one per department, with sub-work) so the dashboard
+ * sync has something to import. Names end in "(Demo)" and emails use example.com - archive them when done.
+ * Run updateExistingForm first so the "Position (<Department>)" questions exist.
+ */
+function addDemoCandidates() {
+  var form = FormApp.openByUrl(SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl());
+  var demos = [
+    {name: 'Karthik Raja (Demo)', dob: '1998-04-12', mobile: '9000000001', dept: 'Production', position: 'Machine Operator',
+     qual: 'Diploma in Mechanical Eng.', inst: 'PSG Polytechnic College', year: '2018', exp: '5', company: 'TVS Mills',
+     designation: 'Machine Operator', skills: 'Spinning machines, Preventive maintenance, Safety', salary: '₹22,000 per month'},
+    {name: 'Meena Lakshmi (Demo)', dob: '2001-09-03', mobile: '9000000002', dept: 'Quality Control', position: 'QC Inspector',
+     qual: 'B.Sc Textile Technology', inst: 'Bharathiar University', year: '2022', exp: '2', company: 'KPR Mill',
+     designation: 'QC Trainee', skills: 'Yarn testing, GSM checks, Documentation', salary: '₹20,000 per month'},
+    {name: 'Suresh Kumar (Demo)', dob: '1995-01-25', mobile: '9000000003', dept: 'Maintenance', position: 'Electrician',
+     qual: 'ITI Electrician', inst: 'Government ITI Coimbatore', year: '2014', exp: '8', company: 'Lakshmi Machine Works',
+     designation: 'Electrician', skills: 'Motor rewinding, PLC basics, Panel wiring', salary: '₹28,000 per month'},
+    {name: 'Divya Priya (Demo)', dob: '2000-06-17', mobile: '9000000004', dept: 'Office', position: 'Accountant',
+     qual: 'B.Com', inst: 'Madras Christian College', year: '2021', exp: '3', company: 'Ramesh & Co',
+     designation: 'Accounts Assistant', skills: 'Tally, GST, Excel', salary: '₹25,000 per month'},
+    {name: 'Vignesh Murugan (Demo)', dob: '2004-11-08', mobile: '9000000005', dept: 'Production', position: 'Helper',
+     qual: '12th Standard', inst: 'Government Higher Secondary School, Tiruppur', year: '2022', exp: 'Fresher', company: '',
+     designation: '', skills: 'Material handling, Team work', salary: '₹15,000 per month'}
+  ];
+
+  demos.forEach(function (d, i) {
+    var answers = {
+      'Full Name': d.name, 'Date of Birth': new Date(d.dob + 'T00:00:00'), 'Mobile Number': d.mobile,
+      'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Coimbatore 641001',
+      'Highest Qualification': d.qual, 'Institution': d.inst, 'Year of Passing': d.year,
+      'Total Experience (in years)': d.exp, 'Previous Company': d.company, 'Previous Designation': d.designation,
+      'Key Skills': d.skills, 'Expected Salary': d.salary, 'Department': d.dept,
+      'Reference Name': d.company ? 'Ramesh Kumar' : '', 'Reference Relationship / Designation': d.company ? 'Former Manager' : '',
+      'Reference Contact Number': d.company ? '9000000100' : '',
+      'Family Reference Name': 'Murugesan', 'Relationship with Family Member': 'Father', 'Family Reference Contact Number': '900000020' + (i + 1)
+    };
+    answers['Position (' + d.dept + ')'] = d.position;
+
+    var response = form.createResponse();
+    form.getItems().forEach(function (item) {
+      var title = item.getTitle();
+      switch (item.getType()) {
+        case FormApp.ItemType.TEXT:
+          if (answers[title]) response.withItemResponse(item.asTextItem().createResponse(answers[title]));
+          break;
+        case FormApp.ItemType.PARAGRAPH_TEXT:
+          if (answers[title]) response.withItemResponse(item.asParagraphTextItem().createResponse(answers[title]));
+          break;
+        case FormApp.ItemType.DATE:
+          if (answers[title]) response.withItemResponse(item.asDateItem().createResponse(answers[title]));
+          break;
+        case FormApp.ItemType.LIST:
+          if (answers[title]) response.withItemResponse(item.asListItem().createResponse(answers[title]));
+          break;
+        case FormApp.ItemType.CHECKBOX:
+          if (title === 'Declaration') {
+            var cb = item.asCheckboxItem();
+            response.withItemResponse(cb.createResponse([cb.getChoices()[0].getValue()]));
+          }
+          break;
+      }
+    });
+    response.submit();
+  });
+  Logger.log('Submitted ' + demos.length + ' demo applications. In the dashboard: Settings → Google Sheets integration → Sync now.');
+}
+
 function findItem_(form, title, type) {
   return form.getItems(type).filter(function (item) { return item.getTitle() === title; })[0] || null;
 }
