@@ -55,10 +55,11 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
   const qc = useQueryClient();
   const [f, setF] = useState(settings);
   useEffect(() => setF(settings), [settings]);
-  const dirty = f.companyName !== settings.companyName || f.defaultVenue !== settings.defaultVenue || f.hrSignature !== settings.hrSignature || f.defaultCountryCode !== settings.defaultCountryCode;
+  const dirty = f.companyName !== settings.companyName || f.defaultVenue !== settings.defaultVenue || (f.locationLink ?? '') !== (settings.locationLink ?? '')
+    || f.hrSignature !== settings.hrSignature || f.defaultCountryCode !== settings.defaultCountryCode;
   const save = useMutation({
     mutationFn: () => api.put<CommSettings>('/communication/settings', {
-      companyName: f.companyName, defaultVenue: f.defaultVenue, hrSignature: f.hrSignature, defaultCountryCode: f.defaultCountryCode,
+      companyName: f.companyName, defaultVenue: f.defaultVenue, locationLink: f.locationLink ?? '', hrSignature: f.hrSignature, defaultCountryCode: f.defaultCountryCode,
     }),
     onSuccess: () => {
       toast('success', 'Company details saved');
@@ -70,11 +71,14 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
     <section className="panel space-y-4 p-5">
       <SectionTitle
         title="Company details used in messages"
-        subtitle={`Filled into {{CompanyName}}, {{Venue}} and {{HRSignature}} in both WhatsApp and email, so they always match.${settings.updatedAt ? ` Last changed by ${settings.updatedBy ?? '—'} ${fmtRelative(settings.updatedAt)}.` : ''}`}
+        subtitle={`Filled into {{CompanyName}}, {{Venue}}, {{LocationLink}} and {{HRSignature}} in both WhatsApp and email, so they always match.${settings.updatedAt ? ` Last changed by ${settings.updatedBy ?? '—'} ${fmtRelative(settings.updatedAt)}.` : ''}`}
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Company name *"><input className="input" maxLength={150} value={f.companyName} onChange={(e) => setF({ ...f, companyName: e.target.value })} /></Field>
         <Field label="Default interview venue *"><input className="input" maxLength={300} value={f.defaultVenue} onChange={(e) => setF({ ...f, defaultVenue: e.target.value })} /></Field>
+        <Field label="Company location (Google Maps link)" hint="Sent in interview invitations, e.g. https://maps.app.goo.gl/…">
+          <input className="input" type="url" maxLength={500} placeholder="https://maps.app.goo.gl/…" value={f.locationLink ?? ''} onChange={(e) => setF({ ...f, locationLink: e.target.value })} />
+        </Field>
         <Field label="HR signature *" hint="Shown after “Best regards,”. Use separate lines for department and company.">
           <textarea className="input min-h-[72px]" maxLength={500} value={f.hrSignature} onChange={(e) => setF({ ...f, hrSignature: e.target.value })} />
         </Field>

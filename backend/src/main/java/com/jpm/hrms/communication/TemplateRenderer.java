@@ -22,6 +22,7 @@ public final class TemplateRenderer {
     public static final String INTERVIEW_DATE = "InterviewDate";
     public static final String INTERVIEW_TIME = "InterviewTime";
     public static final String VENUE = "Venue";
+    public static final String LOCATION_LINK = "LocationLink";
     public static final String COMPANY_NAME = "CompanyName";
     public static final String HR_SIGNATURE = "HRSignature";
 
@@ -34,6 +35,7 @@ public final class TemplateRenderer {
         PLACEHOLDERS.put(INTERVIEW_DATE, "Interview date, e.g. Monday, 27 October 2026");
         PLACEHOLDERS.put(INTERVIEW_TIME, "Interview time, e.g. 11:30 AM");
         PLACEHOLDERS.put(VENUE, "Configured interview venue");
+        PLACEHOLDERS.put(LOCATION_LINK, "Configured Google Maps link to the company");
         PLACEHOLDERS.put(COMPANY_NAME, "Configured company name");
         PLACEHOLDERS.put(HR_SIGNATURE, "Configured HR signature");
     }

@@ -71,7 +71,8 @@ class CommunicationUnitTest {
         assertThat(CommunicationService.DEFAULT_EMAIL_SUBJECT).isEqualTo("Interview Invitation – JPM");
         assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.DEFAULT_EMAIL_BODY)).isEmpty();
         assertThat(TemplateRenderer.validate(TemplatePurpose.INTERVIEW_INVITATION, null, CommunicationService.DEFAULT_WHATSAPP_BODY)).isEmpty();
-        assertThat(CommunicationService.DEFAULT_WHATSAPP_BODY).contains("\n*Interview Details*\n");
+        assertThat(CommunicationService.DEFAULT_WHATSAPP_BODY).contains("\n*Interview Details*\n")
+                .contains("📅 *Date:* {{InterviewDate}}").contains("📌 *Company Location:*\n{{LocationLink}}");
         assertThat(CommunicationService.DEFAULT_EMAIL_BODY).contains("\nInterview Details\n").doesNotContain("*");
     }
 }

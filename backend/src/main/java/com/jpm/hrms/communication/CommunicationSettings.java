@@ -12,12 +12,15 @@ import java.time.Instant;
 public class CommunicationSettings implements SequencedEntity {
     public static final long SINGLETON_ID = 1L;
     public static final String DEFAULT_COMPANY = "JPM – Junior Processing Mill";
+    public static final String DEFAULT_LOCATION_LINK = "https://maps.app.goo.gl/ZXe9kpP8ytAnNGGa9";
 
     @Id
     private Long id = SINGLETON_ID;
     private String companyName = DEFAULT_COMPANY;
     private String defaultVenue = DEFAULT_COMPANY;
     private String hrSignature = "HR Department\n" + DEFAULT_COMPANY;
+    /** Google Maps link to the company, sent in interview invitations. */
+    private String locationLink = DEFAULT_LOCATION_LINK;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
     private String defaultCountryCode = "91";
     private String updatedBy;
@@ -44,6 +47,8 @@ public class CommunicationSettings implements SequencedEntity {
     public void setCompanyName(String companyName) { this.companyName = companyName; }
     public String getDefaultVenue() { return defaultVenue; }
     public void setDefaultVenue(String defaultVenue) { this.defaultVenue = defaultVenue; }
+    public String getLocationLink() { return locationLink; }
+    public void setLocationLink(String locationLink) { this.locationLink = locationLink; }
     public String getHrSignature() { return hrSignature; }
     public void setHrSignature(String hrSignature) { this.hrSignature = hrSignature; }
     public String getDefaultCountryCode() { return defaultCountryCode; }

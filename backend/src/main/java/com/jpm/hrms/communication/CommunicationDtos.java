@@ -17,16 +17,18 @@ public final class CommunicationDtos {
     private CommunicationDtos() {
     }
 
-    public record SettingsResponse(String companyName, String defaultVenue, String hrSignature, String defaultCountryCode,
-                                   String updatedBy, Instant updatedAt) {
+    public record SettingsResponse(String companyName, String defaultVenue, String locationLink, String hrSignature,
+                                   String defaultCountryCode, String updatedBy, Instant updatedAt) {
         static SettingsResponse from(CommunicationSettings s) {
-            return new SettingsResponse(s.getCompanyName(), s.getDefaultVenue(), s.getHrSignature(), s.getDefaultCountryCode(),
-                    s.getUpdatedBy(), s.getUpdatedAt());
+            return new SettingsResponse(s.getCompanyName(), s.getDefaultVenue(), s.getLocationLink(), s.getHrSignature(),
+                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt());
         }
     }
 
     public record SettingsRequest(@NotBlank @Size(max = 150) String companyName,
                                   @NotBlank @Size(max = 300) String defaultVenue,
+                                  @Size(max = 500) @Pattern(regexp = "^(https?://\\S+)?$", message = "must be a link starting with https://")
+                                  String locationLink,
                                   @NotBlank @Size(max = 500) String hrSignature,
                                   @NotBlank @Pattern(regexp = "^\\d{1,3}$", message = "must be 1-3 digits, e.g. 91") String defaultCountryCode) {
     }

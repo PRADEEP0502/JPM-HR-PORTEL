@@ -11,10 +11,14 @@ final class DefaultTemplates {
     private DefaultTemplates() {
     }
 
-    record Wording(String emailSubject, String body) {
+    record Wording(String emailSubject, String body, String whatsapp) {
+        Wording(String emailSubject, String body) {
+            this(emailSubject, body, null);
+        }
+
         /** WhatsApp shows *text* in bold; the email uses the plain heading. */
         String whatsappBody() {
-            return body.replaceAll("(?m)^(Interview Details|Reporting Details)$", "*$1*");
+            return whatsapp != null ? whatsapp : body.replaceAll("(?m)^(Interview Details|Reporting Details)$", "*$1*");
         }
     }
 
@@ -28,7 +32,8 @@ final class DefaultTemplates {
 
                     Best regards,
                     {{HRSignature}}"""),
-            TemplatePurpose.INTERVIEW_INVITATION, new Wording(CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.DEFAULT_EMAIL_BODY),
+            TemplatePurpose.INTERVIEW_INVITATION, new Wording(CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.DEFAULT_EMAIL_BODY,
+                    CommunicationService.DEFAULT_WHATSAPP_BODY),
             TemplatePurpose.INTERVIEW_REMINDER, new Wording("Interview Reminder – JPM", """
                     Dear {{CandidateName}},
 

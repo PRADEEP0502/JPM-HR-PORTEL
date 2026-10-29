@@ -10,6 +10,7 @@ import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.candidate.CandidateService;
 import com.jpm.hrms.department.Department;
+import com.jpm.hrms.communication.MessageTemplate.TemplateChannel;
 import com.jpm.hrms.department.DepartmentRepository;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +64,10 @@ class CommunicationApiTest {
     CandidateRepository candidates;
     @Autowired
     DepartmentRepository departments;
+    @Autowired
+    MessageTemplateRepository templates;
+    @Autowired
+    CommunicationService communication;
 
     private String admin;
     private String hr;
@@ -104,15 +109,19 @@ class CommunicationApiTest {
 
     private String expectedBody(String name, Instant at, boolean whatsapp) {
         String date = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH).withZone(IST).format(at);
-        return "Dear " + name + ",\n\n"
+        String b = whatsapp ? "*" : "";
+        return b + "Dear " + name + "," + b + "\n\n"
                 + "Greetings from JPM – Junior Processing Mill!\n\n"
-                + "Your interview has been scheduled for the Engineering department.\n\n"
-                + (whatsapp ? "*Interview Details*" : "Interview Details") + "\n\n"
-                + "Date: " + date + "\n"
-                + "Time: 11:30 AM\n"
-                + "Venue: JPM – Junior Processing Mill\n"
-                + "Department: Engineering\n\n"
-                + "Please confirm your availability for the interview.\n\n"
+                + "Your interview has been scheduled for the Engineering Department.\n\n"
+                + b + "Interview Details" + b + "\n\n"
+                + "📅 " + b + "Date:" + b + " " + date + "\n"
+                + "⏰ " + b + "Time:" + b + " 11:30 AM\n"
+                + "📍 " + b + "Venue:" + b + " JPM – Junior Processing Mill\n"
+                + "🏢 " + b + "Department:" + b + " Engineering\n\n"
+                + "📌 " + b + "Company Location:" + b + "\n"
+                + "https://maps.app.goo.gl/ZXe9kpP8ytAnNGGa9\n\n"
+                + "Please use the Google Maps link above to find the company location and plan your visit accordingly.\n\n"
+                + "Kindly confirm your availability for the interview.\n\n"
                 + "Best regards,\n"
                 + "HR Department\n"
                 + "JPM – Junior Processing Mill";
@@ -305,6 +314,27 @@ class CommunicationApiTest {
         // restore the approved wording for any later tests (creates a new version)
         call(post("/api/communication/templates"), admin, mapper.writeValueAsString(java.util.Map.of("channel", "WHATSAPP", "body", original)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @Order(9)
+    void startupUpgradesAnInvitationStillOnThePreviousDefaultWording() {
+        TemplatePurpose p = TemplatePurpose.INTERVIEW_INVITATION;
+        MessageTemplate current = templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, TemplateChannel.EMAIL).orElseThrow();
+        current.setActive(false);
+        templates.save(current);
+        templates.save(new MessageTemplate(p, TemplateChannel.EMAIL, templates.maxVersion(p, TemplateChannel.EMAIL) + 1,
+                CommunicationService.DEFAULT_EMAIL_SUBJECT, CommunicationService.PREVIOUS_EMAIL_BODY, "admin"));
+        String adminWhatsApp = templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, TemplateChannel.WHATSAPP)
+                .orElseThrow().getBody();
+
+        communication.ensureDefaults();
+
+        assertThat(templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, TemplateChannel.EMAIL).orElseThrow().getBody())
+                .isEqualTo(CommunicationService.DEFAULT_EMAIL_BODY);
+        // the WhatsApp wording an admin changed in an earlier test is kept
+        assertThat(templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, TemplateChannel.WHATSAPP).orElseThrow().getBody())
+                .isEqualTo(adminWhatsApp);
     }
 
     // ------------------------------------------------------------------ plumbing

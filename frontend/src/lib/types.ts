@@ -419,6 +419,8 @@ export interface Compose {
 export interface CommSettings {
   companyName: string;
   defaultVenue: string;
+  /** Google Maps link sent in interview invitations; null when not set. */
+  locationLink: string | null;
   hrSignature: string;
   defaultCountryCode: string;
   updatedBy: string | null;

@@ -56,9 +56,39 @@ import java.util.Objects;
 @Service
 public class CommunicationService {
 
-    /** Approved default wording (the company name, venue and signature come from settings). */
+    /** Approved default wording (the company name, venue, location link and signature come from settings). */
     static final String DEFAULT_EMAIL_SUBJECT = "Interview Invitation – JPM";
     static final String DEFAULT_EMAIL_BODY = """
+            Dear {{CandidateName}},
+
+            Greetings from {{CompanyName}}!
+
+            Your interview has been scheduled for the {{Department}} Department.
+
+            Interview Details
+
+            📅 Date: {{InterviewDate}}
+            ⏰ Time: {{InterviewTime}}
+            📍 Venue: {{Venue}}
+            🏢 Department: {{Department}}
+
+            📌 Company Location:
+            {{LocationLink}}
+
+            Please use the Google Maps link above to find the company location and plan your visit accordingly.
+
+            Kindly confirm your availability for the interview.
+
+            Best regards,
+            {{HRSignature}}""";
+    /** Same wording; the greeting, heading and labels are bold using WhatsApp's *text* formatting. */
+    static final String DEFAULT_WHATSAPP_BODY = DEFAULT_EMAIL_BODY
+            .replace("Dear {{CandidateName}},", "*Dear {{CandidateName}},*")
+            .replace("\nInterview Details\n", "\n*Interview Details*\n")
+            .replaceAll("(?m)^(\\S+ )(Date|Time|Venue|Department|Company Location):", "$1*$2:*");
+
+    /** The first invitation wording, before the location link. Live templates still on it are upgraded on start. */
+    static final String PREVIOUS_EMAIL_BODY = """
             Dear {{CandidateName}},
 
             Greetings from {{CompanyName}}!
@@ -76,8 +106,7 @@ public class CommunicationService {
 
             Best regards,
             {{HRSignature}}""";
-    /** Same wording; the heading is bold using WhatsApp's *text* formatting. */
-    static final String DEFAULT_WHATSAPP_BODY = DEFAULT_EMAIL_BODY.replace("\nInterview Details\n", "\n*Interview Details*\n");
+    static final String PREVIOUS_WHATSAPP_BODY = PREVIOUS_EMAIL_BODY.replace("\nInterview Details\n", "\n*Interview Details*\n");
 
     private static final Map<String, String> FRIENDLY = Map.of(
             TemplateRenderer.CANDIDATE_NAME, "candidate name",
@@ -85,6 +114,7 @@ public class CommunicationService {
             TemplateRenderer.INTERVIEW_DATE, "interview date",
             TemplateRenderer.INTERVIEW_TIME, "interview time",
             TemplateRenderer.VENUE, "interview venue (Settings → Communication)",
+            TemplateRenderer.LOCATION_LINK, "company location link (Settings → Communication)",
             TemplateRenderer.COMPANY_NAME, "company name (Settings → Communication)",
             TemplateRenderer.HR_SIGNATURE, "HR signature (Settings → Communication)");
 
@@ -144,6 +174,24 @@ public class CommunicationService {
                 templates.save(new MessageTemplate(p, TemplateChannel.EMAIL, 1, w.emailSubject(), w.body(), AuditService.SYSTEM_ACTOR));
             }
         }
+        upgradeUnchangedInvitation(TemplateChannel.WHATSAPP, PREVIOUS_WHATSAPP_BODY, DEFAULT_WHATSAPP_BODY);
+        upgradeUnchangedInvitation(TemplateChannel.EMAIL, PREVIOUS_EMAIL_BODY, DEFAULT_EMAIL_BODY);
+    }
+
+    /** Moves an invitation still on the old default wording to the new default; wording an admin changed is kept. */
+    private void upgradeUnchangedInvitation(TemplateChannel channel, String previous, String next) {
+        TemplatePurpose p = TemplatePurpose.INTERVIEW_INVITATION;
+        templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, channel)
+                .filter(t -> t.getBody().equals(previous))
+                .ifPresent(current -> {
+                    current.setActive(false);
+                    templates.save(current);
+                    MessageTemplate upgraded = templates.save(new MessageTemplate(p, channel, templates.maxVersion(p, channel) + 1,
+                            current.getSubject(), next, AuditService.SYSTEM_ACTOR));
+                    audit.recordAs(AuditService.SYSTEM_ACTOR, "TEMPLATE_UPDATED", "TEMPLATE", upgraded.getId(), p.label + " " + channel
+                            + " template version " + upgraded.getVersion() + " adds the company location link (replaces version "
+                            + current.getVersion() + ")");
+                });
     }
 
     CommunicationSettings settings() {
@@ -165,6 +213,7 @@ public class CommunicationService {
         CommunicationSettings s = settings();
         s.setCompanyName(req.companyName().trim());
         s.setDefaultVenue(req.defaultVenue().trim());
+        s.setLocationLink(req.locationLink() == null || req.locationLink().isBlank() ? null : req.locationLink().trim());
         s.setHrSignature(req.hrSignature().trim().replace("\r\n", "\n"));
         s.setDefaultCountryCode(req.defaultCountryCode().trim());
         s.setUpdatedBy(actor);
@@ -285,6 +334,7 @@ public class CommunicationService {
         Map<String, String> v = new HashMap<>();
         v.put(TemplateRenderer.COMPANY_NAME, s.getCompanyName());
         v.put(TemplateRenderer.VENUE, s.getDefaultVenue());
+        v.put(TemplateRenderer.LOCATION_LINK, s.getLocationLink());
         v.put(TemplateRenderer.HR_SIGNATURE, s.getHrSignature());
         return v;
     }
