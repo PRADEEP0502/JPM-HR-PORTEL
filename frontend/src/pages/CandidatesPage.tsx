@@ -24,7 +24,7 @@ import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type Archiv
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
-const FILTER_KEYS = ['q', 'departmentId', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
+const FILTER_KEYS = ['q', 'departmentId', 'position', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
 
 /** Profile Match Rating filter values understood by the API. */
 const RATING_FILTERS = [
@@ -72,6 +72,7 @@ export default function CandidatesPage() {
   const dir = params.get('dir') ?? 'desc';
   const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<(typeof FILTER_KEYS)[number], string>;
   const activeFilters = FILTER_KEYS.filter((k) => filters[k]).length;
+  const subWork = departments?.find((d) => String(d.id) === filters.departmentId)?.positions ?? [];
 
   const update = (patch: Record<string, string | number | null>, resetPage = true) => {
     const next = new URLSearchParams(params);
@@ -139,11 +140,17 @@ export default function CandidatesPage() {
           </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <select className="input" aria-label="Department" value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value })}>
+          <select className="input" aria-label="Department" value={filters.departmentId} onChange={(e) => update({ departmentId: e.target.value, position: null })}>
             <option value="">All departments</option>
             {departments?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             <option value="0">Unassigned</option>
           </select>
+          {subWork.length > 0 && (
+            <select className="input" aria-label="Sub-work" value={filters.position} onChange={(e) => update({ position: e.target.value })}>
+              <option value="">All sub-work</option>
+              {subWork.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
           <select className="input" aria-label="Experience" value={filters.experience} onChange={(e) => update({ experience: e.target.value })}>
             <option value="">Any experience</option>
             {EXPERIENCE_BUCKETS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}

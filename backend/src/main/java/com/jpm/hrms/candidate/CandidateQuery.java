@@ -15,9 +15,9 @@ import java.util.List;
 
 /**
  * Query-string filters shared by the candidate list and its export, e.g.
- * {@code ?applicationStatus=NEW,UNDER_REVIEW&rating=7+&appliedFrom=2026-01-01&archive=ALL}.
+ * {@code ?departmentId=3&position=Helper&applicationStatus=NEW,UNDER_REVIEW&rating=7+&appliedFrom=2026-01-01&archive=ALL}.
  */
-public record CandidateQuery(String q, Long departmentId, ExperienceBucket experience,
+public record CandidateQuery(String q, Long departmentId, String position, ExperienceBucket experience,
                              List<ApplicationStatus> applicationStatus, List<InterviewStatus> interviewStatus,
                              VerificationStatus verificationStatus, String rating,
                              @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
@@ -28,7 +28,7 @@ public record CandidateQuery(String q, Long departmentId, ExperienceBucket exper
         if (appliedFrom != null && appliedTo != null && appliedFrom.isAfter(appliedTo)) {
             throw ApiException.badRequest("'Applied from' must be on or before 'Applied to'");
         }
-        return new Filter(q, departmentId, experience, applicationStatus, interviewStatus, verificationStatus,
+        return new Filter(q, departmentId, position, experience, applicationStatus, interviewStatus, verificationStatus,
                 RatingFilter.parse(rating), appliedFrom, appliedTo, archive == null ? ArchiveScope.ACTIVE : archive);
     }
 }

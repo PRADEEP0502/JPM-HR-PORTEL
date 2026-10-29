@@ -24,16 +24,16 @@ public final class CandidateSpecifications {
     public enum ArchiveScope { ACTIVE, ARCHIVED, ALL }
 
     /**
-     * departmentId = 0 means "no department assigned"; several application or interview statuses are OR-ed;
+     * departmentId = 0 means "no department assigned"; position is the sub-work (exact, ignoring case); several application or interview statuses are OR-ed;
      * appliedFrom / appliedTo are inclusive application dates.
      */
-    public record Filter(String q, Long departmentId, ExperienceBucket experience, List<ApplicationStatus> applicationStatuses,
+    public record Filter(String q, Long departmentId, String position, ExperienceBucket experience, List<ApplicationStatus> applicationStatuses,
                          List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus,
                          RatingFilter rating, LocalDate appliedFrom, LocalDate appliedTo, ArchiveScope archive) {
         /** Simple filter used by the dashboard previews (active candidates only). */
         public Filter(String q, Long departmentId, ExperienceBucket experience, ApplicationStatus applicationStatus,
                       List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus) {
-            this(q, departmentId, experience, applicationStatus == null ? null : List.of(applicationStatus),
+            this(q, departmentId, null, experience, applicationStatus == null ? null : List.of(applicationStatus),
                     interviewStatuses, verificationStatus, null, null, null, ArchiveScope.ACTIVE);
         }
     }
@@ -67,6 +67,9 @@ public final class CandidateSpecifications {
         }
         if (f.departmentId() != null) {
             cs.add(Criteria.where("departmentId").is(f.departmentId() == 0 ? null : f.departmentId()));
+        }
+        if (StringUtils.hasText(f.position())) {
+            cs.add(Criteria.where("position").regex("^" + Pattern.quote(f.position().trim()) + "$", "i"));
         }
         if (f.experience() != null) {
             switch (f.experience()) {
