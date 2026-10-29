@@ -236,6 +236,56 @@ public class DemoDataService {
         }
     }
 
+    /**
+     * Adds a few NEW sample candidates (source = DEMO) spread over the current active departments and their
+     * sub-work, so an administrator can try the dashboard without demo mode. "Remove demo data" deletes them.
+     */
+    public int addSamples(int count) {
+        List<Department> active = departments.findAllByOrderByNameAsc().stream().filter(Department::isActive).toList();
+        Random rnd = new Random();
+        LocalDate today = LocalDate.now(clock);
+        Instant now = clock.instant();
+        for (int n = 0; n < count; n++) {
+            Candidate c = new Candidate();
+            String first = FIRST[rnd.nextInt(FIRST.length)];
+            String last = LAST[rnd.nextInt(LAST.length)];
+            c.setFullName(first + " " + last);
+            c.setEmail((first + "." + last + rnd.nextInt(10000)).toLowerCase() + "@example.com");
+            c.setMobile("9" + String.format("%09d", 100000000 + rnd.nextInt(899999999)));
+            c.setDateOfBirth(today.minusYears(20 + rnd.nextInt(18)).minusDays(rnd.nextInt(365)));
+            c.setAddress((10 + rnd.nextInt(200)) + ", " + new String[]{"Gandhipuram", "RS Puram", "Peelamedu", "Saibaba Colony", "Singanallur"}[rnd.nextInt(5)] + ", Coimbatore");
+            c.setQualification(QUALS[rnd.nextInt(QUALS.length)]);
+            c.setInstitution(COLLEGES[rnd.nextInt(COLLEGES.length)]);
+            c.setPassingYear(today.getYear() - 1 - rnd.nextInt(12));
+            BigDecimal exp = BigDecimal.valueOf(rnd.nextInt(9));
+            c.setExperienceYears(exp);
+            if (exp.signum() > 0) {
+                c.setPreviousCompany(COMPANIES[rnd.nextInt(COMPANIES.length)]);
+                c.setPreviousDesignation(DESIGNATIONS[rnd.nextInt(DESIGNATIONS.length)]);
+            }
+            c.setSkills(SKILLS[rnd.nextInt(SKILLS.length)]);
+            c.setExpectedSalary("₹" + (15 + rnd.nextInt(26)) + ",000 per month");
+            if (!active.isEmpty()) {
+                Department d = active.get(n % active.size());
+                c.setDepartment(d);
+                List<String> positions = d.getPositions();
+                if (positions != null && !positions.isEmpty()) c.setPosition(positions.get(rnd.nextInt(positions.size())));
+            }
+            c.setApplicationDate(today);
+            c.setAppliedAt(now);
+            c.setApplicationStatus(ApplicationStatus.NEW);
+            c.setVerificationStatus(VerificationStatus.PENDING);
+            applyFamilyReference(c, rnd);
+            c.setSource(CandidateSource.DEMO);
+            candidates.save(c);
+            CandidateService.assignCode(c, candidates);
+            candidates.save(c);
+            storeDemoPdf(c, c.getFullName().replace(' ', '_') + "_Resume.pdf");
+            audit.record("CANDIDATE_IMPORTED", "CANDIDATE", c.getId(), "Sample candidate added from Settings → Demo data");
+        }
+        return count;
+    }
+
     private void seedInterviews(Candidate c, ApplicationStatus status, Random rnd, LocalDate today, Instant now) {
         switch (status) {
             case SELECTED, REJECTED -> {

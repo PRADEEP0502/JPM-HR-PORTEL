@@ -6,6 +6,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,6 +20,12 @@ public class DemoDataController {
 
     public DemoDataController(DemoDataService service) {
         this.service = service;
+    }
+
+    /** Adds 5 sample candidates tagged DEMO, spread over the active departments. */
+    @PostMapping
+    public Map<String, Integer> addSamples() {
+        return Map.of("added", service.addSamples(5));
     }
 
     @DeleteMapping

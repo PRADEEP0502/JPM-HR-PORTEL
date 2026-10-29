@@ -512,6 +512,14 @@ function DemoTab() {
     },
     onError: (e) => toast('error', e.message),
   });
+  const add = useMutation({
+    mutationFn: () => api.post<{ added: number }>('/admin/demo-data'),
+    onSuccess: (r) => {
+      toast('success', `Added ${r.added} sample candidates`);
+      CANDIDATE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k }));
+    },
+    onError: (e) => toast('error', e.message),
+  });
   const count = data?.demoCandidates ?? 0;
   return (
     <section className="panel space-y-4 p-5">
@@ -520,6 +528,13 @@ function DemoTab() {
         <div><dt className="text-xs text-ink-3">Demo mode</dt><dd>{data?.demoMode ? 'On (DEMO_MODE=true)' : 'Off'}</dd></div>
         <div><dt className="text-xs text-ink-3">Demo candidates in database</dt><dd>{count}</dd></div>
       </dl>
+      <div className="rounded-xl border border-line p-4 text-sm">
+        <p className="font-medium">Add sample candidates</p>
+        <p className="mt-1 text-ink-3">Adds 5 new applicants tagged DEMO, spread over your active departments and their sub-work, to try the dashboard. Remove them below when you are done.</p>
+        <button className="btn-secondary mt-3" disabled={add.isPending} onClick={() => add.mutate()}>
+          {add.isPending ? <Spinner size={14} /> : <UserPlus size={15} />} Add 5 sample candidates
+        </button>
+      </div>
       <div className="rounded-xl border border-bad/30 bg-bad/5 p-4 text-sm">
         <p className="font-medium">Remove all demo candidates</p>
         <p className="mt-1 text-ink-3">Permanently deletes every record tagged DEMO, with its interviews, remarks and documents. Live (Google Form) candidates are not affected. To stop demo data from returning, also set DEMO_MODE=false.</p>
