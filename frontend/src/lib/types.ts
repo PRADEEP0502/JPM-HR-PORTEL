@@ -292,6 +292,7 @@ export interface IntegrationSettings {
   fields: { key: string; label: string; required: boolean }[];
   credentialsConfigured: boolean;
   serviceAccountEmail: string | null;
+  formPushKey: string | null;
   updatedBy: string | null;
   updatedAt: string | null;
 }

@@ -62,6 +62,13 @@ public class SyncController {
         return service.updateSettings(req, auth.getName());
     }
 
+    /** Creates (or replaces) the key the Google Form script sends with each response. */
+    @PostMapping("/push-key")
+    @PreAuthorize("hasRole('ADMIN')")
+    public SettingsResponse newPushKey(Authentication auth) {
+        return service.newPushKey(auth.getName());
+    }
+
     @PostMapping("/test")
     @PreAuthorize("hasRole('ADMIN')")
     public TestResult test() {

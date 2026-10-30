@@ -53,7 +53,23 @@ profile in the dashboard instead.
 The form is titled **"Job Application – JPM – Junior Processing Mill"**, with a progress bar and a
 thank-you message. Candidates cannot edit their answers after submitting.
 
-## 4. Connect it to the dashboard
+## 4. Connect it to the dashboard (easy way: auto-send, no service account)
+
+1. In the dashboard, as admin: **Settings → Google Sheets integration → Google Form → dashboard
+   (instant)** → **Create form key** → **Copy**.
+2. In the Apps Script project, paste the key into `FORM_KEY` at the top, check
+   `RESPONSE_SPREADSHEET_ID`, and click **Save**.
+3. Choose **`installAutoSend`** and click **Run**. Approve the permissions (it reads the response
+   sheet and the uploaded files, and sends them to the dashboard).
+4. The log prints the **form link**. Share it with candidates. Each new application appears under
+   **Candidates** within about a minute, with the uploaded resume, Aadhaar and certificates. If the
+   free server is asleep, the script retries, and an hourly run sends anything it missed.
+5. To send applications that came in **before** auto-send was on, run `sendExistingApplications`.
+   Duplicates (same mobile or email) are skipped.
+
+If you click **Make a new key**, paste the new key into the script. The old key stops working.
+
+## 4b. Connect it with a service account (alternative)
 
 1. **Keep the response sheet private.** Share it (and, if you added uploads, the form's
    *"(File responses)"* folder in Drive) as **Viewer** only with the dashboard's service-account

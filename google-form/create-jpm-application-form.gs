@@ -37,8 +37,15 @@ var DEPARTMENTS = {
   'Office': ['Accountant', 'Data Entry', 'Administrative Officer', 'Receptionist', 'HR']
 };
 
-// Response sheet of the form that is already live (used only by updateExistingForm).
+// Response sheet of the form that is already live (used by updateExistingForm and the auto-send below).
 var RESPONSE_SPREADSHEET_ID = '1QlF0mX1fMO2DWJjj1RG9noQiu2dYHRYCJXUJx9hDaAw';
+
+// Auto-send to the dashboard: copy FORM_KEY from the dashboard, Settings → Google Sheets integration →
+// "Google Form → dashboard (instant)", then run installAutoSend once. DASHBOARD_URL is the backend (Render).
+var DASHBOARD_URL = 'https://jpm-hr-portel.onrender.com/api/public/form-submissions';
+var FORM_KEY = 'PASTE-THE-FORM-KEY-HERE';
+var DASHBOARD_TIMEZONE = 'Asia/Kolkata';
+var MAX_FILE_BYTES_PER_APPLICATION = 20 * 1024 * 1024;
 
 var SUBWORK_SECTION_PREFIX = 'Sub-work – ';
 var DECLARATION = 'I confirm that the information given is true, and I consent to ' + COMPANY +
@@ -321,6 +328,141 @@ function addDemoCandidates() {
     response.submit();
   });
   Logger.log('Submitted ' + demos.length + ' demo applications. In the dashboard: Settings → Google Sheets integration → Sync now.');
+}
+
+// ---------------------------------------------------------------------------------------------
+// AUTO-SEND: every new application goes to the dashboard as soon as the candidate submits.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Run ONCE after pasting FORM_KEY. Adds two triggers: one on every form submit, and an hourly one that
+ * retries anything the dashboard could not take (for example while the free server was asleep).
+ * Only applications submitted from now on are sent; run sendExistingApplications to send older ones too.
+ */
+function installAutoSend() {
+  if (FORM_KEY.indexOf('PASTE') === 0) throw new Error('Paste FORM_KEY from the dashboard (Settings → Google Sheets integration) first.');
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    var fn = t.getHandlerFunction();
+    if (fn === 'onApplicationSubmitted' || fn === 'sendPendingApplications') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('onApplicationSubmitted').forSpreadsheet(RESPONSE_SPREADSHEET_ID).onFormSubmit().create();
+  ScriptApp.newTrigger('sendPendingApplications').timeBased().everyHours(1).create();
+
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('JPM_LAST_ROW_SENT')) props.setProperty('JPM_LAST_ROW_SENT', String(responseSheet_().getLastRow()));
+  checkDashboard_();
+
+  var ss = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID);
+  Logger.log('Auto-send is on. New applications appear in the dashboard within a minute.\n' +
+             'Share this form link with candidates: ' + FormApp.openByUrl(ss.getFormUrl()).getPublishedUrl());
+}
+
+/** Sends every application already in the response sheet (duplicates and earlier imports are skipped by the dashboard). */
+function sendExistingApplications() {
+  PropertiesService.getScriptProperties().setProperty('JPM_LAST_ROW_SENT', '1');
+  Logger.log(sendPendingApplications() + ' application(s) sent.');
+}
+
+function onApplicationSubmitted() {
+  sendPendingApplications();
+}
+
+/** Sends the rows after the last one the dashboard accepted, in order, stopping at the first failure. */
+function sendPendingApplications() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) return 0;
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var sheet = responseSheet_();
+    var tz = sheet.getParent().getSpreadsheetTimeZone();
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+    var sent = 0;
+    for (var row = Number(props.getProperty('JPM_LAST_ROW_SENT') || 1) + 1; row <= sheet.getLastRow(); row++) {
+      var values = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+      var result = sendRow_(headers, values, tz, row);
+      if (!result) break; // dashboard not reachable: the hourly run tries again
+      props.setProperty('JPM_LAST_ROW_SENT', String(row));
+      sent++;
+      Logger.log('Row ' + row + ': ' + result.status + (result.candidateCode ? ' (' + result.candidateCode + ')' : '') +
+                 (result.messages && result.messages.length ? ' - ' + result.messages.join('; ') : ''));
+    }
+    return sent;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function sendRow_(headers, values, tz, row) {
+  var payload = {
+    key: FORM_KEY,
+    headers: headers,
+    values: values.map(function (v, i) {
+      if (!(v instanceof Date)) return v === null || v === undefined ? '' : String(v);
+      return headers[i] === 'Timestamp' ? Utilities.formatDate(v, DASHBOARD_TIMEZONE, 'yyyy-MM-dd HH:mm:ss')
+                                        : Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+    }),
+    files: uploadedFiles_(headers, values, row)
+  };
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    try {
+      var res = UrlFetchApp.fetch(DASHBOARD_URL, {
+        method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true
+      });
+      var code = res.getResponseCode();
+      if (code === 200) return JSON.parse(res.getContentText());
+      if (code === 400 || code === 401 || code === 413) {
+        throw new Error('Dashboard refused row ' + row + ' (HTTP ' + code + '): ' + res.getContentText().slice(0, 300));
+      }
+      Logger.log('Row ' + row + ': dashboard answered HTTP ' + code + ', retrying (the free server may be waking up)');
+    } catch (e) {
+      if (String(e.message).indexOf('Dashboard refused') === 0) throw e;
+      Logger.log('Row ' + row + ': ' + e.message + ', retrying');
+    }
+    if (attempt < 3) Utilities.sleep(20000);
+  }
+  return null;
+}
+
+/** Resume, Aadhaar and certificates uploaded in the form, read from Drive and sent along. */
+function uploadedFiles_(headers, values, row) {
+  var files = [];
+  var total = 0;
+  headers.forEach(function (header, i) {
+    var h = header.toLowerCase();
+    var field = h.indexOf('resume') >= 0 ? 'RESUME' : h.indexOf('aadhaar') >= 0 ? 'AADHAAR'
+              : h.indexOf('certificate') >= 0 ? 'CERTIFICATE' : null;
+    if (!field || !values[i]) return;
+    var ids = String(values[i]).match(/(?:[?&]id=|\/d\/)([-\w]{20,})/g) || [];
+    ids.forEach(function (match) {
+      var id = match.replace(/^(?:[?&]id=|\/d\/)/, '');
+      try {
+        var file = DriveApp.getFileById(id);
+        if (total + file.getSize() > MAX_FILE_BYTES_PER_APPLICATION) {
+          Logger.log('Row ' + row + ': ' + file.getName() + ' not sent (too large) - HR can upload it in the dashboard');
+          return;
+        }
+        total += file.getSize();
+        files.push({ field: field, name: file.getName(), data: Utilities.base64Encode(file.getBlob().getBytes()) });
+      } catch (e) {
+        Logger.log('Row ' + row + ': could not read uploaded file ' + id + ' (' + e.message + ')');
+      }
+    });
+  });
+  return files.slice(0, 10);
+}
+
+function checkDashboard_() {
+  var res = UrlFetchApp.fetch(DASHBOARD_URL, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    payload: JSON.stringify({ key: FORM_KEY, headers: ['Timestamp'], values: [''] })
+  });
+  if (res.getResponseCode() === 401) throw new Error('FORM_KEY is wrong. Copy it again from the dashboard.');
+}
+
+function responseSheet_() {
+  var ss = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID);
+  return ss.getSheets().filter(function (sh) { return !!sh.getFormUrl(); })[0] || ss.getSheets()[0];
 }
 
 function findItem_(form, title, type) {

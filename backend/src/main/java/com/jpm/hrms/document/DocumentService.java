@@ -28,7 +28,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -88,8 +87,19 @@ public class DocumentService {
      * Aadhaar copies additionally require the key and the candidate's recorded consent.
      */
     public DocumentResponse upload(Long candidateId, DocType type, MultipartFile file, boolean consent, String actor) {
-        Candidate c = candidates.findById(candidateId).orElseThrow(() -> ApiException.notFound("Candidate"));
         if (file == null || file.isEmpty()) throw ApiException.badRequest("Choose a file to upload");
+        try {
+            return store(candidateId, type, file.getOriginalFilename(), file.getBytes(), consent, actor);
+        } catch (IOException e) {
+            log.error("Could not read uploaded file for candidate {}: {}", candidateId, e.getMessage());
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store the uploaded file");
+        }
+    }
+
+    /** Same checks as {@link #upload}, for files that arrive as bytes (Google Form submissions). */
+    public DocumentResponse store(Long candidateId, DocType type, String filename, byte[] bytes, boolean consent, String actor) {
+        Candidate c = candidates.findById(candidateId).orElseThrow(() -> ApiException.notFound("Candidate"));
+        if (bytes == null || bytes.length == 0) throw ApiException.badRequest("Choose a file to upload");
         if (type == DocType.AADHAAR) {
             if (!consent) throw ApiException.badRequest("Confirm that the candidate consented to sharing their Aadhaar copy");
             if (!crypto.isConfigured()) {
@@ -97,12 +107,12 @@ public class DocumentService {
             }
         }
         // Only the base name is used, for display; the storage key is random (no user-controlled paths).
-        String original = file.getOriginalFilename() == null ? "document" : Path.of(file.getOriginalFilename()).getFileName().toString();
+        String base = filename == null ? "" : filename.replace('\\', '/').substring(filename.replace('\\', '/').lastIndexOf('/') + 1);
+        String original = base.isBlank() ? "document" : base;
         String ext = original.contains(".") ? original.substring(original.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
         if (!allowed.contains(ext)) throw ApiException.badRequest("Only " + acceptedTypes() + " files are allowed");
         String contentType = KNOWN.get(ext);
         try {
-            byte[] bytes = file.getBytes();
             if (!signatureMatches(ext, Arrays.copyOf(bytes, Math.min(bytes.length, 8)))) {
                 throw ApiException.badRequest("The file content does not match its ." + ext + " extension");
             }

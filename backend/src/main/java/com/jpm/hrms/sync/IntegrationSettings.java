@@ -21,6 +21,8 @@ public class IntegrationSettings implements SequencedEntity {
     private int syncIntervalMinutes = 15;
     /** JSON object: field key → exact sheet header, overriding automatic header detection. */
     private String columnMapping;
+    /** Shared key the Google Form's Apps Script sends with every submission (Settings shows it to admins). */
+    private String formPushKey;
     private String updatedBy;
     private Instant updatedAt;
 
@@ -53,6 +55,8 @@ public class IntegrationSettings implements SequencedEntity {
     public void setSyncIntervalMinutes(int syncIntervalMinutes) { this.syncIntervalMinutes = syncIntervalMinutes; }
     public String getColumnMapping() { return columnMapping; }
     public void setColumnMapping(String columnMapping) { this.columnMapping = columnMapping; }
+    public String getFormPushKey() { return formPushKey; }
+    public void setFormPushKey(String formPushKey) { this.formPushKey = formPushKey; }
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
     public Instant getUpdatedAt() { return updatedAt; }

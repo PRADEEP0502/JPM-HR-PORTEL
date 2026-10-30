@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface CandidateRepository extends CriteriaRepository<Candidate, Long>, CandidateRepositoryCustom {
 
@@ -24,6 +25,8 @@ public interface CandidateRepository extends CriteriaRepository<Candidate, Long>
     long countBySource(CandidateSource source);
 
     boolean existsBySourceRowKey(String key);
+
+    Optional<Candidate> findFirstBySourceRowKey(String key);
 
     boolean existsByEmailIgnoreCase(String email);
 

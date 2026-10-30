@@ -14,22 +14,31 @@ import com.jpm.hrms.department.DepartmentRepository;
 import com.jpm.hrms.document.CandidateDocument;
 import com.jpm.hrms.document.CandidateDocument.DocType;
 import com.jpm.hrms.document.CandidateDocumentRepository;
+import com.jpm.hrms.document.DocumentService;
 import com.jpm.hrms.sync.SheetRowMapper.ColumnResolution;
 import com.jpm.hrms.sync.SheetRowMapper.ParsedRow;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,6 +54,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SyncService {
     private static final Logger log = LoggerFactory.getLogger(SyncService.class);
     public static final String SYNC_ACTOR = "google-sheets-sync";
+    public static final String FORM_ACTOR = "google-form";
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_MESSAGES = 200;
 
     public record SettingsRequest(@Size(max = 200) String spreadsheetId,
@@ -60,8 +71,21 @@ public class SyncService {
 
     public record SettingsResponse(String spreadsheetId, String sheetRange, String formUrl, boolean autoSyncEnabled,
                                    int syncIntervalMinutes, Map<String, String> columnMapping, List<FieldInfo> fields,
-                                   boolean credentialsConfigured, String serviceAccountEmail, String updatedBy,
-                                   Instant updatedAt) {
+                                   boolean credentialsConfigured, String serviceAccountEmail, String formPushKey,
+                                   String updatedBy, Instant updatedAt) {
+    }
+
+    /** One file answered in the form; data is the file content in base64. field = RESUME, AADHAAR, CERTIFICATE or OTHER. */
+    public record FormFile(@NotBlank String field, @Size(max = 300) String name, @NotBlank String data) {
+    }
+
+    /** A Google Form response sent by the form's Apps Script: the response sheet's header row and the new row. */
+    public record FormSubmission(@NotBlank String key, @NotEmpty @Size(max = 200) List<String> headers,
+                                 @NotEmpty @Size(max = 200) List<Object> values, @Size(max = 10) List<@Valid FormFile> files) {
+    }
+
+    /** status = CREATED, ALREADY_IMPORTED, DUPLICATE or SKIPPED. */
+    public record FormSubmissionResult(String status, String candidateCode, List<String> messages) {
     }
 
     public record SyncRunResponse(Long id, Instant startedAt, Instant finishedAt, String triggeredBy, SyncRun.Status status,
@@ -90,6 +114,7 @@ public class SyncService {
     private final IgnoredRowRepository ignored;
     private final CandidateRepository candidates;
     private final CandidateDocumentRepository documents;
+    private final DocumentService documentService;
     private final DepartmentRepository departments;
     private final AuditService audit;
     private final AppProperties props;
@@ -100,6 +125,7 @@ public class SyncService {
 
     public SyncService(GoogleApiClient google, IntegrationSettingsRepository settingsRepo, SyncRunRepository runs,
                        IgnoredRowRepository ignored, CandidateRepository candidates, CandidateDocumentRepository documents,
+                       DocumentService documentService,
                        DepartmentRepository departments, AuditService audit, AppProperties props, ObjectMapper mapper,
                        Clock clock, ZoneId businessZone) {
         this.google = google;
@@ -108,6 +134,7 @@ public class SyncService {
         this.ignored = ignored;
         this.candidates = candidates;
         this.documents = documents;
+        this.documentService = documentService;
         this.departments = departments;
         this.audit = audit;
         this.props = props;
@@ -286,7 +313,7 @@ public class SyncService {
                 Department dept = p.department() == null ? null : deptByName.get(p.department().toLowerCase(Locale.ROOT));
                 if (p.department() != null && dept == null) rowWarnings.add("department \"" + p.department() + "\" is not configured");
                 try {
-                    Candidate c = importRow(p, dept, rowWarnings);
+                    Candidate c = importRow(p, dept, rowWarnings, true);
                     created++;
                     if (!rowWarnings.isEmpty()) {
                         warnings++;
@@ -321,7 +348,80 @@ public class SyncService {
         return run;
     }
 
-    private Candidate importRow(ParsedRow p, Department dept, List<String> rowWarnings) {
+    // ---------------------------------------------------------------- form push
+
+    /** Shows the key once it exists; the first call creates it. */
+    public SettingsResponse newPushKey(String actor) {
+        IntegrationSettings s = settings();
+        byte[] random = new byte[24];
+        RANDOM.nextBytes(random);
+        s.setFormPushKey(Base64.getUrlEncoder().withoutPadding().encodeToString(random));
+        s.setUpdatedBy(actor);
+        settingsRepo.save(s);
+        audit.record("FORM_PUSH_KEY_CREATED", "SETTINGS", s.getId(), "New Google Form key created; the old key stops working");
+        return toResponse(s);
+    }
+
+    /**
+     * Imports one Google Form response pushed by the form's Apps Script the moment a candidate submits. Works
+     * without the service account: uploaded files arrive in the request. Same row key, duplicate and validation
+     * rules as the sheet sync, so sending a response twice (or syncing the sheet too) never creates a duplicate.
+     */
+    public synchronized FormSubmissionResult importSubmission(FormSubmission sub) {
+        IntegrationSettings s = settings();
+        String expected = s.getFormPushKey();
+        if (expected == null || !MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sub.key().getBytes(StandardCharsets.UTF_8))) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Wrong form key. Copy it again from Settings → Google Sheets integration.");
+        }
+        ColumnResolution res = SheetRowMapper.resolveColumns(new ArrayList<>(sub.headers()), readMapping(s));
+        if (!res.problems().isEmpty()) throw ApiException.badRequest(String.join(" ", res.problems()));
+        ParsedRow p = SheetRowMapper.parse(sub.values(), 0, res.columns(), res.positionColumns(), zone, LocalDate.now(clock));
+
+        if (candidates.existsBySourceRowKey(p.rowKey()) || ignored.existsById(p.rowKey())) {
+            return new FormSubmissionResult("ALREADY_IMPORTED", candidates.findFirstBySourceRowKey(p.rowKey()).map(Candidate::getCandidateCode)
+                    .orElse(null), List.of());
+        }
+        if (!p.isValid()) {
+            String reason = "Form response skipped - " + String.join("; ", p.errors());
+            ignored.save(new IgnoredRow(p.rowKey(), reason));
+            audit.recordAs(FORM_ACTOR, "FORM_RESPONSE_SKIPPED", "SYNC", null, reason);
+            return new FormSubmissionResult("SKIPPED", null, p.errors());
+        }
+        String dup = duplicateReason(p);
+        if (dup != null) {
+            String reason = "Form response from " + p.fullName() + ": duplicate of existing candidate (" + dup + ")";
+            ignored.save(new IgnoredRow(p.rowKey(), reason));
+            audit.recordAs(FORM_ACTOR, "FORM_RESPONSE_DUPLICATE", "SYNC", null, reason);
+            return new FormSubmissionResult("DUPLICATE", null, List.of(reason));
+        }
+        List<String> warnings = new ArrayList<>(p.warnings());
+        Department dept = p.department() == null ? null : departments.findAll().stream().filter(Department::isActive)
+                .filter(d -> d.getName().equalsIgnoreCase(p.department())).findFirst().orElse(null);
+        if (p.department() != null && dept == null) warnings.add("department \"" + p.department() + "\" is not configured");
+        List<FormFile> files = sub.files() == null ? List.of() : sub.files();
+        Candidate c = importRow(p, dept, warnings, files.isEmpty() && google.isConfigured());
+
+        List<String> fileProblems = new ArrayList<>();
+        for (FormFile f : files) {
+            try {
+                DocType type = DocType.valueOf(f.field().trim().toUpperCase(Locale.ROOT));
+                // the form's declaration covers the Aadhaar consent
+                documentService.store(c.getId(), type, f.name(), Base64.getMimeDecoder().decode(f.data()), true, FORM_ACTOR);
+            } catch (IllegalArgumentException e) {
+                fileProblems.add("file \"" + f.name() + "\" was not readable");
+            } catch (ApiException e) {
+                fileProblems.add("file \"" + f.name() + "\" not saved: " + e.getMessage());
+            }
+        }
+        if (!fileProblems.isEmpty()) {
+            warnings.addAll(fileProblems);
+            c.setDataIssues(truncate(String.join("; ", warnings), 2000));
+            candidates.save(c);
+        }
+        return new FormSubmissionResult("CREATED", c.getCandidateCode(), warnings);
+    }
+
+    private Candidate importRow(ParsedRow p, Department dept, List<String> rowWarnings, boolean linkDriveFiles) {
         Candidate c = new Candidate();
         c.setFullName(p.fullName());
         c.setDateOfBirth(p.dateOfBirth());
@@ -353,12 +453,15 @@ public class SyncService {
         candidates.save(c);
         CandidateService.assignCode(c, candidates);
         candidates.save(c);
-        addDriveDocs(c, DocType.RESUME, "Resume", p.resumeIds());
-        addDriveDocs(c, DocType.AADHAAR, "Aadhaar", p.aadhaarIds());
-        addDriveDocs(c, DocType.CERTIFICATE, "Certificate", p.certificateIds());
-        addDriveDocs(c, DocType.OTHER, "Document", p.otherDocIds());
-        audit.recordAs(SYNC_ACTOR, "CANDIDATE_IMPORTED", "CANDIDATE", c.getId(),
-                "Imported from Google Form response (sheet row " + p.rowNumber() + ")");
+        if (linkDriveFiles) {
+            addDriveDocs(c, DocType.RESUME, "Resume", p.resumeIds());
+            addDriveDocs(c, DocType.AADHAAR, "Aadhaar", p.aadhaarIds());
+            addDriveDocs(c, DocType.CERTIFICATE, "Certificate", p.certificateIds());
+            addDriveDocs(c, DocType.OTHER, "Document", p.otherDocIds());
+        }
+        audit.recordAs(p.rowNumber() > 0 ? SYNC_ACTOR : FORM_ACTOR, "CANDIDATE_IMPORTED", "CANDIDATE", c.getId(),
+                p.rowNumber() > 0 ? "Imported from Google Form response (sheet row " + p.rowNumber() + ")"
+                        : "Imported from Google Form response (sent when the candidate submitted)");
         return c;
     }
 
@@ -388,7 +491,7 @@ public class SyncService {
                 .map(f -> new FieldInfo(f.name(), f.label, f.core)).toList();
         return new SettingsResponse(s.getSpreadsheetId(), s.getSheetRange(), s.getFormUrl(), s.isAutoSyncEnabled(),
                 s.getSyncIntervalMinutes(), readMapping(s), fields, google.isConfigured(), google.serviceAccountEmail(),
-                s.getUpdatedBy(), s.getUpdatedAt());
+                s.getFormPushKey(), s.getUpdatedBy(), s.getUpdatedAt());
     }
 
     private Map<String, String> readMapping(IntegrationSettings s) {

@@ -176,6 +176,17 @@ function IntegrationTab() {
     onError: (e) => toast('error', e.message),
   });
 
+  const newKey = useMutation({
+    mutationFn: () => api.post<IntegrationSettings>('/sync/push-key'),
+    onSuccess: (s) => {
+      qc.setQueryData(['integration-settings'], s);
+      toast('success', 'Form key created. Paste it into the Google Form script.');
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const copy = (text: string) =>
+    navigator.clipboard.writeText(text).then(() => toast('success', 'Copied'), () => toast('error', 'Copy failed. Select the text and copy it.'));
+
   if (settings.isLoading) return <div className="panel"><LoadingBlock /></div>;
   if (settings.error || !settings.data) return <div className="panel"><ErrorState error={settings.error} onRetry={() => settings.refetch()} /></div>;
   const s = settings.data;
@@ -189,6 +200,32 @@ function IntegrationTab() {
 
   return (
     <div className="space-y-6">
+      <section className="panel space-y-4 p-5">
+        <SectionTitle
+          title="Google Form → dashboard (instant)"
+          subtitle="The form's script sends each application here as soon as the candidate submits, with their resume and Aadhaar. No service account needed."
+        />
+        {s.formPushKey ? (
+          <Field label="FORM_KEY (paste into the Google Form script)" hint="Keep it private. Anyone with this key can add candidates.">
+            <div className="flex max-w-xl gap-2">
+              <input className="input font-mono" readOnly value={s.formPushKey} onFocus={(e) => e.target.select()} />
+              <button className="btn-secondary shrink-0" onClick={() => copy(s.formPushKey!)}>Copy</button>
+            </div>
+          </Field>
+        ) : (
+          <p className="text-sm text-ink-2">Create a form key, then paste it into the Google Form script and run <code>installAutoSend</code>.</p>
+        )}
+        <button
+          className="btn-secondary"
+          disabled={newKey.isPending}
+          onClick={() => {
+            if (!s.formPushKey || window.confirm('Make a new key? The old key stops working until you paste the new one into the script.')) newKey.mutate();
+          }}
+        >
+          {newKey.isPending ? <Spinner size={14} /> : <KeyRound size={15} />} {s.formPushKey ? 'Make a new key' : 'Create form key'}
+        </button>
+      </section>
+
       <section className="panel p-5">
         <SectionTitle title="Server credentials" subtitle="The service-account key is read from the server only. It is never stored in the database or sent to browsers." />
         {s.credentialsConfigured ? (
