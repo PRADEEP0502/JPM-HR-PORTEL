@@ -241,10 +241,10 @@ function IntegrationTab() {
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-[#f3c08a]">
+          <div className="flex items-start gap-3 rounded-xl border border-line bg-raised px-4 py-3 text-sm text-ink-2">
             <XCircle size={18} className="mt-0.5 shrink-0" />
             <p>
-              No credentials on the server. Set <code>GOOGLE_SERVICE_ACCOUNT_FILE</code> to the path of a service-account JSON key and restart the backend. See the README for step-by-step setup.
+              Optional. Not needed when you use “Google Form → dashboard (instant)” above. Only for pulling responses from the sheet with “Sync now”: set <code>GOOGLE_SERVICE_ACCOUNT_FILE</code> to a service-account JSON key on the server.
             </p>
           </div>
         )}
