@@ -75,8 +75,10 @@ public final class SheetRowMapper {
                 }
                 if (header == null || header.isBlank()) return;
                 int idx = indexOfNormalized(headers, SheetField.normalize(header));
-                if (idx < 0) problems.add("Mapped header \"" + header + "\" for " + f.label + " was not found in the sheet");
-                else {
+                // a stale override for an optional field falls back to automatic detection instead of stopping every import
+                if (idx < 0) {
+                    if (f.core) problems.add("Mapped header \"" + header + "\" for " + f.label + " was not found in the sheet");
+                } else {
                     cols.put(f, idx);
                     used.add(idx);
                 }

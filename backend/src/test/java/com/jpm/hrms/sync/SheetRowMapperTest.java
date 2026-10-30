@@ -109,6 +109,14 @@ class SheetRowMapperTest {
     }
 
     @Test
+    void staleOverrideForOptionalFieldFallsBackToDetection() {
+        var res = SheetRowMapper.resolveColumns(List.of("Timestamp", "Full Name", "Email", "Educational Certificates"),
+                Map.of("CERTIFICATES", "Educational Certificate"));
+        assertThat(res.problems()).isEmpty();
+        assertThat(res.columns()).containsEntry(SheetField.CERTIFICATES, 3);
+    }
+
+    @Test
     void reportsMissingCoreColumns() {
         var res = SheetRowMapper.resolveColumns(List.of("Question 1", "Question 2"), Map.of());
         assertThat(res.problems()).hasSize(3);
