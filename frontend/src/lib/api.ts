@@ -7,19 +7,29 @@ export class ApiError extends Error {
   }
 }
 
-/** Session token lives in sessionStorage (cleared when the tab closes); never in source or URLs. */
+/**
+ * Session token lives in localStorage, so a user signs in once per device and stays signed in across tabs and
+ * browser restarts until they sign out or the token expires (30 days). Never in source or URLs.
+ */
 export const tokenStore = {
   get(): string | null {
     try {
-      return sessionStorage.getItem(TOKEN_KEY);
+      // tokens saved by the earlier sessionStorage version are moved over once
+      const legacy = sessionStorage.getItem(TOKEN_KEY);
+      if (legacy) {
+        localStorage.setItem(TOKEN_KEY, legacy);
+        sessionStorage.removeItem(TOKEN_KEY);
+      }
+      return localStorage.getItem(TOKEN_KEY);
     } catch {
       return null;
     }
   },
   set(token: string | null) {
     try {
-      if (token) sessionStorage.setItem(TOKEN_KEY, token);
-      else sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+      if (token) localStorage.setItem(TOKEN_KEY, token);
+      else localStorage.removeItem(TOKEN_KEY);
     } catch {
       /* storage unavailable - token stays in memory for this page only */
     }

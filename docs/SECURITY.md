@@ -6,7 +6,7 @@ What the application already does, and what you must configure before real candi
 
 | Area | Implementation |
 |---|---|
-| Authentication | Username + password, BCrypt hashes, signed JWT (HS256) with expiry (`JWT_TTL_MINUTES`, default 8 h). The browser keeps the token in `sessionStorage` (cleared when the tab closes). No public sign-up. |
+| Authentication | Username + password, BCrypt hashes, signed JWT (HS256) with expiry (`JWT_TTL_MINUTES`, default 30 days). The browser keeps the token in `localStorage`, so users stay signed in on that device until they sign out or it expires; signing out removes it. Disabling a user or changing their role still takes effect on the next request. No public sign-up. |
 | Brute force | Per-username lockout (5 failures → 15 min) **and** per-IP limit on sign-in (`LOGIN_ATTEMPTS_PER_IP`, default 20 per 5 min). Both in memory, per backend instance. |
 | Authorisation | Every endpoint requires a role, checked on the server (`@PreAuthorize`): HR Admin, HR Executive, Interviewer. The role is re-read from the database on every request, so disabling a user takes effect immediately. Interviewers only reach their own assigned interviews; other ids return 404. |
 | CSRF | Not applicable: the API is stateless and uses an `Authorization: Bearer` header, no auth cookies. |

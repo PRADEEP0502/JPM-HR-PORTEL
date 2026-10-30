@@ -19,7 +19,7 @@ public record AppProperties(
 
     /** loginAttemptsPerIp = sign-in requests allowed per client IP in 5 minutes. */
     public record Security(String jwtSecret,
-                           @DefaultValue("480") long tokenTtlMinutes,
+                           @DefaultValue("43200") long tokenTtlMinutes,
                            String bootstrapAdminUsername,
                            String bootstrapAdminPassword,
                            @DefaultValue("20") int loginAttemptsPerIp) {

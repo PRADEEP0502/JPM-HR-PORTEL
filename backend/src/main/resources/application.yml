@@ -76,7 +76,7 @@ app:
   document-encryption-key: ${DOCUMENT_ENCRYPTION_KEY:}
   security:
     jwt-secret: ${JWT_SECRET:}
-    token-ttl-minutes: ${JWT_TTL_MINUTES:480}
+    token-ttl-minutes: ${JWT_TTL_MINUTES:43200}  # 30 days: sign in once per device
     # Optional bootstrap admin, created only when no users exist yet.
     bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:}
     bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
