@@ -293,6 +293,9 @@ export interface IntegrationSettings {
   credentialsConfigured: boolean;
   serviceAccountEmail: string | null;
   formPushKey: string | null;
+  lastFormSubmissionAt: string | null;
+  lastFormSubmissionResult: string | null;
+  lastRejectedKeyAt: string | null;
   updatedBy: string | null;
   updatedAt: string | null;
 }

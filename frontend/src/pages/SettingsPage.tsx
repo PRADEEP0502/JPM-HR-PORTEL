@@ -215,6 +215,20 @@ function IntegrationTab() {
         ) : (
           <p className="text-sm text-ink-2">Create a form key, then paste it into the Google Form script and run <code>installAutoSend</code>.</p>
         )}
+        {s.formPushKey && (
+          <div className="rounded-xl border border-line bg-raised px-4 py-3 text-sm">
+            <p className="font-medium">Last received from the form</p>
+            {s.lastFormSubmissionAt ? (
+              <p className="mt-1 text-ink-2">{fmtDateTime(s.lastFormSubmissionAt)} ({fmtRelative(s.lastFormSubmissionAt)}): {s.lastFormSubmissionResult}</p>
+            ) : (
+              <p className="mt-1 text-ink-2">Nothing yet. Paste the key into the script and run <code>installAutoSend</code>. Applications submitted before that: run <code>sendExistingApplications</code>.</p>
+            )}
+            {s.lastRejectedKeyAt && (!s.lastFormSubmissionAt || s.lastRejectedKeyAt > s.lastFormSubmissionAt) && (
+              <p className="mt-1 text-[#f29a9a]">The script used a wrong key {fmtRelative(s.lastRejectedKeyAt)}. Copy the key above into FORM_KEY again.</p>
+            )}
+            <button className="mt-2 text-xs text-ink-3 underline" onClick={() => settings.refetch()}>Refresh</button>
+          </div>
+        )}
         <button
           className="btn-secondary"
           disabled={newKey.isPending}

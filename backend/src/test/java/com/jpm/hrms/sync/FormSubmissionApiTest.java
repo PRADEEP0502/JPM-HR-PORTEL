@@ -76,6 +76,12 @@ class FormSubmissionApiTest {
         again.set(3, "other.mail@example.com");
         assertThat(json(submit(key, again, List.of())).get("status").asText()).isEqualTo("DUPLICATE");
         assertThat(candidates.findAll().stream().filter(x -> "9876511001".equals(x.getMobile())).count()).isEqualTo(1);
+
+        // Settings shows what the form last sent, so an admin can check the setup
+        JsonNode settings = json(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/sync/settings")
+                .header("Authorization", "Bearer " + admin)));
+        assertThat(settings.get("lastFormSubmissionResult").asText()).startsWith("DUPLICATE");
+        assertThat(settings.get("lastRejectedKeyAt").isNull()).isFalse();
     }
 
     private ResultActions submit(String key, List<Object> values, List<Map<String, String>> files) throws Exception {

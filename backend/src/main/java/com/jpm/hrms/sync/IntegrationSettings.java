@@ -23,6 +23,11 @@ public class IntegrationSettings implements SequencedEntity {
     private String columnMapping;
     /** Shared key the Google Form's Apps Script sends with every submission (Settings shows it to admins). */
     private String formPushKey;
+    /** Last response the form script sent, and what happened to it (shown in Settings to check the setup). */
+    private Instant lastFormSubmissionAt;
+    private String lastFormSubmissionResult;
+    /** Last request that came with a wrong form key. */
+    private Instant lastRejectedKeyAt;
     private String updatedBy;
     private Instant updatedAt;
 
@@ -57,6 +62,11 @@ public class IntegrationSettings implements SequencedEntity {
     public void setColumnMapping(String columnMapping) { this.columnMapping = columnMapping; }
     public String getFormPushKey() { return formPushKey; }
     public void setFormPushKey(String formPushKey) { this.formPushKey = formPushKey; }
+    public Instant getLastFormSubmissionAt() { return lastFormSubmissionAt; }
+    public String getLastFormSubmissionResult() { return lastFormSubmissionResult; }
+    public void recordFormSubmission(Instant at, String result) { lastFormSubmissionAt = at; lastFormSubmissionResult = result; }
+    public Instant getLastRejectedKeyAt() { return lastRejectedKeyAt; }
+    public void setLastRejectedKeyAt(Instant lastRejectedKeyAt) { this.lastRejectedKeyAt = lastRejectedKeyAt; }
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
     public Instant getUpdatedAt() { return updatedAt; }

@@ -72,6 +72,7 @@ public class SyncService {
     public record SettingsResponse(String spreadsheetId, String sheetRange, String formUrl, boolean autoSyncEnabled,
                                    int syncIntervalMinutes, Map<String, String> columnMapping, List<FieldInfo> fields,
                                    boolean credentialsConfigured, String serviceAccountEmail, String formPushKey,
+                                   Instant lastFormSubmissionAt, String lastFormSubmissionResult, Instant lastRejectedKeyAt,
                                    String updatedBy, Instant updatedAt) {
     }
 
@@ -368,9 +369,35 @@ public class SyncService {
      * rules as the sheet sync, so sending a response twice (or syncing the sheet too) never creates a duplicate.
      */
     public synchronized FormSubmissionResult importSubmission(FormSubmission sub) {
+        String outcome;
+        FormSubmissionResult result;
+        try {
+            result = doImportSubmission(sub);
+            outcome = result.status() + (result.candidateCode() != null ? " " + result.candidateCode() : "")
+                    + (result.messages().isEmpty() ? "" : " - " + String.join("; ", result.messages()));
+        } catch (ApiException e) {
+            if (e.getStatus() == HttpStatus.UNAUTHORIZED) throw e;
+            // installAutoSend checks the key by sending only a "Timestamp" header
+            outcome = sub.headers().size() == 1 ? "Form script connected (setup check)" : "REFUSED - " + e.getMessage();
+            recordSubmission(outcome);
+            throw e;
+        }
+        recordSubmission(outcome);
+        return result;
+    }
+
+    private void recordSubmission(String outcome) {
+        IntegrationSettings s = settings();
+        s.recordFormSubmission(clock.instant(), truncate(outcome, 500));
+        settingsRepo.save(s);
+    }
+
+    private FormSubmissionResult doImportSubmission(FormSubmission sub) {
         IntegrationSettings s = settings();
         String expected = s.getFormPushKey();
         if (expected == null || !MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sub.key().getBytes(StandardCharsets.UTF_8))) {
+            s.setLastRejectedKeyAt(clock.instant());
+            settingsRepo.save(s);
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Wrong form key. Copy it again from Settings → Google Sheets integration.");
         }
         ColumnResolution res = SheetRowMapper.resolveColumns(new ArrayList<>(sub.headers()), readMapping(s));
@@ -491,7 +518,8 @@ public class SyncService {
                 .map(f -> new FieldInfo(f.name(), f.label, f.core)).toList();
         return new SettingsResponse(s.getSpreadsheetId(), s.getSheetRange(), s.getFormUrl(), s.isAutoSyncEnabled(),
                 s.getSyncIntervalMinutes(), readMapping(s), fields, google.isConfigured(), google.serviceAccountEmail(),
-                s.getFormPushKey(), s.getUpdatedBy(), s.getUpdatedAt());
+                s.getFormPushKey(), s.getLastFormSubmissionAt(), s.getLastFormSubmissionResult(), s.getLastRejectedKeyAt(),
+                s.getUpdatedBy(), s.getUpdatedAt());
     }
 
     private Map<String, String> readMapping(IntegrationSettings s) {
