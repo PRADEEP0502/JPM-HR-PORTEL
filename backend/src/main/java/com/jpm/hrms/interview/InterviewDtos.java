@@ -5,10 +5,12 @@ import com.jpm.hrms.candidate.CandidateEnums.InterviewStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.List;
 
 public final class InterviewDtos {
     private InterviewDtos() {
@@ -38,6 +40,23 @@ public final class InterviewDtos {
                                   @NotNull Interview.Mode mode,
                                   @Size(max = 300) String location,
                                   @Size(max = 2000) String remarks) {
+    }
+
+    /** Several candidates at the same date and time (group interview). sendEmail = email each invitation right away. */
+    public record GroupScheduleRequest(@NotEmpty @Size(max = 100) List<@NotNull Long> candidateIds,
+                                       @NotNull Instant scheduledAt,
+                                       @Min(15) @Max(480) int durationMinutes,
+                                       @Size(max = 100) String roundName,
+                                       @NotBlank @Size(max = 150) String interviewer,
+                                       @NotNull Interview.Mode mode,
+                                       @Size(max = 300) String location,
+                                       @Size(max = 2000) String remarks,
+                                       boolean sendEmail) {
+    }
+
+    /** One per candidate: the interview, or why it was not scheduled; emailError is set when the email failed. */
+    public record GroupScheduleResult(Long candidateId, String candidateName, InterviewResponse interview, String error,
+                                      boolean emailSent, String emailError) {
     }
 
     public record UpdateDetailsRequest(@Min(15) @Max(480) int durationMinutes,

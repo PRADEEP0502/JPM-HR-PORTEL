@@ -86,12 +86,25 @@ public class InterviewService {
     }
 
     public InterviewResponse schedule(ScheduleRequest req, String actor) {
+        return schedule(req, actor, false);
+    }
+
+    /**
+     * groupSlot = one of several candidates interviewed together: the interviewer's other interviews at exactly the
+     * same date, time and duration are the same group, not a clash.
+     */
+    public InterviewResponse schedule(ScheduleRequest req, String actor, boolean groupSlot) {
         Candidate c = candidates.findById(req.candidateId()).orElseThrow(() -> ApiException.notFound("Candidate"));
         if (c.getApplicationStatus() == ApplicationStatus.REJECTED) {
             throw ApiException.badRequest("Cannot schedule an interview for a rejected candidate");
         }
         validateFutureTime(req.scheduledAt());
-        checkClash(req.interviewer().trim(), req.scheduledAt(), req.durationMinutes(), null);
+        if (groupSlot) {
+            boolean already = interviews.findByCandidateIdOrderByScheduledAtDesc(c.getId()).stream()
+                    .anyMatch(o -> o.getStatus().isActive() && o.getScheduledAt().equals(req.scheduledAt()));
+            if (already) throw ApiException.conflict("Already scheduled at this date and time");
+        }
+        checkClash(req.interviewer().trim(), req.scheduledAt(), req.durationMinutes(), null, groupSlot);
 
         Interview i = new Interview();
         i.setCandidate(c);
@@ -116,7 +129,7 @@ public class InterviewService {
         Interview i = interviews.findById(id).orElseThrow(() -> ApiException.notFound("Interview"));
         if (!i.getStatus().isActive()) throw ApiException.badRequest("Only scheduled interviews can be edited");
         if (!i.getInterviewer().equalsIgnoreCase(req.interviewer().trim()) || i.getDurationMinutes() != req.durationMinutes()) {
-            checkClash(req.interviewer().trim(), i.getScheduledAt(), req.durationMinutes(), i.getId());
+            checkClash(req.interviewer().trim(), i.getScheduledAt(), req.durationMinutes(), i.getId(), false);
         }
         i.setDurationMinutes(req.durationMinutes());
         i.setRoundName(trimToNull(req.roundName()));
@@ -151,7 +164,7 @@ public class InterviewService {
                 if (req.newScheduledAt() == null) throw ApiException.badRequest("A new date and time is required to reschedule");
                 if (req.newScheduledAt().equals(i.getScheduledAt())) throw ApiException.badRequest("Choose a different date or time");
                 validateFutureTime(req.newScheduledAt());
-                checkClash(i.getInterviewer(), req.newScheduledAt(), i.getDurationMinutes(), i.getId());
+                checkClash(i.getInterviewer(), req.newScheduledAt(), i.getDurationMinutes(), i.getId(), false);
                 detail = i.label() + " rescheduled from " + displayFormat.format(i.getScheduledAt())
                         + " to " + displayFormat.format(req.newScheduledAt());
                 i.setScheduledAt(req.newScheduledAt());
@@ -189,12 +202,13 @@ public class InterviewService {
         if (when.isAfter(now.plus(MAX_AHEAD))) throw ApiException.badRequest("Interview cannot be scheduled more than a year ahead");
     }
 
-    private void checkClash(String interviewer, Instant start, int durationMinutes, Long excludeId) {
+    private void checkClash(String interviewer, Instant start, int durationMinutes, Long excludeId, boolean groupSlot) {
         Instant end = start.plus(Duration.ofMinutes(durationMinutes));
         List<Interview> nearby = interviews.findClashes(interviewer, ACTIVE,
                 start.minus(Duration.ofMinutes(MAX_DURATION_MINUTES)), end, excludeId == null ? -1L : excludeId);
         var names = views.candidatesOf(nearby);
         for (Interview other : nearby) {
+            if (groupSlot && other.getScheduledAt().equals(start) && other.getDurationMinutes() == durationMinutes) continue;
             Instant otherEnd = other.getScheduledAt().plus(Duration.ofMinutes(other.getDurationMinutes()));
             if (other.getScheduledAt().isBefore(end) && otherEnd.isAfter(start)) {
                 throw ApiException.conflict(interviewer + " already has an interview at "

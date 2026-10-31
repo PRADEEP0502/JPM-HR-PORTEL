@@ -1,6 +1,8 @@
 package com.jpm.hrms.interview;
 
 import com.jpm.hrms.common.PageResponse;
+import com.jpm.hrms.interview.InterviewDtos.GroupScheduleRequest;
+import com.jpm.hrms.interview.InterviewDtos.GroupScheduleResult;
 import com.jpm.hrms.interview.InterviewDtos.InterviewResponse;
 import com.jpm.hrms.interview.InterviewDtos.ScheduleRequest;
 import com.jpm.hrms.interview.InterviewDtos.StatusRequest;
@@ -22,15 +24,18 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/interviews")
 @PreAuthorize("hasAnyRole('ADMIN','HR')")
 public class InterviewController {
     private final InterviewService service;
+    private final GroupInterviewService groups;
 
-    public InterviewController(InterviewService service) {
+    public InterviewController(InterviewService service, GroupInterviewService groups) {
         this.service = service;
+        this.groups = groups;
     }
 
     @GetMapping
@@ -47,6 +52,12 @@ public class InterviewController {
     @ResponseStatus(HttpStatus.CREATED)
     public InterviewResponse schedule(@Valid @RequestBody ScheduleRequest req, Authentication auth) {
         return service.schedule(req, auth.getName());
+    }
+
+    /** Many candidates at the same date and time; each result says whether that candidate was scheduled and emailed. */
+    @PostMapping("/group")
+    public List<GroupScheduleResult> scheduleGroup(@Valid @RequestBody GroupScheduleRequest req, Authentication auth) {
+        return groups.schedule(req, auth.getName());
     }
 
     @PutMapping("/{id}")

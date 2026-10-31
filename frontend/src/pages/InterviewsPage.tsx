@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { AlertTriangle, CalendarClock, CalendarPlus, Search, Send } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CalendarPlus, Search, Send, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { INTERVIEW_MODES, fmtDate, fmtTime, labelOf } from '../lib/format';
 import type { Interview, Page } from '../lib/types';
@@ -10,7 +10,7 @@ import { InterviewPill } from '../components/ui/Pill';
 import { Avatar } from '../components/ui/Misc';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock } from '../components/ui/States';
-import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
+import { GroupInterviewModal, InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog } from '../components/communication/Communication';
 
 type Scope = 'UPCOMING' | 'COMPLETED' | 'CANCELLED' | 'ALL';
@@ -29,6 +29,7 @@ export default function InterviewsPage() {
   const [to, setTo] = useState('');
   const [page, setPage] = useState(0);
   const [scheduling, setScheduling] = useState(false);
+  const [grouping, setGrouping] = useState(false);
   const [editing, setEditing] = useState<Interview | null>(null);
   const [invite, setInvite] = useState<{ candidateId: number; interviewId: number; title: string } | null>(null);
 
@@ -80,6 +81,9 @@ export default function InterviewsPage() {
           <label className="flex items-center gap-2 text-sm text-ink-3">
             To <input type="date" className="input w-auto" value={to} min={from || undefined} onChange={(e) => { setTo(e.target.value); setPage(0); }} />
           </label>
+          <button className="btn-secondary" onClick={() => setGrouping(true)}>
+            <Users size={16} /> Group interview
+          </button>
           <button className="btn-primary" onClick={() => setScheduling(true)}>
             <CalendarPlus size={16} /> Schedule interview
           </button>
@@ -167,6 +171,7 @@ export default function InterviewsPage() {
       </section>
 
       <ScheduleInterviewModal open={scheduling} onClose={() => setScheduling(false)} />
+      <GroupInterviewModal open={grouping} onClose={() => setGrouping(false)} />
       <InterviewStatusModal interview={editing} onClose={() => setEditing(null)} />
       <CommunicationDialog target={invite} onClose={() => setInvite(null)} />
     </div>

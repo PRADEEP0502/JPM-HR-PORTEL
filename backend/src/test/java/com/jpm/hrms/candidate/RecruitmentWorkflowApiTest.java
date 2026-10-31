@@ -137,6 +137,38 @@ class RecruitmentWorkflowApiTest {
     }
 
     @Test
+    void groupInterviewSchedulesEveryoneAtTheSameTime() throws Exception {
+        String admin = login("admin", "Admin@12345");
+        Candidate a = candidate("Group Member One", LocalDate.now());
+        Candidate b = candidate("Group Member Two", LocalDate.now());
+        Candidate rejected = candidate("Group Member Rejected", LocalDate.now());
+        rejected.setApplicationStatus(CandidateEnums.ApplicationStatus.REJECTED);
+        candidates.save(rejected);
+        Instant at = Instant.now().plus(Duration.ofDays(5)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        String body = "{\"candidateIds\":[" + a.getId() + "," + b.getId() + "," + rejected.getId() + "],\"scheduledAt\":\"" + at
+                + "\",\"durationMinutes\":60,\"interviewer\":\"Group Panel\",\"mode\":\"IN_PERSON\",\"sendEmail\":false}";
+
+        // same interviewer, same slot: one interview each, not a clash; the rejected candidate is reported, not scheduled
+        JsonNode results = call(post("/api/interviews/group"), admin, body);
+        assertThat(results).hasSize(3);
+        assertThat(results.get(0).get("interview").get("scheduledAt").asText()).isEqualTo(at.toString());
+        assertThat(results.get(1).get("interview").get("interviewer").asText()).isEqualTo("Group Panel");
+        assertThat(results.get(2).get("interview").isNull()).isTrue();
+        assertThat(results.get(2).get("error").asText()).contains("rejected");
+
+        // sent again (double click): nobody gets a second interview
+        JsonNode again = call(post("/api/interviews/group"), admin, body);
+        assertThat(again.get(0).get("error").asText()).contains("Already scheduled");
+        assertThat(interviews.findByCandidateIdOrderByScheduledAtDesc(a.getId())).hasSize(1);
+
+        // a single interview for that interviewer overlapping the group is still a clash
+        mvc.perform(post("/api/interviews").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"candidateId\":" + rejected.getId() + ",\"scheduledAt\":\"" + at.plus(Duration.ofMinutes(30))
+                                + "\",\"durationMinutes\":30,\"interviewer\":\"Group Panel\",\"mode\":\"IN_PERSON\"}"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
     void everyReportBuildsAndExportsAndPipelineHasAllStatuses() throws Exception {
         String admin = login("admin", "Admin@12345");
         Candidate c = candidate("Report Pipeline Test", LocalDate.now());
