@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { useDepartments } from '../lib/queries';
+import { useDepartmentLink, useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { CATEGORICAL, PENDING_STATUSES } from '../lib/format';
 import type { Department, Report } from '../lib/types';
@@ -96,6 +96,8 @@ export default function DepartmentsPage() {
   });
 
   const idByName = new Map(depts.data?.map((d) => [d.name, d.id]) ?? []);
+  const navigate = useNavigate();
+  const departmentLink = useDepartmentLink();
   const rows = summary.data?.rows ?? [];
 
   return (
@@ -141,7 +143,14 @@ export default function DepartmentsPage() {
               </table>
             </div>
             <div className="2xl:col-span-2">
-              <HorizontalBars data={summary.data!.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} />
+              <HorizontalBars
+                data={summary.data!.chart.map((c) => ({ label: c.label, value: c.value }))}
+                color={CATEGORICAL[0]}
+                onSelect={(x) => {
+                  const link = departmentLink(x.label);
+                  if (link) navigate(link);
+                }}
+              />
             </div>
           </div>
         )}

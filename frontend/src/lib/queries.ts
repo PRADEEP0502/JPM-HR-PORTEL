@@ -11,6 +11,16 @@ export const useDashboard = () =>
 export const useDepartments = () =>
   useQuery({ queryKey: ['departments'], queryFn: () => api.get<Department[]>('/departments'), staleTime: 5 * 60_000 });
 
+/** Candidate list link for a department name shown in a chart ("Unassigned" = no department). */
+export function useDepartmentLink() {
+  const { data } = useDepartments();
+  return (name: string): string | null => {
+    if (name === 'Unassigned') return '/candidates?departmentId=0';
+    const d = data?.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    return d ? `/candidates?departmentId=${d.id}` : null;
+  };
+}
+
 export const useSyncStatus = () =>
   useQuery({ queryKey: ['sync-status'], queryFn: () => api.get<SyncStatus>('/sync/status'), refetchInterval: REFRESH_MS });
 

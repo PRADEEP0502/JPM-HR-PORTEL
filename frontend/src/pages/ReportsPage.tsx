@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { BarChart3, Download, FileBarChart } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { CATEGORICAL, fmtDate, fmtDateTime } from '../lib/format';
+import { APPLICATION_STATUSES, CATEGORICAL, INTERVIEW_STATUSES, fmtDate, fmtDateTime } from '../lib/format';
+import { useDepartmentLink } from '../lib/queries';
 import type { Report, ReportType } from '../lib/types';
 import { SectionTitle } from '../components/ui/Misc';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
@@ -25,9 +26,26 @@ const REPORTS: { type: ReportType; label: string; desc: string }[] = [
   { type: 'ACTIVITY', label: 'Recruitment activity', desc: 'Who changed what, from the audit log (default: last 30 days)' },
 ];
 
+/** Candidate list for a bar in the status and rating reports (chart points carry only their label). */
+function barLink(type: ReportType, label: string): string | null {
+  if (type === 'STATUS') {
+    const s = APPLICATION_STATUSES.find((x) => x.label === label);
+    return s ? `/candidates?applicationStatus=${s.value}` : null;
+  }
+  if (type === 'INTERVIEW_STATUS') {
+    const s = INTERVIEW_STATUSES.find((x) => x.label === label);
+    return s ? `/candidates?interviewStatus=${s.value}` : null;
+  }
+  if (type === 'RATING_DISTRIBUTION') return `/candidates?rating=${label === 'Not Rated' ? 'UNRATED' : label}`;
+  return null;
+}
+
 export default function ReportsPage() {
   const toast = useToast();
   const [type, setType] = useState<ReportType>('DEPARTMENT');
+  const navigate = useNavigate();
+  const departmentLink = useDepartmentLink();
+  const go = (link: string | null) => link && navigate(link);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -112,11 +130,15 @@ export default function ReportsPage() {
               ) : type === 'MONTHLY' || type === 'APPLICATIONS_BY_DATE' ? (
                 <TrendArea data={r.chart.map((c) => ({ label: c.label, value: c.value }))} />
               ) : type === 'INTERVIEW_STATUS' || type === 'RATING_DISTRIBUTION' || type === 'STATUS' ? (
-                <VerticalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} />
+                <VerticalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} onSelect={(x) => go(barLink(type, x.label))} />
               ) : (
                 <>
                   {type !== 'DEPARTMENT' && <p className="mb-2 text-xs text-ink-3">{type === 'ACTIVITY' ? 'By action' : 'By department'}</p>}
-                  <HorizontalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} />
+                  <HorizontalBars
+                    data={r.chart.map((c) => ({ label: c.label, value: c.value }))}
+                    color={CATEGORICAL[0]}
+                    onSelect={type === 'ACTIVITY' ? undefined : (x) => go(departmentLink(x.label))}
+                  />
                 </>
               )}
             </section>

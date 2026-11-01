@@ -113,10 +113,32 @@ export function HorizontalBars({ data, color = '#3987e5', onSelect }: { data: Da
   const height = Math.max(160, data.length * 38 + 24);
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 36, left: 0, bottom: 0 }} barCategoryGap="24%">
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 36, left: 0, bottom: 0 }} barCategoryGap="24%" {...pick(onSelect)}>
         <CartesianGrid horizontal={false} stroke={GRID} />
         <XAxis type="number" {...AXIS} allowDecimals={false} axisLine={false} />
-        <YAxis type="category" dataKey="label" {...AXIS} width={128} tick={{ fill: '#b9b9b2', fontSize: 12 }} />
+        <YAxis
+          type="category"
+          dataKey="label"
+          {...AXIS}
+          width={128}
+          tick={(props: { x?: number; y?: number; payload?: { value: string; index: number } }) => (
+            <text
+              x={props.x}
+              y={props.y}
+              dy={4}
+              textAnchor="end"
+              fill="#b9b9b2"
+              fontSize={12}
+              className={onSelect ? 'cursor-pointer hover:underline' : undefined}
+              onClick={() => {
+                const d = props.payload && data[props.payload.index];
+                if (d) onSelect?.(d);
+              }}
+            >
+              {props.payload?.value}
+            </text>
+          )}
+        />
         <Tooltip content={<TooltipBox />} cursor={cursor} />
         <Bar
           dataKey="value"
@@ -124,8 +146,6 @@ export function HorizontalBars({ data, color = '#3987e5', onSelect }: { data: Da
           maxBarSize={22}
           fill={color}
           label={{ position: 'right', fill: '#b9b9b2', fontSize: 11 }}
-          onClick={(d: unknown) => onSelect?.(d as Datum)}
-          className={onSelect ? 'cursor-pointer' : undefined}
         />
       </BarChart>
     </ResponsiveContainer>
