@@ -202,10 +202,10 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
             <>
               <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">Documents</h3>
               {(Object.keys(UPLOADS) as UploadType[]).map((type) => (
-                <Field key={type} label={UPLOADS[type]} hint={files[type] ? `${files[type]!.name} · ${(files[type]!.size / 1024 / 1024).toFixed(1)} MB` : 'PDF, JPG or PNG up to 10 MB'}>
+                <Field key={type} label={UPLOADS[type]} hint={files[type] ? `${files[type]!.name} · ${(files[type]!.size / 1024 / 1024).toFixed(1)} MB` : type === 'AADHAAR' ? 'PDF, JPG or PNG up to 10 MB' : 'PDF, Word, JPG or PNG up to 10 MB'}>
                   <input
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept={type === 'AADHAAR' ? '.pdf,.jpg,.jpeg,.png' : '.pdf,.doc,.docx,.jpg,.jpeg,.png'}
                     className="input file:mr-3 file:rounded-lg file:border-0 file:bg-raised file:px-3 file:py-1 file:text-sm file:text-ink"
                     onChange={(e) => {
                       const f = e.target.files?.[0];

@@ -65,7 +65,7 @@ app:
   files:
     # local = private folder (UPLOAD_DIR); gridfs = stored in MongoDB GridFS (no server disk needed, part of mongodump)
     storage: ${FILE_STORAGE:local}
-    allowed-extensions: ${UPLOAD_ALLOWED_EXTENSIONS:pdf,jpg,jpeg,png}
+    allowed-extensions: ${UPLOAD_ALLOWED_EXTENSIONS:pdf,jpg,jpeg,png,doc,docx}
     malware-scan:
       # off = no scanning (development only); clamav = scan every upload with a ClamAV daemon (clamd)
       mode: ${MALWARE_SCAN_MODE:off}

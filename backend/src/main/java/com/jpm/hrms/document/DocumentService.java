@@ -111,6 +111,9 @@ public class DocumentService {
         String original = base.isBlank() ? "document" : base;
         String ext = original.contains(".") ? original.substring(original.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
         if (!allowed.contains(ext)) throw ApiException.badRequest("Only " + acceptedTypes() + " files are allowed");
+        if (type == DocType.AADHAAR && !VIEWABLE.contains(KNOWN.get(ext))) {
+            throw ApiException.badRequest("Aadhaar must be a PDF or a photo (JPG, PNG)");
+        }
         String contentType = KNOWN.get(ext);
         try {
             if (!signatureMatches(ext, Arrays.copyOf(bytes, Math.min(bytes.length, 8)))) {

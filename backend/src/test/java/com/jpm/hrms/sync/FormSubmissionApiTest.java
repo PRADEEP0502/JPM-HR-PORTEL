@@ -84,6 +84,28 @@ class FormSubmissionApiTest {
         assertThat(settings.get("lastRejectedKeyAt").isNull()).isFalse();
     }
 
+    @Test
+    void wordResumeIsKeptButWordAadhaarIsNot() throws Exception {
+        String admin = login();
+        String key = json(mvc.perform(post("/api/sync/push-key").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())).get("formPushKey").asText();
+        byte[] doc = {(byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1, 0, 0};
+        String data = Base64.getEncoder().encodeToString(doc);
+        List<Object> row = List.of("2026-10-30 12:00:00", "Word Resume Applicant", "98765 11009", "word.resume@example.com",
+                "Production", "Helper", "", "I confirm");
+        JsonNode created = json(submit(key, row, List.of(
+                Map.of("field", "RESUME", "name", "New Resume (1).doc", "data", data),
+                Map.of("field", "AADHAAR", "name", "aadhaar.doc", "data", data))).andExpect(status().isOk()));
+        assertThat(created.get("status").asText()).isEqualTo("CREATED");
+        assertThat(created.get("messages").toString()).contains("Aadhaar must be a PDF or a photo");
+
+        Candidate c = candidates.findAll().stream().filter(x -> "9876511009".equals(x.getMobile())).findFirst().orElseThrow();
+        var docs = documents.findByCandidateIdOrderByCreatedAtDesc(c.getId());
+        assertThat(docs).hasSize(1);
+        assertThat(docs.get(0).getDocType()).isEqualTo(DocType.RESUME);
+        assertThat(docs.get(0).getContentType()).isEqualTo("application/msword");
+    }
+
     private ResultActions submit(String key, List<Object> values, List<Map<String, String>> files) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("key", key);

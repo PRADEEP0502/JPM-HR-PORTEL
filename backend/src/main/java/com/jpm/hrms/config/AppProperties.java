@@ -40,7 +40,7 @@ public record AppProperties(
      * backups). Only the listed extensions are accepted, and the file content must match the extension.
      */
     public record Files(@DefaultValue("local") String storage,
-                        @DefaultValue({"pdf", "jpg", "jpeg", "png"}) List<String> allowedExtensions,
+                        @DefaultValue({"pdf", "jpg", "jpeg", "png", "doc", "docx"}) List<String> allowedExtensions,
                         @DefaultValue MalwareScan malwareScan) {
     }
 

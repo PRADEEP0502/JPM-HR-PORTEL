@@ -61,8 +61,9 @@ class DocumentSecurityApiTest {
         String url = "/api/candidates/" + c.getId() + "/documents";
         when(scanner.scan(any())).thenReturn(new Verdict(Outcome.CLEAN, null));
 
-        // Not on the allow-list (DOCX is not accepted by default), and content that does not match the extension
-        upload(url, token, "cv.docx", new byte[]{'P', 'K', 3, 4, 0}).andExpect(status().isBadRequest());
+        // Not on the allow-list, and content that does not match the extension (Word files are allowed, but must be real)
+        upload(url, token, "cv.exe", new byte[]{'M', 'Z', 0, 0, 0}).andExpect(status().isBadRequest());
+        upload(url, token, "cv.docx", "%PDF-1.4 renamed".getBytes(StandardCharsets.ISO_8859_1)).andExpect(status().isBadRequest());
         upload(url, token, "cv.pdf", "MZ this is an exe".getBytes(StandardCharsets.ISO_8859_1)).andExpect(status().isBadRequest());
         upload(url, token, "../../etc/passwd.pdf", PDF).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.fileName").value("passwd.pdf"))

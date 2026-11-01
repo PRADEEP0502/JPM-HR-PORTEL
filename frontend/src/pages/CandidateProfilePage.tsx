@@ -447,7 +447,7 @@ export default function CandidateProfilePage() {
                 ref={fileInput}
                 type="file"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
@@ -478,7 +478,7 @@ export default function CandidateProfilePage() {
                 </p>
               </div>
             )}
-            <p className="mt-2 text-xs text-ink-3">PDF, JPG or PNG up to 10 MB. Files are checked and kept in private storage; uploads, views, downloads and deletions are logged.</p>
+            <p className="mt-2 text-xs text-ink-3">PDF, Word, JPG or PNG up to 10 MB (Aadhaar: PDF or photo only). Files are checked and kept in private storage; uploads, views, downloads and deletions are logged.</p>
           </section>
 
           <section className="panel p-5">
