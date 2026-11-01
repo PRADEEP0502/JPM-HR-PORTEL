@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { AlertTriangle, CalendarClock, CalendarPlus, Search, Send, Users } from 'lucide-react';
@@ -22,11 +22,14 @@ const TABS: { value: Scope; label: string }[] = [
 ];
 
 export default function InterviewsPage() {
-  const [scope, setScope] = useState<Scope>('UPCOMING');
-  const [q, setQ] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // links from the dashboard open this page already filtered (?q=interviewer&from=&to=)
+  const [params] = useSearchParams();
+  const linked = !!(params.get('q') || params.get('from') || params.get('to'));
+  const [scope, setScope] = useState<Scope>(linked ? 'ALL' : 'UPCOMING');
+  const [q, setQ] = useState(params.get('q') ?? '');
+  const [debounced, setDebounced] = useState(params.get('q') ?? '');
+  const [from, setFrom] = useState(params.get('from') ?? '');
+  const [to, setTo] = useState(params.get('to') ?? '');
   const [page, setPage] = useState(0);
   const [scheduling, setScheduling] = useState(false);
   const [grouping, setGrouping] = useState(false);

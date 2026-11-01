@@ -286,8 +286,22 @@ export default function CandidatesPage() {
                       </td>
                       <td className="td tabular-nums">{c.mobile ?? '—'}</td>
                       <td className="td">
-                        {c.departmentName ?? <span className="text-ink-3">Unassigned</span>}
-                        {c.position && <span className="block text-xs text-ink-3">{c.position}</span>}
+                        {c.departmentId ? (
+                          <button className="text-left hover:underline" title="Show this department's candidates" onClick={() => update({ departmentId: String(c.departmentId), position: null })}>
+                            {c.departmentName}
+                          </button>
+                        ) : (
+                          <span className="text-ink-3">{c.departmentName ?? 'Unassigned'}</span>
+                        )}
+                        {c.position && (
+                          <button
+                            className="block text-left text-xs text-ink-3 hover:text-ink hover:underline"
+                            title="Show candidates for this sub-work"
+                            onClick={() => update({ departmentId: c.departmentId ? String(c.departmentId) : null, position: c.position })}
+                          >
+                            {c.position}
+                          </button>
+                        )}
                       </td>
                       <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>

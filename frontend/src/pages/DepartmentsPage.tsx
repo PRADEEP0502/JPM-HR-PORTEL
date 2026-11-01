@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
-import { CATEGORICAL } from '../lib/format';
+import { CATEGORICAL, PENDING_STATUSES } from '../lib/format';
 import type { Department, Report } from '../lib/types';
 import { Modal } from '../components/ui/Modal';
 import { Field, SectionTitle } from '../components/ui/Misc';
@@ -129,11 +129,11 @@ export default function DepartmentsPage() {
                     return (
                       <tr key={String(r.department)} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                         <td className="td pl-5 font-medium text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.department}</Link> : r.department}</td>
-                        <td className="td text-right tabular-nums text-ink">{r.total}</td>
+                        <td className="td text-right tabular-nums text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.total}</Link> : r.total}</td>
                         <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=NEW')}>{r.new}</Link></td>
                         <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SHORTLISTED')}>{r.shortlisted}</Link></td>
                         <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SELECTED')}>{r.selected}</Link></td>
-                        <td className="td pr-5 text-right tabular-nums">{r.pending}</td>
+                        <td className="td pr-5 text-right tabular-nums">{id !== undefined ? <Link className="hover:underline" to={link(`&applicationStatus=${PENDING_STATUSES}`)}>{r.pending}</Link> : r.pending}</td>
                       </tr>
                     );
                   })}
@@ -165,12 +165,18 @@ export default function DepartmentsPage() {
                   <Building2 size={17} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 font-medium">{d.name} {!d.active && <Pill tone="grey">Inactive</Pill>}</p>
+                  <p className="flex items-center gap-2 font-medium">
+                    <Link to={`/candidates?departmentId=${d.id}`} className="hover:underline">{d.name}</Link> {!d.active && <Pill tone="grey">Inactive</Pill>}
+                  </p>
                   {d.description && <p className="mt-0.5 text-xs text-ink-3">{d.description}</p>}
                   {d.positions.length > 0 ? (
                     <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`${d.name} sub-work`}>
                       {d.positions.map((p) => (
-                        <li key={p} className="rounded-md border border-line/70 px-2 py-0.5 text-xs text-ink-2">{p}</li>
+                        <li key={p}>
+                          <Link to={`/candidates?departmentId=${d.id}&position=${encodeURIComponent(p)}`} className="block rounded-md border border-line/70 px-2 py-0.5 text-xs text-ink-2 transition hover:border-ink-3 hover:text-ink">
+                            {p}
+                          </Link>
+                        </li>
                       ))}
                     </ul>
                   ) : (

@@ -299,8 +299,10 @@ export default function CandidateProfilePage() {
             title="D. Application Details"
             icon={<ClipboardList size={16} />}
             rows={[
-              ['Applied department', c.departmentName ?? c.departmentRaw],
-              ['Sub-work', c.position],
+              ['Applied department', c.departmentId ? <Link to={`/candidates?departmentId=${c.departmentId}`} className="hover:underline">{c.departmentName}</Link> : c.departmentRaw],
+              ['Sub-work', c.position && c.departmentId
+                ? <Link to={`/candidates?departmentId=${c.departmentId}&position=${encodeURIComponent(c.position)}`} className="hover:underline">{c.position}</Link>
+                : c.position],
               ['Application date', fmtDateTime(c.appliedAt)],
               ['Current status', <ApplicationPill status={c.applicationStatus} />],
               ['Source', c.source === 'GOOGLE_SHEETS' ? 'Google Form' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Manual'],

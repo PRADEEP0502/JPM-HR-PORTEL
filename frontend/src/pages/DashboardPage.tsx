@@ -15,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useDashboard, useSyncStatus } from '../lib/queries';
+import { useAuth } from '../lib/auth';
 import {
   CATEGORICAL,
   applicationTone,
@@ -27,6 +28,7 @@ import {
   toneHex,
   INTERVIEW_MODES,
   labelOf,
+  toLocalInput,
 } from '../lib/format';
 import type { ApplicationStatus, Dashboard, InterviewStatus, Spotlight } from '../lib/types';
 import { Avatar, RingGauge, SectionTitle } from '../components/ui/Misc';
@@ -192,6 +194,25 @@ function SpotlightCards({ spotlights }: { spotlights: Spotlight[] }) {
   );
 }
 
+// ------------------------------------------------------------------ link helpers
+
+/** "2026-10" → appliedFrom/appliedTo covering that month. */
+function monthRange(ym: string) {
+  const [y, m] = ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return `appliedFrom=${ym}-01&appliedTo=${ym}-${String(last).padStart(2, '0')}`;
+}
+
+/** Calendar day (yyyy-mm-dd) of an instant in the viewer's time zone. */
+function localDay(iso: string) {
+  return toLocalInput(new Date(iso)).slice(0, 10);
+}
+
+function panelLink(name: string) {
+  const today = toLocalInput(new Date()).slice(0, 10);
+  return `/interviews?q=${encodeURIComponent(name)}&from=${today}&to=${today}`;
+}
+
 // ------------------------------------------------------------------ interviews
 
 function InterviewTable({ d }: { d: Dashboard }) {
@@ -241,10 +262,14 @@ function InterviewTable({ d }: { d: Dashboard }) {
                   </td>
                   <td className="td">{i.departmentName ?? '—'}</td>
                   <td className="td">
-                    {i.interviewer}
+                    <Link to={`/interviews?q=${encodeURIComponent(i.interviewer)}`} className="hover:underline">{i.interviewer}</Link>
                     <span className="block text-xs text-ink-3">{labelOf(INTERVIEW_MODES, i.mode)}</span>
                   </td>
-                  <td className="td tabular-nums">{range === 'today' ? fmtTime(i.scheduledAt) : `${fmtDate(i.scheduledAt)}, ${fmtTime(i.scheduledAt)}`}</td>
+                  <td className="td tabular-nums">
+                    <Link to={`/interviews?from=${localDay(i.scheduledAt)}&to=${localDay(i.scheduledAt)}`} className="hover:underline">
+                      {range === 'today' ? fmtTime(i.scheduledAt) : `${fmtDate(i.scheduledAt)}, ${fmtTime(i.scheduledAt)}`}
+                    </Link>
+                  </td>
                   <td className="td text-right"><InterviewPill status={i.status} /></td>
                 </tr>
               ))}
@@ -264,8 +289,11 @@ function Analytics({ d }: { d: Dashboard }) {
   return (
     <section className="grid grid-cols-1 gap-6 lg:grid-cols-2" aria-label="Analytics">
       <div className="panel p-5 lg:col-span-2">
-        <SectionTitle title="Monthly Applications" subtitle="Applications received per month, last 12 months" />
-        <TrendArea data={d.monthly.map((m) => ({ label: m.label, value: m.count }))} />
+        <SectionTitle title="Monthly Applications" subtitle="Click a month to see its applications" />
+        <TrendArea
+          data={d.monthly.map((m) => ({ label: m.label, value: m.count, key: m.key }))}
+          onSelect={(x) => x.key && navigate(`/candidates?${monthRange(x.key)}`)}
+        />
       </div>
       <div className="panel p-5">
         <SectionTitle title="Candidates by Department" subtitle="Click a bar to see that department's candidates" />
@@ -291,12 +319,19 @@ function Analytics({ d }: { d: Dashboard }) {
         )}
       </div>
       <div className="panel p-5">
-        <SectionTitle title="Interview Completion Status" subtitle="Candidates by their latest interview status" />
-        <VerticalBars data={d.interviewStatus.map((x) => ({ label: x.label, value: x.count, color: toneHex[interviewTone[x.key as InterviewStatus]] }))} />
+        <SectionTitle title="Interview Completion Status" subtitle="Click a bar to see those candidates" />
+        <VerticalBars
+          data={d.interviewStatus.map((x) => ({ label: x.label, value: x.count, key: x.key, color: toneHex[interviewTone[x.key as InterviewStatus]] }))}
+          onSelect={(x) => navigate(`/candidates?interviewStatus=${x.key}`)}
+        />
       </div>
       <div className="panel p-5">
-        <SectionTitle title="Experience Distribution" subtitle="Total experience declared by candidates" />
-        <VerticalBars data={d.experience.map((x) => ({ label: x.label, value: x.count }))} color={CATEGORICAL[0]} />
+        <SectionTitle title="Experience Distribution" subtitle="Click a bar to see those candidates" />
+        <VerticalBars
+          data={d.experience.map((x) => ({ label: x.label, value: x.count, key: x.key }))}
+          color={CATEGORICAL[0]}
+          onSelect={(x) => navigate(`/candidates?experience=${x.key}`)}
+        />
       </div>
     </section>
   );
@@ -351,13 +386,22 @@ function InterviewersToday({ names }: { names: string[] }) {
         <>
           <div className="mt-3 flex -space-x-2">
             {names.slice(0, 6).map((n) => (
-              <span key={n} className="rounded-full ring-2 ring-panel"><Avatar name={n} size="md" /></span>
+              <Link key={n} to={panelLink(n)} title={`${n}: today's interviews`} className="rounded-full ring-2 ring-panel transition hover:-translate-y-0.5">
+                <Avatar name={n} size="md" />
+              </Link>
             ))}
             {names.length > 6 && (
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-raised text-xs ring-2 ring-panel">+{names.length - 6}</span>
             )}
           </div>
-          <p className="mt-2 text-xs text-ink-3">{names.join(', ')}</p>
+          <p className="mt-2 text-xs text-ink-3">
+            {names.map((n, i) => (
+              <span key={n}>
+                {i > 0 && ', '}
+                <Link to={panelLink(n)} className="hover:text-ink hover:underline">{n}</Link>
+              </span>
+            ))}
+          </p>
         </>
       )}
     </section>
@@ -365,16 +409,20 @@ function InterviewersToday({ names }: { names: string[] }) {
 }
 
 function WeekReport({ d }: { d: Dashboard }) {
+  const navigate = useNavigate();
   const total = d.lastSevenDays.reduce((a, x) => a + x.count, 0);
   return (
     <section className="panel p-4">
-      <div className="flex items-baseline justify-between">
+      <Link to={`/candidates?appliedFrom=${d.lastSevenDays[0]?.key ?? ''}`} className="flex items-baseline justify-between hover:underline">
         <h2 className="text-[15px] font-semibold">Applications This Week</h2>
         <span className="text-sm font-semibold">{total}</span>
-      </div>
-      <p className="text-xs text-ink-3">Daily submissions, last 7 days</p>
+      </Link>
+      <p className="text-xs text-ink-3">Click a day to see its applications</p>
       <div className="mt-3">
-        <WeekColumns data={d.lastSevenDays.map((x) => ({ label: x.label, value: x.count }))} />
+        <WeekColumns
+          data={d.lastSevenDays.map((x) => ({ label: x.label, value: x.count, key: x.key }))}
+          onSelect={(x) => navigate(`/candidates?appliedFrom=${x.key}&appliedTo=${x.key}`)}
+        />
       </div>
     </section>
   );
@@ -382,12 +430,14 @@ function WeekReport({ d }: { d: Dashboard }) {
 
 function SyncCard() {
   const { data } = useSyncStatus();
+  const { isAdmin } = useAuth();
   if (!data) return null;
   const tone = data.lastStatus === 'FAILED' ? 'text-bad' : data.lastStatus === 'PARTIAL' ? 'text-warn' : 'text-good';
   return (
     <section className="panel p-4 text-sm">
       <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-        <RefreshCw size={15} className={clsx(data.running && 'animate-spin')} /> Google Form Sync
+        <RefreshCw size={15} className={clsx(data.running && 'animate-spin')} />
+        {isAdmin ? <Link to="/settings?tab=integration" className="hover:underline">Google Form Sync</Link> : 'Google Form Sync'}
       </h2>
       {!data.configured ? (
         <p className="mt-2 text-ink-3">Not connected yet. An administrator can connect the response sheet in Settings → Integration.</p>

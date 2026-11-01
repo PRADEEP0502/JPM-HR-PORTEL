@@ -55,10 +55,26 @@ function WrapTick({ x, y, payload }: { x?: number; y?: number; payload?: { value
   );
 }
 
-export function TrendArea({ data, color = '#3987e5', height = 240 }: { data: Datum[]; color?: string; height?: number }) {
+/** Chart-level click: the whole column under the pointer counts, so small and zero bars can be clicked too. */
+function pick(onSelect?: (d: Datum) => void) {
+  if (!onSelect) return {};
+  return {
+    onClick: (state: unknown) => {
+      const p = (state as { activePayload?: { payload: Datum }[] } | null)?.activePayload?.[0]?.payload;
+      if (p) onSelect(p);
+    },
+    className: 'cursor-pointer',
+  };
+}
+
+export function TrendArea({ data, color = '#3987e5', height = 240, onSelect }: { data: Datum[]; color?: string; height?: number; onSelect?: (d: Datum) => void }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+      <AreaChart
+        data={data}
+        margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+        {...pick(onSelect)}
+      >
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.35} />
@@ -75,10 +91,10 @@ export function TrendArea({ data, color = '#3987e5', height = 240 }: { data: Dat
   );
 }
 
-export function VerticalBars({ data, height = 240, color = '#3987e5' }: { data: Datum[]; height?: number; color?: string }) {
+export function VerticalBars({ data, height = 240, color = '#3987e5', onSelect }: { data: Datum[]; height?: number; color?: string; onSelect?: (d: Datum) => void }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barCategoryGap="28%">
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barCategoryGap="28%" {...pick(onSelect)}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis dataKey="label" {...AXIS} interval={0} tick={<WrapTick />} height={36} />
         <YAxis {...AXIS} allowDecimals={false} axisLine={false} width={44} />
@@ -172,10 +188,10 @@ export function Donut({ data, centerLabel, onSelect }: { data: Datum[]; centerLa
 }
 
 /** Rail chart in the style of the reference: light, rounded columns on the dark panel. */
-export function WeekColumns({ data, height = 190 }: { data: Datum[]; height?: number }) {
+export function WeekColumns({ data, height = 190, onSelect }: { data: Datum[]; height?: number; onSelect?: (d: Datum) => void }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 4, left: -24, bottom: 0 }} barCategoryGap="38%">
+      <BarChart data={data} margin={{ top: 8, right: 4, left: -24, bottom: 0 }} barCategoryGap="38%" {...pick(onSelect)}>
         <defs>
           <linearGradient id="weekFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#f2f2ef" stopOpacity={0.95} />
