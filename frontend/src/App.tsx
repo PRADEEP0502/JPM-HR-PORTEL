@@ -12,7 +12,7 @@ import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import MyInterviewsPage from './pages/MyInterviewsPage';
 import PipelinePage from './pages/PipelinePage';
-import BestCandidatesPage from './pages/BestCandidatesPage';
+import RequirementsPage from './pages/RequirementsPage';
 
 export default function App() {
   const { user, loading, isInterviewer } = useAuth();
@@ -43,7 +43,7 @@ export default function App() {
         <Route path="candidates" element={<CandidatesPage />} />
         <Route path="candidates/:id" element={<CandidateProfilePage />} />
         <Route path="pipeline" element={<PipelinePage />} />
-        <Route path="best-candidates" element={<BestCandidatesPage />} />
+        <Route path="requirements" element={<RequirementsPage />} />
         <Route path="interviews" element={<InterviewsPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="reports" element={<ReportsPage />} />
