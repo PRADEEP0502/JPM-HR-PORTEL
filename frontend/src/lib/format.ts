@@ -13,6 +13,9 @@ export const APPLICATION_STATUSES: { value: ApplicationStatus; label: string }[]
 ];
 
 /** Statuses without a final decision (not selected, rejected or joined), as a list filter value. */
+/** Where a candidate heard about the job. The Google Form script offers the same list. */
+export const HIRING_SOURCES = ['Indeed', 'Man Power Agencies', 'Street Boards', 'Paper Advertisements', 'Social Media', 'Nithra Jobs', 'Others'];
+
 export const PENDING_STATUSES = 'NEW,UNDER_REVIEW,SHORTLISTED,INTERVIEW_SCHEDULED,INTERVIEW_COMPLETED,ON_HOLD';
 
 export const ROLES: { value: Role; label: string; hint: string }[] = [

@@ -26,6 +26,7 @@ public enum SheetField {
     DEPARTMENT("Department", false, "department", "applied department", "applying for", "department applied for"),
     /** Sub-work: the form has one "Position (<Department>)" question per department section; the first answered one is used. */
     POSITION("Sub-work / position", false, "position", "sub work", "subwork", "post applied for", "position applied for", "job role", "role"),
+    HIRING_SOURCE("Source", false, "source", "sources", "job source", "how did you hear about this job", "how did you hear about us"),
     REFERENCE_NAME("Reference name", false, "reference name", "referee name", "reference"),
     REFERENCE_RELATION("Reference relationship / designation", false, "reference relationship", "reference designation", "relationship", "reference relation", "relationship or designation"),
     REFERENCE_CONTACT("Reference contact", false, "reference contact", "reference contact details", "reference phone", "referee contact"),

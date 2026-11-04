@@ -12,7 +12,7 @@
  *   6. Add the three file-upload questions by hand (Apps Script cannot create them) - see the log.
  *
  * ALREADY HAVE THE FORM?  Don't create a new one. Set RESPONSE_SPREADSHEET_ID below, then run
- *   updateExistingForm  - it (re)builds the Department → Sub-work sections and the declaration text
+ *   updateExistingForm  - it (re)builds the Source question, the Department → Sub-work sections and the declaration text
  *   in your current form. Safe to run again whenever DEPARTMENTS changes; answers are not touched.
  *
  * The question titles below match what the JPM HRMS dashboard sync recognises automatically.
@@ -36,6 +36,9 @@ var DEPARTMENTS = {
   'Maintenance': ['Electrician'],
   'Office': ['Accountant', 'Data Entry', 'Administrative Officer', 'Receptionist', 'HR']
 };
+
+// "Source" question: where the candidate heard about the job. Same list as the dashboard.
+var SOURCES = ['Indeed', 'Man Power Agencies', 'Street Boards', 'Paper Advertisements', 'Social Media', 'Nithra Jobs', 'Others'];
 
 // Response sheet of the form that is already live (used by updateExistingForm and the auto-send below).
 var RESPONSE_SPREADSHEET_ID = '1QlF0mX1fMO2DWJjj1RG9noQiu2dYHRYCJXUJx9hDaAw';
@@ -157,6 +160,7 @@ function createJpmApplicationForm() {
       .setChoiceValues([DECLARATION])
       .setRequired(true);
 
+  setUpSourceQuestion_(form);
   setUpDepartmentSections_(form);
 
   // ---------------- Response sheet ----------------
@@ -214,11 +218,29 @@ function createJpmApplicationForm() {
   return { formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), spreadsheetId: ss.getId() };
 }
 
-/** Adds the Department → Sub-work sections and the Aadhaar consent declaration to the form that is already live. */
+/** Adds the Source dropdown just above "Department", on the same page, or refreshes its choices if it is already there. */
+function setUpSourceQuestion_(form) {
+  var existing = findItem_(form, 'Source', FormApp.ItemType.LIST);
+  if (existing) {
+    existing.asListItem().setChoiceValues(SOURCES);
+    return;
+  }
+  var department = findItem_(form, 'Department', FormApp.ItemType.LIST);
+  if (!department) throw new Error('The form needs a "Department" dropdown.');
+  var source = form.addListItem()
+      .setTitle('Source')
+      .setHelpText('How did you hear about this job?')
+      .setChoiceValues(SOURCES)
+      .setRequired(true);
+  form.moveItem(source.getIndex(), department.getIndex());
+}
+
+/** Adds the Source question, the Department → Sub-work sections and the Aadhaar consent declaration to the form that is already live. */
 function updateExistingForm() {
   var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
   if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
   var form = FormApp.openByUrl(formUrl);
+  setUpSourceQuestion_(form);
   setUpDepartmentSections_(form);
 
   var declaration = findItem_(form, 'Declaration', FormApp.ItemType.CHECKBOX);
@@ -294,7 +316,7 @@ function addDemoCandidates() {
       'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Coimbatore 641001',
       'Highest Qualification': d.qual, 'Institution': d.inst, 'Year of Passing': d.year,
       'Total Experience (in years)': d.exp, 'Previous Company': d.company, 'Previous Designation': d.designation,
-      'Key Skills': d.skills, 'Expected Salary': d.salary, 'Department': d.dept,
+      'Key Skills': d.skills, 'Expected Salary': d.salary, 'Source': SOURCES[i % SOURCES.length], 'Department': d.dept,
       'Reference Name': d.company ? 'Ramesh Kumar' : '', 'Reference Relationship / Designation': d.company ? 'Former Manager' : '',
       'Reference Contact Number': d.company ? '9000000100' : '',
       'Family Reference Name': 'Murugesan', 'Relationship with Family Member': 'Father', 'Family Reference Contact Number': '900000020' + (i + 1)

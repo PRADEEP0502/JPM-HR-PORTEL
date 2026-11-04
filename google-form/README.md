@@ -46,7 +46,7 @@ profile in the dashboard instead.
 | Personal Details | Full Name\*, Date of Birth\*, Mobile Number\* (validated 10-digit Indian mobile), Email\* (validated), Address\* |
 | Educational Details | Highest Qualification\*, Institution\*, Year of Passing\* (validated year) |
 | Employment Details | Total Experience (in years)\*, Previous Company, Previous Designation, Key Skills\*, Expected Salary |
-| Application | Department\* (dropdown) |
+| Application | Source\* (dropdown: where they heard about the job), Department\* (dropdown) |
 | References | Professional: Reference Name, Reference Relationship / Designation, Reference Contact Number · Family\*: Family Reference Name, Relationship with Family Member, Family Reference Contact Number |
 | Documents & Declaration | the 3 upload questions (step 2) + Declaration\* (consent checkbox) |
 

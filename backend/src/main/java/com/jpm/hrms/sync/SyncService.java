@@ -466,6 +466,7 @@ public class SyncService {
         c.setDepartment(dept);
         c.setDepartmentRaw(p.department());
         c.setPosition(p.position());
+        c.setHiringSource(p.hiringSource());
         c.setApplicationDate(p.applicationDate());
         c.setAppliedAt(p.appliedAt());
         c.setReferenceName(p.referenceName());

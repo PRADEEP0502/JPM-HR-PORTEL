@@ -45,7 +45,7 @@ public final class SheetRowMapper {
                             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
                             String qualification, String institution, Integer passingYear, String previousCompany,
                             BigDecimal experienceYears, String previousDesignation, String skills, String expectedSalary,
-                            String department, String position, String referenceName, String referenceRelation, String referenceContact,
+                            String department, String position, String hiringSource, String referenceName, String referenceRelation, String referenceContact,
                             String familyRefName, String familyRefRelation, String familyRefContact,
                             List<String> resumeIds, List<String> aadhaarIds, List<String> certificateIds, List<String> otherDocIds,
                             List<String> errors, List<String> warnings) {
@@ -208,6 +208,7 @@ public final class SheetRowMapper {
                 FieldParsers.truncate(text(row, cols, SheetField.EXPECTED_SALARY), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.DEPARTMENT), 150),
                 FieldParsers.truncate(firstAnswer(row, cols, positionCols), 100),
+                FieldParsers.truncate(text(row, cols, SheetField.HIRING_SOURCE), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_NAME), 150),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_RELATION), 150),
                 FieldParsers.truncate(text(row, cols, SheetField.REFERENCE_CONTACT), 200),

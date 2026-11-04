@@ -36,7 +36,7 @@ class CandidateManualAndResetApiTest {
     IgnoredRowRepository ignoredRows;
 
     private static final String MANUAL = "{\"fullName\":\"Walk In Applicant\",\"mobile\":\"91234 00001\",\"email\":\"walk.in@example.com\","
-            + "\"qualification\":\"ITI Fitter\",\"experienceYears\":2,\"version\":0}";
+            + "\"qualification\":\"ITI Fitter\",\"experienceYears\":2,\"hiringSource\":\"Street Boards\",\"version\":0}";
 
     @Test
     void manualCandidateThenAdminResetsEverything() throws Exception {
@@ -50,6 +50,7 @@ class CandidateManualAndResetApiTest {
         Candidate saved = candidates.findById(created.get("id").asLong()).orElseThrow();
         assertThat(saved.getSource()).isEqualTo(CandidateSource.MANUAL);
         assertThat(saved.getMobile()).isEqualTo("9123400001");
+        assertThat(saved.getHiringSource()).isEqualTo("Street Boards");
 
         // same mobile again is refused; mobile is required
         call(post("/api/candidates"), admin, MANUAL).andExpect(status().isConflict());

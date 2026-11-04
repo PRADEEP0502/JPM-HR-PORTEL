@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, RATING_BANDS, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
+import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -73,6 +73,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
     TEXT_FIELDS.forEach(({ key }) => (f[key] = detail.data[key] == null ? '' : String(detail.data[key])));
     f.departmentId = detail.data.departmentId == null ? '' : String(detail.data.departmentId);
     f.position = detail.data.position ?? '';
+    f.hiringSource = detail.data.hiringSource ?? '';
     setForm(f);
     setErrors({});
   }, [detail.data]);
@@ -85,6 +86,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
         experienceYears: form.experienceYears ? Number(form.experienceYears) : null,
         departmentId: form.departmentId ? Number(form.departmentId) : null,
         position: form.position?.trim() ? form.position.trim() : null,
+        hiringSource: form.hiringSource || null,
         version: isNew ? 0 : detail.data!.version,
       };
       if (!isNew) return api.put<CandidateDetail>(`/candidates/${candidateId}`, body).then((c) => ({ c, failed: [] as string[] }));
@@ -197,6 +199,13 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
                 </select>
               );
             })()}
+          </Field>
+          <Field label="Source">
+            <select className="input" value={form.hiringSource ?? ''} onChange={(e) => setForm({ ...form, hiringSource: e.target.value })}>
+              <option value="">Not specified</option>
+              {form.hiringSource && !HIRING_SOURCES.includes(form.hiringSource) && <option value={form.hiringSource}>{form.hiringSource}</option>}
+              {HIRING_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </Field>
           {isNew && (
             <>

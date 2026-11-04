@@ -44,6 +44,8 @@ public class Candidate implements SequencedEntity {
     private String departmentRaw;
     /** Sub-work (position) within the department, e.g. "Machine Operator". */
     private String position;
+    /** Where the candidate heard about the job, e.g. "Indeed". Not {@link #source}, which is how the record was entered. */
+    private String hiringSource;
 
     private LocalDate applicationDate;
     private Instant appliedAt;
@@ -132,6 +134,8 @@ public class Candidate implements SequencedEntity {
     public void setDepartmentRaw(String departmentRaw) { this.departmentRaw = departmentRaw; }
     public String getPosition() { return position; }
     public void setPosition(String position) { this.position = position; }
+    public String getHiringSource() { return hiringSource; }
+    public void setHiringSource(String hiringSource) { this.hiringSource = hiringSource; }
     public LocalDate getApplicationDate() { return applicationDate; }
     public void setApplicationDate(LocalDate applicationDate) { this.applicationDate = applicationDate; }
     public Instant getAppliedAt() { return appliedAt; }

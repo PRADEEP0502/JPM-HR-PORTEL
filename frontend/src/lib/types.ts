@@ -55,6 +55,7 @@ export interface CandidateListItem {
   departmentId: number | null;
   departmentName: string | null;
   position: string | null;
+  hiringSource: string | null;
   qualification: string | null;
   experienceYears: number | null;
   applicationDate: string;
@@ -136,6 +137,7 @@ export interface CandidateDetail {
   departmentName: string | null;
   departmentRaw: string | null;
   position: string | null;
+  hiringSource: string | null;
   applicationDate: string;
   appliedAt: string;
   applicationStatus: ApplicationStatus;

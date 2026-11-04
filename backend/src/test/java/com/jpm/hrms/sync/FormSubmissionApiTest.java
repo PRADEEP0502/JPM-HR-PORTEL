@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,7 +42,7 @@ class FormSubmissionApiTest {
     CandidateDocumentRepository documents;
 
     private static final List<String> HEADERS = List.of("Timestamp", "Full Name", "Mobile Number", "Email", "Department",
-            "Position (Production)", "Upload Resume", "Declaration");
+            "Position (Production)", "Upload Resume", "Declaration", "Source");
 
     @Test
     void formResponseBecomesCandidateOnce() throws Exception {
@@ -51,7 +52,7 @@ class FormSubmissionApiTest {
         assertThat(key).hasSizeGreaterThan(20);
 
         List<Object> row = List.of("2026-10-30 10:15:00", "Form Pushed Applicant", "98765 11001", "form.pushed@example.com",
-                "Production", "Helper", "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOpQrStUvWxYz", "I confirm");
+                "Production", "Helper", "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOpQrStUvWxYz", "I confirm", "Nithra Jobs");
         String pdf = Base64.getEncoder().encodeToString("%PDF-1.4\n% test resume\n".getBytes(StandardCharsets.US_ASCII));
         List<Map<String, String>> files = List.of(Map.of("field", "RESUME", "name", "resume.pdf", "data", pdf));
 
@@ -64,6 +65,13 @@ class FormSubmissionApiTest {
         assertThat(c.getSource()).isEqualTo(CandidateSource.GOOGLE_SHEETS);
         assertThat(c.getMobile()).isEqualTo("9876511001");
         assertThat(c.getPosition()).isEqualTo("Helper");
+        assertThat(c.getHiringSource()).isEqualTo("Nithra Jobs");
+        String bySource = mvc.perform(get("/api/candidates").param("hiringSource", "nithra jobs").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(bySource).contains("Form Pushed Applicant");
+        String otherSource = mvc.perform(get("/api/candidates").param("hiringSource", "Indeed").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(otherSource).doesNotContain("Form Pushed Applicant");
         // the uploaded file is stored; the Drive link is not added as a second copy
         var docs = documents.findByCandidateIdOrderByCreatedAtDesc(c.getId());
         assertThat(docs).hasSize(1);
@@ -78,7 +86,7 @@ class FormSubmissionApiTest {
         assertThat(candidates.findAll().stream().filter(x -> "9876511001".equals(x.getMobile())).count()).isEqualTo(1);
 
         // Settings shows what the form last sent, so an admin can check the setup
-        JsonNode settings = json(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/sync/settings")
+        JsonNode settings = json(mvc.perform(get("/api/sync/settings")
                 .header("Authorization", "Bearer " + admin)));
         assertThat(settings.get("lastFormSubmissionResult").asText()).startsWith("DUPLICATE");
         assertThat(settings.get("lastRejectedKeyAt").isNull()).isFalse();

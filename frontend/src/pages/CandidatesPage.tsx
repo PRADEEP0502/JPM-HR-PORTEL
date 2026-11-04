@@ -10,6 +10,7 @@ import {
   APPLICATION_STATUSES,
   EXPERIENCE_BUCKETS,
   INTERVIEW_STATUSES,
+  HIRING_SOURCES,
   PENDING_STATUSES,
   VERIFICATION_STATUSES,
   fmtDate,
@@ -24,7 +25,7 @@ import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type Archiv
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
-const FILTER_KEYS = ['q', 'departmentId', 'position', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
+const FILTER_KEYS = ['q', 'departmentId', 'position', 'hiringSource', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
 
 /** Profile Match Rating filter values understood by the API. */
 const RATING_FILTERS = [
@@ -154,6 +155,10 @@ export default function CandidatesPage() {
               {subWork.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           )}
+          <select className="input" aria-label="Source" value={filters.hiringSource} onChange={(e) => update({ hiringSource: e.target.value })}>
+            <option value="">All sources</option>
+            {HIRING_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           <select className="input" aria-label="Experience" value={filters.experience} onChange={(e) => update({ experience: e.target.value })}>
             <option value="">Any experience</option>
             {EXPERIENCE_BUCKETS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
@@ -305,7 +310,14 @@ export default function CandidatesPage() {
                       </td>
                       <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
-                      <td className="td tabular-nums">{fmtDate(c.applicationDate)}</td>
+                      <td className="td tabular-nums">
+                        {fmtDate(c.applicationDate)}
+                        {c.hiringSource && (
+                          <button className="block text-left text-xs text-ink-3 hover:text-ink hover:underline" title="Show candidates from this source" onClick={() => update({ hiringSource: c.hiringSource })}>
+                            {c.hiringSource}
+                          </button>
+                        )}
+                      </td>
                       <td className="td">
                         <button
                           className="rounded-md hover:opacity-80"
