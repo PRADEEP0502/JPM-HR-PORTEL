@@ -48,6 +48,15 @@ class HiringRequirementApiTest {
         call(post("/api/requirements"), admin, "{\"departmentId\":" + dept + ",\"position\":\"Other\",\"needed\":0}").andExpect(status().isBadRequest());
         call(post("/api/requirements"), admin, "{\"departmentId\":999999,\"needed\":1}").andExpect(status().isNotFound());
 
+        // the candidate queries the page sends for each requirement
+        String pending = "NEW,UNDER_REVIEW,SHORTLISTED,INTERVIEW_SCHEDULED,INTERVIEW_COMPLETED,ON_HOLD";
+        mvc.perform(get("/api/candidates").header("Authorization", "Bearer " + admin).param("departmentId", String.valueOf(dept)).param("position", "Helper")
+                .param("applicationStatus", pending).param("rating", "1-10").param("sort", "rating").param("dir", "desc").param("size", "100")).andExpect(status().isOk());
+        mvc.perform(get("/api/candidates").header("Authorization", "Bearer " + admin).param("departmentId", String.valueOf(dept))
+                .param("applicationStatus", pending).param("rating", "UNRATED").param("size", "1")).andExpect(status().isOk());
+        mvc.perform(get("/api/candidates").header("Authorization", "Bearer " + admin).param("departmentId", String.valueOf(dept))
+                .param("applicationStatus", "SELECTED,JOINED").param("size", "1")).andExpect(status().isOk());
+
         call(put("/api/requirements/" + id), admin, "{\"needed\":8}").andExpect(status().isOk());
         assertThat(needed(admin, id)).isEqualTo(8);
 
