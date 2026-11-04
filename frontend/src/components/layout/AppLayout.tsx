@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
+  Award,
   BarChart3,
   Bell,
   Building2,
@@ -28,6 +29,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/candidates', label: 'Candidates', icon: Users },
   { to: '/pipeline', label: 'Pipeline', icon: KanbanSquare },
+  { to: '/best-candidates', label: 'Best Candidates', icon: Award },
   { to: '/interviews', label: 'Interview Schedule', icon: CalendarClock },
   { to: '/departments', label: 'Departments', icon: Building2 },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
@@ -43,6 +45,7 @@ const INTERVIEWER_NAV = [
 const TITLES: Record<string, string> = {
   candidates: 'Candidates',
   pipeline: 'Recruitment Pipeline',
+  'best-candidates': 'Best Candidates',
   interviews: 'Interview Schedule',
   departments: 'Departments',
   reports: 'Reports',
