@@ -256,6 +256,14 @@ function updateExistingForm() {
  * continues to "References". Sections from an earlier run are replaced.
  */
 function setUpDepartmentSections_(form) {
+  var department = findItem_(form, 'Department', FormApp.ItemType.LIST);
+  var references = findItem_(form, 'References', FormApp.ItemType.PAGE_BREAK);
+  if (!department || !references) throw new Error('The form needs a "Department" dropdown and a "References" section.');
+
+  // Google refuses to delete a section that a dropdown choice still jumps to, so drop those jumps first.
+  var list = department.asListItem();
+  list.setChoiceValues(Object.keys(DEPARTMENTS));
+
   form.getItems().forEach(function (item) {
     var title = item.getTitle();
     var isOldSection = item.getType() === FormApp.ItemType.PAGE_BREAK && title.indexOf(SUBWORK_SECTION_PREFIX) === 0;
@@ -263,11 +271,6 @@ function setUpDepartmentSections_(form) {
     if (isOldSection || isOldQuestion) form.deleteItem(item);
   });
 
-  var department = findItem_(form, 'Department', FormApp.ItemType.LIST);
-  var references = findItem_(form, 'References', FormApp.ItemType.PAGE_BREAK);
-  if (!department || !references) throw new Error('The form needs a "Department" dropdown and a "References" section.');
-
-  var list = department.asListItem();
   var insertAt = department.getIndex() + 1;
   var choices = Object.keys(DEPARTMENTS).map(function (name) {
     var section = form.addPageBreakItem()
