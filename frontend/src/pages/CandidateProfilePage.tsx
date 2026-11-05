@@ -306,7 +306,7 @@ export default function CandidateProfilePage() {
               ['Application date', fmtDateTime(c.appliedAt)],
               ['Current status', <ApplicationPill status={c.applicationStatus} />],
               ['Source', c.hiringSource && <Link to={`/candidates?hiringSource=${encodeURIComponent(c.hiringSource)}`} className="hover:underline">{c.hiringSource}</Link>],
-              ['Added through', c.source === 'GOOGLE_SHEETS' ? 'Google Form' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Manual'],
+              ['Added through', c.source === 'GOOGLE_SHEETS' ? 'Filled by candidate' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Filled by HR'],
             ]}
           >
             <h3 className="mb-2 mt-5 text-sm font-medium text-ink-2">Interview history</h3>
