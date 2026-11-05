@@ -46,6 +46,14 @@ export interface Department {
   positions: string[];
 }
 
+export interface Requirement {
+  id: number;
+  departmentId: number;
+  departmentName: string | null;
+  position: string | null;
+  needed: number;
+}
+
 export interface CandidateListItem {
   id: number;
   candidateCode: string;

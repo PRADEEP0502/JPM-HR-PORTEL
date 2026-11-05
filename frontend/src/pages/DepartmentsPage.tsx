@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth';
 import { useDepartmentLink, useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { CATEGORICAL, PENDING_STATUSES } from '../lib/format';
-import type { Department, Report } from '../lib/types';
+import type { Department, Report, Requirement } from '../lib/types';
 import { Modal } from '../components/ui/Modal';
 import { Field, SectionTitle } from '../components/ui/Misc';
 import { Pill } from '../components/ui/Pill';
@@ -99,11 +99,18 @@ export default function DepartmentsPage() {
   const navigate = useNavigate();
   const departmentLink = useDepartmentLink();
   const rows = summary.data?.rows ?? [];
+  const requirements = useQuery({ queryKey: ['requirements'], queryFn: () => api.get<Requirement[]>('/requirements') });
+  /** The whole-department number if there is one, otherwise the sub-work numbers added up. */
+  const neededFor = (id: number | undefined) => {
+    const own = requirements.data?.filter((x) => x.departmentId === id) ?? [];
+    const whole = own.find((x) => !x.position);
+    return whole ? whole.needed : own.reduce((sum, x) => sum + x.needed, 0);
+  };
 
   return (
     <div className="space-y-6">
       <section className="panel p-5">
-        <SectionTitle title="Department-wise Summary" subtitle="Live counts across all applications. Pending = no hiring decision yet (New, Under Review, On Hold)." />
+        <SectionTitle title="Department-wise Summary" subtitle="Live counts across all applications. Requirement = people needed, from the Requirements page. Pending = no final decision yet (not Selected, Rejected or Joined)." />
         {summary.isLoading ? (
           <LoadingBlock />
         ) : summary.error ? (
@@ -117,6 +124,7 @@ export default function DepartmentsPage() {
                 <thead>
                   <tr className="border-b border-line">
                     <th className="th pl-5">Department</th>
+                    <th className="th text-right">Requirement</th>
                     <th className="th text-right">Total</th>
                     <th className="th text-right">New</th>
                     <th className="th text-right">Shortlisted</th>
@@ -131,6 +139,13 @@ export default function DepartmentsPage() {
                     return (
                       <tr key={String(r.department)} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                         <td className="td pl-5 font-medium text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.department}</Link> : r.department}</td>
+                        <td className="td text-right tabular-nums">
+                          {id ? (
+                            <Link className="font-semibold text-ink hover:underline" to={`/requirements?departmentId=${id}`} title="Open Requirements">
+                              {neededFor(id) || <span className="font-normal text-ink-3">Add</span>}
+                            </Link>
+                          ) : '—'}
+                        </td>
                         <td className="td text-right tabular-nums text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.total}</Link> : r.total}</td>
                         <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=NEW')}>{r.new}</Link></td>
                         <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SHORTLISTED')}>{r.shortlisted}</Link></td>

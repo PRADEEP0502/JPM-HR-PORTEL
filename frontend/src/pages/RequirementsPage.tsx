@@ -1,24 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { PENDING_STATUSES, fmtExperience } from '../lib/format';
-import type { CandidateListItem, Page } from '../lib/types';
+import type { CandidateListItem, Page, Requirement } from '../lib/types';
 import { ApplicationPill, RatingPill } from '../components/ui/Pill';
 import { Avatar, Field } from '../components/ui/Misc';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { StatusModal, type StatusTarget } from '../components/modals/CandidateModals';
-
-interface Requirement {
-  id: number;
-  departmentId: number;
-  departmentName: string | null;
-  position: string | null;
-  needed: number;
-}
 
 const MAX_NEEDED = 100;
 
@@ -32,7 +24,9 @@ export default function RequirementsPage() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: departments } = useDepartments();
-  const [departmentId, setDepartmentId] = useState('');
+  // the Departments table links here with its department already chosen
+  const [params] = useSearchParams();
+  const [departmentId, setDepartmentId] = useState(params.get('departmentId') ?? '');
   const [position, setPosition] = useState('');
   const [needed, setNeeded] = useState('');
   const subWork = departments?.find((d) => String(d.id) === departmentId)?.positions ?? [];
