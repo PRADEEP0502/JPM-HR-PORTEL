@@ -120,16 +120,19 @@ export default function DepartmentsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-6 2xl:grid-cols-5">
             <div className="-mx-5 overflow-x-auto 2xl:col-span-3">
-              <table className="w-full min-w-[640px]">
+              <table className="w-full min-w-[760px] table-fixed">
+                <colgroup>
+                  <col className="w-[28%]" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-line">
                     <th className="th pl-5">Department</th>
-                    <th className="th text-right">Requirement</th>
-                    <th className="th text-right">Total</th>
-                    <th className="th text-right">New</th>
-                    <th className="th text-right">Shortlisted</th>
-                    <th className="th text-right">Selected</th>
-                    <th className="th text-right pr-5">Pending</th>
+                    <th className="th text-center">Requirement</th>
+                    <th className="th text-center">Total</th>
+                    <th className="th text-center">New</th>
+                    <th className="th text-center">Shortlisted</th>
+                    <th className="th text-center">Selected</th>
+                    <th className="th text-center">Pending</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -138,19 +141,19 @@ export default function DepartmentsPage() {
                     const link = (extra = '') => `/candidates?departmentId=${id}${extra}`;
                     return (
                       <tr key={String(r.department)} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
-                        <td className="td pl-5 font-medium text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.department}</Link> : r.department}</td>
-                        <td className="td text-right tabular-nums">
+                        <td className="td truncate pl-5 font-medium text-ink" title={String(r.department)}>{id !== undefined ? <Link className="hover:underline" to={link()}>{r.department}</Link> : r.department}</td>
+                        <td className="td text-center tabular-nums">
                           {id ? (
                             <Link className="font-semibold text-ink hover:underline" to={`/requirements?departmentId=${id}`} title="Open Requirements">
                               {neededFor(id) || <span className="font-normal text-ink-3">Add</span>}
                             </Link>
                           ) : '—'}
                         </td>
-                        <td className="td text-right tabular-nums text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.total}</Link> : r.total}</td>
-                        <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=NEW')}>{r.new}</Link></td>
-                        <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SHORTLISTED')}>{r.shortlisted}</Link></td>
-                        <td className="td text-right tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SELECTED')}>{r.selected}</Link></td>
-                        <td className="td pr-5 text-right tabular-nums">{id !== undefined ? <Link className="hover:underline" to={link(`&applicationStatus=${PENDING_STATUSES}`)}>{r.pending}</Link> : r.pending}</td>
+                        <td className="td text-center tabular-nums text-ink">{id !== undefined ? <Link className="hover:underline" to={link()}>{r.total}</Link> : r.total}</td>
+                        <td className="td text-center tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=NEW')}>{r.new}</Link></td>
+                        <td className="td text-center tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SHORTLISTED')}>{r.shortlisted}</Link></td>
+                        <td className="td text-center tabular-nums"><Link className="hover:underline" to={link('&applicationStatus=SELECTED')}>{r.selected}</Link></td>
+                        <td className="td text-center tabular-nums">{id !== undefined ? <Link className="hover:underline" to={link(`&applicationStatus=${PENDING_STATUSES}`)}>{r.pending}</Link> : r.pending}</td>
                       </tr>
                     );
                   })}
