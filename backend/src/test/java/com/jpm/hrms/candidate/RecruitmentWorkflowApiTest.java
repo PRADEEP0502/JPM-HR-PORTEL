@@ -41,6 +41,8 @@ class RecruitmentWorkflowApiTest {
     CandidateRepository candidates;
     @Autowired
     InterviewRepository interviews;
+    @Autowired
+    com.jpm.hrms.audit.AuditService audit;
 
     @Test
     void statusHistoryArchiveAndFilters() throws Exception {
@@ -186,6 +188,22 @@ class RecruitmentWorkflowApiTest {
         mvc.perform(get("/api/reports/ACTIVITY").header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.rows[0].fullName").value("Report Pipeline Test"))
                 .andExpect(jsonPath("$.rows[0].action").value("rating updated"));
+        // demo candidates, demo seeding, deleted candidates and bulk actions are not real candidate activity
+        Candidate demo = candidate("Report Demo Person", LocalDate.now());
+        demo.setSource(CandidateSource.DEMO);
+        CandidateService.assignCode(demo, candidates);
+        candidates.save(demo);
+        audit.record("RATING_UPDATED", "CANDIDATE", demo.getId(), "demo");
+        audit.recordAs("demo-seed", "CANDIDATE_IMPORTED", "CANDIDATE", c.getId(), "seeded");
+        audit.record("STATUS_CHANGED", "CANDIDATE", 987654321L, "candidate since deleted");
+        audit.record("EXPORT", "CANDIDATE", null, "bulk export");
+        String activity = mvc.perform(get("/api/reports/ACTIVITY").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        for (JsonNode row : mapper.readTree(activity).get("rows")) {
+            assertThat(row.get("fullName").isNull()).isFalse();
+            assertThat(row.get("fullName").asText()).isNotEqualTo("Report Demo Person");
+            assertThat(row.get("actor").asText()).isNotEqualTo("demo-seed");
+        }
         mvc.perform(get("/api/reports/APPLICATIONS_BY_DATE").param("from", "2020-01-01").param("to", "2026-12-31")
                 .header("Authorization", "Bearer " + admin)).andExpect(status().isBadRequest());
 

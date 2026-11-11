@@ -344,7 +344,7 @@ public class CandidateService {
     }
 
     /**
-     * Assigns the human-readable ID after the row has its database id: a per-year serial (YYYY-N, e.g. 2026-1)
+     * Assigns the human-readable ID after the row has its database id: a per-year serial and two-digit year (N-YY, e.g. 1-26)
      * for real applicants, DEMO-N for demo rows so they never use up real serial numbers.
      */
     public static void assignCode(Candidate c, CandidateRepository repo) {
@@ -355,7 +355,7 @@ public class CandidateService {
         int year = (c.getApplicationDate() == null ? LocalDate.now() : c.getApplicationDate()).getYear();
         long serial = repo.countBySourceNotAndApplicationDateBetweenAndIdLessThanEqual(
                 CandidateSource.DEMO, LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31), c.getId());
-        c.setCandidateCode(year + "-" + serial);
+        c.setCandidateCode(serial + "-" + String.format("%02d", year % 100));
     }
 
     private Candidate get(Long id) {

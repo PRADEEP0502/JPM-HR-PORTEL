@@ -76,7 +76,7 @@ class SyncServiceIntegrationTest {
         assertThat(run.messages()).anyMatch(m -> m.contains("Row 3") && m.contains("no valid mobile number or email"));
 
         var asha = candidates.findAll().stream().filter(c -> c.getEmail().equals("asha@example.com")).findFirst().orElseThrow();
-        assertThat(asha.getCandidateCode()).matches("\\d{4}-[1-9]\\d*");
+        assertThat(asha.getCandidateCode()).matches("[1-9]\\d*-\\d{2}");
         assertThat(asha.getSource()).isEqualTo(CandidateSource.GOOGLE_SHEETS);
         assertThat(asha.getApplicationStatus()).isEqualTo(ApplicationStatus.NEW);
         assertThat(asha.getVerificationStatus()).isEqualTo(VerificationStatus.PENDING);

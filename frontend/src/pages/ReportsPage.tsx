@@ -40,6 +40,18 @@ function barLink(type: ReportType, label: string): string | null {
   return null;
 }
 
+/** Profile section an activity row opens at, e.g. "document uploaded" opens the Documents section. */
+function activitySection(action: string): string {
+  if (action.startsWith('document') || action.startsWith('upload')) return 'documents';
+  if (action.startsWith('interview')) return 'interviews';
+  if (action.startsWith('whatsapp') || action.startsWith('call') || action.startsWith('email')) return 'communication';
+  if (action === 'status changed') return 'status-history';
+  if (action === 'rating updated') return 'rating-history';
+  if (action === 'remark added') return 'remarks';
+  if (action === 'verification changed') return 'documents';
+  return 'personal';
+}
+
 export default function ReportsPage() {
   const toast = useToast();
   // kept in the URL, so Back from a candidate returns to the same report
@@ -174,7 +186,9 @@ export default function ReportsPage() {
                     <tbody>
                       {rows.map((row, idx) => {
                         // a candidate deleted since the activity has no profile to open
-                        const profile = row.id && row.fullName ? `/candidates/${row.id}` : null;
+                        const profile = row.id && row.fullName
+                          ? `/candidates/${row.id}${type === 'ACTIVITY' && typeof row.action === 'string' ? `#${activitySection(row.action)}` : ''}`
+                          : null;
                         return (
                         <tr
                           key={idx}

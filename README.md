@@ -197,7 +197,7 @@ versioning and history.
 | `counters` | Next numeric id per collection |
 
 - **Ids** are plain numbers (`/candidates/65`) from `counters`; MongoDB ObjectIds are never exposed. Candidate codes
-  are per-year serials (`2026-1`, `2026-2`, …).
+  are per-year serials followed by the two-digit year (`1-26`, `2-26`, …).
 - **Indexes** for search, filters and sorting, and unique usernames (case-insensitive), department names, candidate
   codes and sheet rows are created at startup by `config/MongoIndexes.java`.
 - **Types:** dates without a time are stored as `"yyyy-MM-dd"`, decimals as Decimal128, timestamps in UTC.

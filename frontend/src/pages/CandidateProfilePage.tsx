@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -45,11 +45,11 @@ import { emailProblem, phoneProblem } from '../lib/contact';
 type Row = [string, ReactNode | null | undefined];
 
 /** Renders a section only with the fields that actually have values; hides it entirely when none do. */
-function Section({ title, icon, rows, children }: { title: string; icon: ReactNode; rows?: Row[]; children?: ReactNode }) {
+function Section({ id, title, icon, rows, children }: { id?: string; title: string; icon: ReactNode; rows?: Row[]; children?: ReactNode }) {
   const present = (rows ?? []).filter(([, v]) => v !== null && v !== undefined && v !== '');
   if (rows && present.length === 0 && !children) return null;
   return (
-    <section className="panel p-5">
+    <section id={id} className="panel scroll-mt-6 p-5">
       <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold">
         <span className="text-ink-3">{icon}</span> {title}
       </h2>
@@ -103,6 +103,18 @@ export default function CandidateProfilePage() {
     queryFn: () => api.get<CandidateDetail>(`/candidates/${candidateId}`),
     enabled: Number.isFinite(candidateId),
   });
+  // a link like /candidates/12#documents (from the activity report) opens at that section
+  const { hash } = useLocation();
+  const loaded = !!query.data;
+  useEffect(() => {
+    if (!loaded || !hash) return;
+    const el = document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('ring-2', 'ring-info/60');
+    const t = window.setTimeout(() => el.classList.remove('ring-2', 'ring-info/60'), 2000);
+    return () => window.clearTimeout(t);
+  }, [loaded, hash]);
   const [editing, setEditing] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
@@ -259,6 +271,7 @@ export default function CandidateProfilePage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <Section
+            id="personal"
             title="A. Personal Details"
             icon={<User size={16} />}
             rows={[
@@ -296,6 +309,7 @@ export default function CandidateProfilePage() {
             ]}
           />
           <Section
+            id="application"
             title="D. Application Details"
             icon={<ClipboardList size={16} />}
             rows={[
@@ -309,7 +323,7 @@ export default function CandidateProfilePage() {
               ['Added through', c.source === 'GOOGLE_SHEETS' ? 'Filled by candidate' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Filled by HR'],
             ]}
           >
-            <h3 className="mb-2 mt-5 text-sm font-medium text-ink-2">Interview history</h3>
+            <h3 id="interviews" className="mb-2 mt-5 scroll-mt-6 text-sm font-medium text-ink-2">Interview history</h3>
             {c.interviews.length === 0 ? (
               <p className="text-sm text-ink-3">No interviews yet.</p>
             ) : (
@@ -363,7 +377,7 @@ export default function CandidateProfilePage() {
             </div>
           </Section>
 
-          <section className="panel p-5">
+          <section id="communication" className="panel scroll-mt-6 p-5">
             <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold"><MessagesSquare size={16} className="text-ink-3" /> Communication History</h2>
             <p className="mb-4 text-xs text-ink-3">Calls, WhatsApp and email with this candidate. Records keep the exact message and template version used.</p>
             <CommunicationHistory candidateId={c.id} />
@@ -371,7 +385,7 @@ export default function CandidateProfilePage() {
         </div>
 
         <div className="space-y-6">
-          <section className="panel p-5">
+          <section id="documents" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><FileText size={16} className="text-ink-3" /> F. Documents</h2>
             {c.documents.length === 0 ? (
               <p className="text-sm text-ink-3">No documents on file.</p>
@@ -482,7 +496,7 @@ export default function CandidateProfilePage() {
             <p className="mt-2 text-xs text-ink-3">PDF, Word, JPG or PNG up to 10 MB (Aadhaar: PDF or photo only). Files are checked and kept in private storage; uploads, views, downloads and deletions are logged.</p>
           </section>
 
-          <section className="panel p-5">
+          <section id="remarks" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><MessageSquarePlus size={16} className="text-ink-3" /> HR Remarks</h2>
             <form
               onSubmit={(e) => {
@@ -511,7 +525,7 @@ export default function CandidateProfilePage() {
             )}
           </section>
 
-          <section className="panel p-5">
+          <section id="status-history" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><UserCheck size={16} className="text-ink-3" /> Status history</h2>
             {c.statusHistory.length === 0 ? (
               <p className="text-sm text-ink-3">No status changes yet.</p>
@@ -528,7 +542,7 @@ export default function CandidateProfilePage() {
             )}
           </section>
 
-          <section className="panel p-5">
+          <section id="rating-history" className="panel scroll-mt-6 p-5">
             <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold"><Star size={16} className="text-ink-3" /> Rating history</h2>
             <p className="mb-4 text-xs text-ink-3">Internal to HR. Never shown to the candidate.</p>
             {c.ratingHistory.length === 0 ? (
@@ -546,7 +560,7 @@ export default function CandidateProfilePage() {
             )}
           </section>
 
-          <section className="panel p-5">
+          <section id="activity" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><History size={16} className="text-ink-3" /> Activity</h2>
             {c.activity.length === 0 ? (
               <p className="text-sm text-ink-3">No activity recorded.</p>

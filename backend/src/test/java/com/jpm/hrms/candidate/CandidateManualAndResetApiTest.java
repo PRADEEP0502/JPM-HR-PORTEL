@@ -45,7 +45,7 @@ class CandidateManualAndResetApiTest {
         // manual add: MANUAL source, today's date, a real candidate ID, and NEW status
         JsonNode created = json(call(post("/api/candidates"), admin, MANUAL).andExpect(status().isCreated()));
         assertThat(created.get("fullName").asText()).isEqualTo("Walk In Applicant");
-        assertThat(created.get("candidateCode").asText()).startsWith(LocalDate.now().getYear() + "-");
+        assertThat(created.get("candidateCode").asText()).endsWith("-" + String.format("%02d", LocalDate.now().getYear() % 100));
         assertThat(created.get("applicationStatus").asText()).isEqualTo("NEW");
         Candidate saved = candidates.findById(created.get("id").asLong()).orElseThrow();
         assertThat(saved.getSource()).isEqualTo(CandidateSource.MANUAL);

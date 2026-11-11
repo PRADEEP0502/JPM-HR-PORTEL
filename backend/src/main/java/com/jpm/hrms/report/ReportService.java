@@ -350,7 +350,10 @@ public class ReportService {
         Map<String, Long> byAction = new LinkedHashMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (AuditLog a : logs) {
+            // only real candidates that still exist: no demo seeding, demo candidates, deleted candidates or bulk actions
             Candidate c = a.getEntityId() == null ? null : byId.get(a.getEntityId());
+            if (c == null || c.getSource() == com.jpm.hrms.candidate.CandidateEnums.CandidateSource.DEMO
+                    || "demo-seed".equals(a.getActor())) continue;
             Map<String, Object> r = new LinkedHashMap<>();
             r.put("id", a.getEntityId());
             r.put("when", fmt.format(a.getOccurredAt()));
