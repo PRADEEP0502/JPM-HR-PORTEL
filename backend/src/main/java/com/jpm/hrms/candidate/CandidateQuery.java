@@ -22,13 +22,14 @@ public record CandidateQuery(String q, Long departmentId, String position, Strin
                              VerificationStatus verificationStatus, String rating,
                              @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
                              @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo,
-                             ArchiveScope archive) {
+                             ArchiveScope archive, List<Long> ids) {
 
     public Filter toFilter() {
+        if (ids != null && ids.size() > 1000) throw ApiException.badRequest("Choose at most 1000 candidates");
         if (appliedFrom != null && appliedTo != null && appliedFrom.isAfter(appliedTo)) {
             throw ApiException.badRequest("'Applied from' must be on or before 'Applied to'");
         }
         return new Filter(q, departmentId, position, hiringSource, experience, applicationStatus, interviewStatus, verificationStatus,
-                RatingFilter.parse(rating), appliedFrom, appliedTo, archive == null ? ArchiveScope.ACTIVE : archive);
+                RatingFilter.parse(rating), appliedFrom, appliedTo, archive == null ? ArchiveScope.ACTIVE : archive, ids);
     }
 }

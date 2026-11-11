@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -25,7 +25,7 @@ import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type Archiv
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
-const FILTER_KEYS = ['q', 'departmentId', 'position', 'hiringSource', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive'] as const;
+const FILTER_KEYS = ['q', 'departmentId', 'position', 'hiringSource', 'experience', 'applicationStatus', 'interviewStatus', 'verificationStatus', 'rating', 'appliedFrom', 'appliedTo', 'archive', 'ids'] as const;
 
 /** Profile Match Rating filter values understood by the API. */
 const RATING_FILTERS = [
@@ -206,10 +206,21 @@ export default function CandidatesPage() {
           >
             <Star size={15} /> Top matches (7+)
           </button>
-          <button className="btn-ghost justify-start" disabled={activeFilters === 0} onClick={() => update(Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))}>
+          <button className="btn-ghost justify-start" disabled={activeFilters === 0} onClick={() => update({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), idsLabel: null })}>
             <FilterX size={15} /> Clear filters {activeFilters > 0 && `(${activeFilters})`}
           </button>
         </div>
+        {filters.ids && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-info/30 bg-info/10 px-3 py-2 text-sm">
+            <span>
+              Showing the {filters.ids.split(',').length} candidate{filters.ids.split(',').length === 1 ? '' : 's'}
+              {params.get('idsLabel') ? <> with <strong>{params.get('idsLabel')}</strong></> : ' you picked'} from the activity report
+            </span>
+            <button className="btn-ghost px-2 py-1 text-xs" onClick={() => update({ ids: null, idsLabel: null })}>
+              <X size={13} /> Show all candidates
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="panel p-4">

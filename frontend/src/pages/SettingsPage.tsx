@@ -3,7 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
+  ArchiveRestore,
   CheckCircle2,
+  DatabaseBackup,
+  Download,
   ChevronDown,
   FlaskConical,
   KeyRound,
@@ -24,7 +27,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { CANDIDATE_KEYS, useDashboard } from '../lib/queries';
 import { useToast } from '../lib/toast';
-import { ROLES, fmtDateTime, fmtRelative, labelOf } from '../lib/format';
+import { ROLES, fmtBytes, fmtDateTime, fmtRelative, labelOf } from '../lib/format';
 import type { AuditEntry, IntegrationSettings, Page, Role, SyncRun, SyncTestResult, User } from '../lib/types';
 import { Field, SectionTitle } from '../components/ui/Misc';
 import { Pill } from '../components/ui/Pill';
@@ -40,6 +43,7 @@ const TABS = [
   { key: 'sync', label: 'Sync history', icon: ScrollText, admin: true },
   { key: 'users', label: 'Users', icon: Users, admin: true },
   { key: 'audit', label: 'Audit log', icon: ShieldCheck, admin: true },
+  { key: 'backups', label: 'Backups & recycle bin', icon: DatabaseBackup, admin: true },
   { key: 'demo', label: 'Demo data', icon: FlaskConical, admin: true },
 ];
 
@@ -72,6 +76,7 @@ export default function SettingsPage() {
         {tab === 'sync' && <SyncHistoryTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'audit' && <AuditTab />}
+        {tab === 'backups' && <BackupsTab />}
         {tab === 'demo' && <DemoTab />}
       </div>
     </div>
@@ -496,6 +501,112 @@ function UsersTab() {
 
 const AUDIT_ACTIONS = ['STATUS_CHANGED', 'VERIFICATION_CHANGED', 'RATING_UPDATED', 'CANDIDATE_UPDATED', 'REMARK_ADDED', 'INTERVIEW_SCHEDULED', 'INTERVIEW_RESCHEDULED', 'INTERVIEW_COMPLETED', 'INTERVIEW_CANCELLED', 'DOCUMENT_UPLOADED', 'DOCUMENT_DOWNLOADED', 'EXPORT', 'CANDIDATE_IMPORTED', 'SYNC_RUN', 'INTEGRATION_SETTINGS_UPDATED', 'WHATSAPP_PREPARED', 'WHATSAPP_MARKED_SENT', 'EMAIL_ACCEPTED', 'EMAIL_FAILED', 'CALL_INITIATED', 'CALL_OUTCOME', 'TEMPLATE_UPDATED', 'COMM_SETTINGS_UPDATED', 'EMAIL_TEST', 'DOCUMENT_DELETED', 'USER_CREATED', 'USER_UPDATED', 'DEPARTMENT_CREATED', 'DEPARTMENT_UPDATED', 'DEPARTMENT_DELETED', 'LOGIN', 'LOGIN_FAILED', 'PASSWORD_CHANGED', 'DEMO_DATA_PURGED'];
 
+type RecycleBatch = { id: string; deletedAt: string; deletedBy: string; expiresAt: string; candidates: number; names: string[] };
+type Backup = { id: string; fileName: string; size: number; createdAt: string; createdBy: string | null };
+
+function BackupsTab() {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const bin = useQuery({ queryKey: ['recycle-bin'], queryFn: () => api.get<RecycleBatch[]>('/admin/recycle-bin') });
+  const backups = useQuery({ queryKey: ['backups'], queryFn: () => api.get<Backup[]>('/admin/backups') });
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const restore = useMutation({
+    mutationFn: (id: string) => api.post<{ restored: number; skipped: number; skippedNames: string[] }>(`/admin/recycle-bin/${id}/restore`),
+    onSuccess: (r) => {
+      toast('success', `Restored ${r.restored} candidate(s)` + (r.skipped ? `; ${r.skipped} skipped because they are already in the list (${r.skippedNames.join(', ')})` : ''));
+      CANDIDATE_KEYS.forEach((k) => qc.invalidateQueries({ queryKey: k }));
+      qc.invalidateQueries({ queryKey: ['recycle-bin'] });
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const backupNow = useMutation({
+    mutationFn: () => api.post<Backup>('/admin/backups'),
+    onSuccess: (b) => {
+      toast('success', `Backup ${b.fileName} saved`);
+      qc.invalidateQueries({ queryKey: ['backups'] });
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const download = async (b: Backup) => {
+    setDownloading(b.id);
+    try {
+      await api.download(`/admin/backups/${b.id}/download`, {}, b.fileName);
+    } catch (e) {
+      toast('error', (e as Error).message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <section className="panel space-y-4 p-5">
+        <SectionTitle title="Recycle bin" subtitle="Candidates removed with “Delete all candidates” are kept here for 30 days, with their interviews, remarks, history, messages and documents." />
+        {bin.isLoading ? (
+          <LoadingBlock />
+        ) : bin.error ? (
+          <ErrorState error={bin.error} onRetry={() => bin.refetch()} />
+        ) : !bin.data?.length ? (
+          <EmptyState title="The recycle bin is empty" />
+        ) : (
+          <ul className="space-y-3">
+            {bin.data.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-start gap-3 rounded-xl border border-line p-4 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{b.candidates} candidate{b.candidates === 1 ? '' : 's'} deleted by {b.deletedBy} on {fmtDateTime(b.deletedAt)}</p>
+                  <p className="mt-1 truncate text-ink-3" title={b.names.join(', ')}>{b.names.join(', ')}</p>
+                  <p className="mt-1 text-xs text-ink-3">Kept until {fmtDateTime(b.expiresAt)}</p>
+                </div>
+                <button
+                  className="btn-secondary"
+                  disabled={restore.isPending}
+                  onClick={() => window.confirm(`Restore ${b.candidates} candidate(s)? Anyone already in the list again (e.g. re-imported from the form) is skipped.`) && restore.mutate(b.id)}
+                >
+                  {restore.isPending && restore.variables === b.id ? <Spinner size={14} /> : <ArchiveRestore size={15} />} Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel space-y-4 p-5">
+        <div className="flex flex-wrap items-start gap-3">
+          <SectionTitle
+            title="Daily backups"
+            subtitle="A copy of all records (candidates, interviews, remarks, users, settings, audit log) is saved every day and the last 14 are kept. Uploaded document files are not included. Download one now and then to keep a copy outside the server."
+          />
+          <div className="flex-1" />
+          <button className="btn-primary" disabled={backupNow.isPending} onClick={() => backupNow.mutate()}>
+            {backupNow.isPending ? <Spinner size={14} /> : <DatabaseBackup size={15} />} Back up now
+          </button>
+        </div>
+        {backups.isLoading ? (
+          <LoadingBlock />
+        ) : backups.error ? (
+          <ErrorState error={backups.error} onRetry={() => backups.refetch()} />
+        ) : !backups.data?.length ? (
+          <EmptyState title="No backups yet" hint="The first one is made within an hour of the server starting." />
+        ) : (
+          <ul className="divide-y divide-line/60">
+            {backups.data.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{fmtDateTime(b.createdAt)} <span className="font-normal text-ink-3">({fmtRelative(b.createdAt)})</span></p>
+                  <p className="text-xs text-ink-3">{b.createdBy === 'system' || !b.createdBy ? 'Automatic' : `By ${b.createdBy}`} · {fmtBytes(b.size)}</p>
+                </div>
+                <button className="btn-secondary" disabled={downloading === b.id} onClick={() => download(b)}>
+                  {downloading === b.id ? <Spinner size={14} /> : <Download size={15} />} Download
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function AuditTab() {
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -613,7 +724,7 @@ function DemoTab() {
       </div>
       <div className="rounded-xl border border-bad/30 bg-bad/5 p-4 text-sm">
         <p className="font-medium">Delete all candidates</p>
-        <p className="mt-1 text-ink-3">Permanently deletes every candidate (Google Form, manual and demo) with their interviews, remarks, messages and documents. Departments, users and settings are kept. Google Form responses already imported are not imported again; only new responses arrive on the next sync.</p>
+        <p className="mt-1 text-ink-3">Permanently deletes every candidate (Google Form, manual and demo) with their interviews, remarks, messages and documents. Departments, users and settings are kept. Google Form responses already imported are not imported again; only new responses arrive on the next sync. The deleted candidates stay in Backups &amp; recycle bin for 30 days and can be restored from there.</p>
         <button className="btn-danger mt-3" disabled={reset.isPending} onClick={confirmReset}>
           {reset.isPending ? <Spinner size={14} /> : <Trash2 size={15} />} Delete all candidates
         </button>

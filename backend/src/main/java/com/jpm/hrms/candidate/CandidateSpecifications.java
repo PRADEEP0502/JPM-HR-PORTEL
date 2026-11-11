@@ -25,16 +25,16 @@ public final class CandidateSpecifications {
 
     /**
      * departmentId = 0 means "no department assigned"; position is the sub-work and hiringSource the job source (both exact, ignoring case); several application or interview statuses are OR-ed;
-     * appliedFrom / appliedTo are inclusive application dates.
+     * appliedFrom / appliedTo are inclusive application dates; ids limits the list to those candidates (e.g. from the activity report).
      */
     public record Filter(String q, Long departmentId, String position, String hiringSource, ExperienceBucket experience, List<ApplicationStatus> applicationStatuses,
                          List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus,
-                         RatingFilter rating, LocalDate appliedFrom, LocalDate appliedTo, ArchiveScope archive) {
+                         RatingFilter rating, LocalDate appliedFrom, LocalDate appliedTo, ArchiveScope archive, List<Long> ids) {
         /** Simple filter used by the dashboard previews (active candidates only). */
         public Filter(String q, Long departmentId, ExperienceBucket experience, ApplicationStatus applicationStatus,
                       List<InterviewStatus> interviewStatuses, VerificationStatus verificationStatus) {
             this(q, departmentId, null, null, experience, applicationStatus == null ? null : List.of(applicationStatus),
-                    interviewStatuses, verificationStatus, null, null, null, ArchiveScope.ACTIVE);
+                    interviewStatuses, verificationStatus, null, null, null, ArchiveScope.ACTIVE, null);
         }
     }
 
@@ -104,6 +104,7 @@ public final class CandidateSpecifications {
             if (f.appliedTo() != null) applied = applied.lte(f.appliedTo());
             cs.add(applied);
         }
+        if (f.ids() != null && !f.ids().isEmpty()) cs.add(Criteria.where("_id").in(f.ids()));
         switch (f.archive() == null ? ArchiveScope.ACTIVE : f.archive()) {
             case ACTIVE -> cs.add(Criteria.where("archived").ne(true));
             case ARCHIVED -> cs.add(Criteria.where("archived").is(true));

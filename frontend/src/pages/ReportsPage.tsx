@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { BarChart3, Download, FileBarChart, X } from 'lucide-react';
+import { BarChart3, Download, FileBarChart } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
 import { APPLICATION_STATUSES, CATEGORICAL, INTERVIEW_STATUSES, fmtDate, fmtDateTime } from '../lib/format';
@@ -52,6 +52,14 @@ function activitySection(action: string): string {
   return 'personal';
 }
 
+/** Page a bar of the activity chart opens: interviews on the Interviews page, anything else as the list of those candidates. */
+function activityLink(action: string, rows: Record<string, string | number | null>[]): string | null {
+  if (action.startsWith('interview')) return '/interviews';
+  const ids = [...new Set(rows.filter((r) => r.action === action && r.id).map((r) => String(r.id)))];
+  if (ids.length === 0) return null;
+  return `/candidates?archive=ALL&ids=${ids.join(',')}&idsLabel=${encodeURIComponent(action)}`;
+}
+
 export default function ReportsPage() {
   const toast = useToast();
   // kept in the URL, so Back from a candidate returns to the same report
@@ -65,7 +73,6 @@ export default function ReportsPage() {
       Object.entries(patch).forEach(([k, v]) => (v ? n.set(k, v) : n.delete(k)));
       return n;
     }, { replace: true });
-  const [action, setAction] = useState<string | null>(null);
   const navigate = useNavigate();
   const departmentLink = useDepartmentLink();
   const go = (link: string | null) => link && navigate(link);
@@ -78,8 +85,7 @@ export default function ReportsPage() {
     enabled: !invalid,
   });
   const r = query.data;
-  useEffect(() => setAction(null), [type, from, to]);
-  const rows = r ? r.rows.filter((row) => !action || row.action === action) : [];
+  const rows = r ? r.rows : [];
 
   const exportReport = async (format: 'xlsx' | 'csv') => {
     setExporting(true);
@@ -160,17 +166,12 @@ export default function ReportsPage() {
                   <HorizontalBars
                     data={r.chart.map((c) => ({ label: c.label, value: c.value }))}
                     color={CATEGORICAL[0]}
-                    onSelect={type === 'ACTIVITY' ? (x) => setAction((a) => (a === x.label ? null : x.label)) : (x) => go(departmentLink(x.label))}
+                    onSelect={type === 'ACTIVITY' ? (x) => go(activityLink(x.label, r.rows)) : (x) => go(departmentLink(x.label))}
                   />
                 </>
               )}
             </section>
             <section className="panel p-5">
-              {action && (
-                <button className="btn-secondary mb-3 px-2.5 py-1.5 text-xs" onClick={() => setAction(null)}>
-                  {rows.length} × {action} <X size={13} />
-                </button>
-              )}
               {rows.length === 0 ? (
                 <EmptyState title="No records for this report" hint="Try a wider date range." />
               ) : (
