@@ -214,6 +214,17 @@ class RecruitmentWorkflowApiTest {
         assertThat(pipeline.get(0).toString()).contains("Report Pipeline Test");
     }
 
+    @Test
+    void newApplicationNotificationNamesTheSubWork() throws Exception {
+        String admin = login("admin", "Admin@12345");
+        Candidate c = candidate("Notify Subwork Test", LocalDate.now());
+        c.setPosition("Helper");
+        candidates.save(c);
+        String body = mvc.perform(get("/api/notifications").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("Notify Subwork Test (" + c.getCandidateCode() + ") applied for Helper");
+    }
+
     private Candidate candidate(String name, LocalDate applied) {
         Candidate c = new Candidate();
         c.setFullName(name);

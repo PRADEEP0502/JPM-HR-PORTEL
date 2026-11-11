@@ -43,12 +43,15 @@ public class NotificationController {
     private final SyncRunRepository syncRuns;
     private final AppUserRepository users;
     private final InterviewViews views;
+    private final com.jpm.hrms.department.DepartmentDirectory depts;
     private final Clock clock;
     private final DateTimeFormatter time;
 
     public NotificationController(CandidateRepository candidates, InterviewRepository interviews, SyncRunRepository syncRuns,
-                                  AppUserRepository users, InterviewViews views, Clock clock, ZoneId businessZone) {
+                                  AppUserRepository users, InterviewViews views, com.jpm.hrms.department.DepartmentDirectory depts,
+                                  Clock clock, ZoneId businessZone) {
         this.views = views;
+        this.depts = depts;
         this.candidates = candidates;
         this.interviews = interviews;
         this.syncRuns = syncRuns;
@@ -64,9 +67,13 @@ public class NotificationController {
         Instant seen = me.getNotificationsSeenAt() == null ? Instant.EPOCH : me.getNotificationsSeenAt();
         List<Notification> items = new ArrayList<>();
 
+        var deptNames = depts.snapshot();
         for (var c : candidates.findTop10ByCreatedAtAfterOrderByCreatedAtDesc(now.minus(Duration.ofDays(7)))) {
+            // "applied for Production · Helper": department and sub-work, whichever are known
+            String forWhat = java.util.stream.Stream.of(deptNames.nameOrRaw(c), c.getPosition())
+                    .filter(s -> s != null && !s.isBlank()).collect(java.util.stream.Collectors.joining(" · "));
             items.add(new Notification("cand-" + c.getId(), "NEW_CANDIDATE", "New application",
-                    c.getFullName() + " (" + c.getCandidateCode() + ") applied", c.getCreatedAt(),
+                    c.getFullName() + " (" + c.getCandidateCode() + ") applied" + (forWhat.isEmpty() ? "" : " for " + forWhat), c.getCreatedAt(),
                     "/candidates/" + c.getId(), c.getCreatedAt().isAfter(seen)));
         }
         var soon = interviews.findByStatusInAndScheduledAtBetweenOrderByScheduledAtAsc(InterviewService.ACTIVE, now, now.plus(Duration.ofHours(24)));
