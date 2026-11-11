@@ -166,6 +166,7 @@ public class CandidateService {
         Department d = depts.find(c.getDepartmentId()).orElse(null);
         return new CandidateDetail(c.getId(), c.getCandidateCode(),
                 c.getFullName(), c.getDateOfBirth(), c.getMobile(), c.getEmail(), c.getAddress(),
+                c.getCity(), c.getDistrict(), c.getState(), c.getPincode(), c.getTravelMode(),
                 c.getQualification(), c.getInstitution(), c.getPassingYear(),
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
                 d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(), c.getHiringSource(),
@@ -236,6 +237,11 @@ public class CandidateService {
         set(changed, "Mobile", c.getMobile(), mobile, c::setMobile);
         set(changed, "Email", c.getEmail(), trim(req.email()), c::setEmail);
         set(changed, "Address", c.getAddress(), trim(req.address()), c::setAddress);
+        set(changed, "City", c.getCity(), trim(req.city()), c::setCity);
+        set(changed, "District", c.getDistrict(), trim(req.district()), c::setDistrict);
+        set(changed, "State", c.getState(), trim(req.state()), c::setState);
+        set(changed, "PIN code", c.getPincode(), trim(req.pincode()), c::setPincode);
+        set(changed, "Mode of travel", c.getTravelMode(), trim(req.travelMode()), c::setTravelMode);
         set(changed, "Qualification", c.getQualification(), trim(req.qualification()), c::setQualification);
         set(changed, "Institution", c.getInstitution(), trim(req.institution()), c::setInstitution);
         set(changed, "Passing year", c.getPassingYear(), req.passingYear(), c::setPassingYear);

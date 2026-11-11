@@ -70,6 +70,7 @@ public final class CandidateDtos {
             Long id, String candidateCode,
             // A. personal
             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
+            String city, String district, String state, String pincode, String travelMode,
             // B. education
             String qualification, String institution, Integer passingYear,
             // C. employment
@@ -118,6 +119,11 @@ public final class CandidateDtos {
             @Pattern(regexp = PHONE, message = "must be a valid phone number") String mobile,
             @Email @Size(max = 200) String email,
             @Size(max = 1000) String address,
+            @Size(max = 100) String city,
+            @Size(max = 100) String district,
+            @Size(max = 100) String state,
+            @Pattern(regexp = "^[0-9]{6}$", message = "must be a 6-digit PIN code") String pincode,
+            @Size(max = 50) String travelMode,
             @Size(max = 200) String qualification,
             @Size(max = 200) String institution,
             @Min(1950) @Max(2100) Integer passingYear,

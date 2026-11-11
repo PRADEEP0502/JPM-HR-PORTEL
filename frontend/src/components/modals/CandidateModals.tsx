@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
+import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -20,13 +20,18 @@ export function useInvalidateCandidates() {
 type Form = Record<string, string>;
 type UploadType = 'RESUME' | 'AADHAAR';
 const UPLOADS: Record<UploadType, string> = { RESUME: 'Resume', AADHAAR: 'Aadhaar card' };
-const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string }[] = [
+const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string; options?: string[] }[] = [
   { key: 'fullName', label: 'Full name *', max: 150 },
   { key: 'dateOfBirth', label: 'Date of birth', type: 'date' },
   { key: 'mobile', label: 'Mobile number', type: 'tel', max: 20 },
   { key: 'email', label: 'Email', type: 'email', max: 200 },
-  { key: 'address', label: 'Address', max: 1000, span: true },
-  { key: 'qualification', label: 'Qualification', max: 200 },
+  { key: 'address', label: 'Door no, street and area', max: 1000, span: true, heading: 'Address' },
+  { key: 'city', label: 'City / Town', max: 100 },
+  { key: 'district', label: 'District', max: 100 },
+  { key: 'state', label: 'State', max: 100, list: 'states' },
+  { key: 'pincode', label: 'PIN code', max: 6 },
+  { key: 'travelMode', label: 'Mode of travel to office', options: TRAVEL_MODES },
+  { key: 'qualification', label: 'Qualification', max: 200, heading: 'Education and work' },
   { key: 'institution', label: 'Institution', max: 200 },
   { key: 'passingYear', label: 'Passing year', type: 'number' },
   { key: 'previousCompany', label: 'Previous company', max: 200 },
@@ -156,11 +161,20 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
           <datalist id="family-relations">
             {['Father', 'Mother', 'Spouse', 'Brother', 'Sister', 'Son', 'Daughter', 'Guardian'].map((r) => <option key={r} value={r} />)}
           </datalist>
-          {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list }) => (
+          <datalist id="states">
+            {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Puducherry', 'Odisha', 'Bihar', 'West Bengal', 'Uttar Pradesh', 'Jharkhand', 'Assam'].map((s) => <option key={s} value={s} />)}
+          </datalist>
+          {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list, options }) => (
             <Fragment key={key}>
             {heading && <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">{heading}</h3>}
             <Field label={label} error={errors[key]} className={span ? 'sm:col-span-2' : undefined}>
-              {key === 'address' || key === 'skills' ? (
+              {options ? (
+                <select className="input" value={form[key] ?? ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
+                  <option value="">Not given</option>
+                  {form[key] && !options.includes(form[key]) && <option value={form[key]}>{form[key]}</option>}
+                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : key === 'address' || key === 'skills' ? (
                 <textarea className="input min-h-[72px]" maxLength={max} value={form[key] ?? ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
               ) : (
                 <input

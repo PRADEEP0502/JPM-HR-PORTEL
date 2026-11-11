@@ -43,6 +43,7 @@ public final class SheetRowMapper {
 
     public record ParsedRow(int rowNumber, String rowKey, Instant appliedAt, LocalDate applicationDate,
                             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
+                            String city, String district, String state, String pincode, String travelMode,
                             String qualification, String institution, Integer passingYear, String previousCompany,
                             BigDecimal experienceYears, String previousDesignation, String skills, String expectedSalary,
                             String department, String position, String hiringSource, String referenceName, String referenceRelation, String referenceContact,
@@ -198,6 +199,11 @@ public final class SheetRowMapper {
 
         return new ParsedRow(rowNumber, rowKey, appliedAt, applicationDate, fullName, dob, mobile, email,
                 FieldParsers.truncate(text(row, cols, SheetField.ADDRESS), 1000),
+                FieldParsers.truncate(text(row, cols, SheetField.CITY), 100),
+                FieldParsers.truncate(text(row, cols, SheetField.DISTRICT), 100),
+                FieldParsers.truncate(text(row, cols, SheetField.STATE), 100),
+                pincode(text(row, cols, SheetField.PINCODE), warnings),
+                FieldParsers.truncate(text(row, cols, SheetField.TRAVEL_MODE), 50),
                 FieldParsers.truncate(text(row, cols, SheetField.QUALIFICATION), 200),
                 FieldParsers.truncate(text(row, cols, SheetField.INSTITUTION), 200),
                 passingYear,
@@ -253,6 +259,16 @@ public final class SheetRowMapper {
         if (idx == null || idx >= row.size()) return null;
         Object v = row.get(idx);
         return v instanceof String s && s.isBlank() ? null : v;
+    }
+
+    /** PIN code as 6 digits ("641 605" becomes "641605"); anything else is dropped with a warning. */
+    private static String pincode(String raw, List<String> warnings) {
+        String v = FieldParsers.clean(raw);
+        if (v == null) return null;
+        String digits = v.replaceAll("[\s-]", "");
+        if (digits.matches("[0-9]{6}")) return digits;
+        warnings.add("invalid PIN code \"" + v + "\"");
+        return null;
     }
 
     private static String text(List<Object> row, Map<SheetField, Integer> cols, SheetField f) {

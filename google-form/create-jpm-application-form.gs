@@ -93,7 +93,8 @@ function createJpmApplicationForm() {
           .setHelpText('Enter a valid email address')
           .build());
 
-  form.addParagraphTextItem().setTitle('Address').setHelpText('Current address with city and PIN code').setRequired(true);
+  form.addParagraphTextItem().setTitle(ADDRESS_TITLE).setHelpText('House / door number, street and area').setRequired(true);
+  setUpAddressQuestions_(form);
 
   // ---------------- Section 2: Education ----------------
   form.addPageBreakItem().setTitle('Educational Details');
@@ -235,11 +236,45 @@ function setUpSourceQuestion_(form) {
   form.moveItem(source.getIndex(), department.getIndex());
 }
 
-/** Adds the Source question, the Department → Sub-work sections and the Aadhaar consent declaration to the form that is already live. */
+var ADDRESS_TITLE = 'Door No., Street and Area';
+var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk', 'Company transport'];
+
+/**
+ * Full address in parts (City / Town, District, State, PIN code) plus "Mode of travel to office", right after the
+ * address question. An older single "Address" question is renamed; questions that already exist are left alone.
+ */
+function setUpAddressQuestions_(form) {
+  var address = findItem_(form, ADDRESS_TITLE, FormApp.ItemType.PARAGRAPH_TEXT) || findItem_(form, 'Address', FormApp.ItemType.PARAGRAPH_TEXT);
+  if (!address) throw new Error('The form needs an address question.');
+  address.setTitle(ADDRESS_TITLE).asParagraphTextItem().setHelpText('House / door number, street and area');
+  var after = address.getIndex();
+  function place(item) {
+    form.moveItem(item.getIndex(), ++after);
+  }
+  [['City / Town', 'e.g. Tirupur'], ['District', 'e.g. Tiruppur']].forEach(function (q) {
+    var existing = findItem_(form, q[0], FormApp.ItemType.TEXT);
+    place(existing || form.addTextItem().setTitle(q[0]).setHelpText(q[1]).setRequired(true));
+  });
+  var state = findItem_(form, 'State', FormApp.ItemType.TEXT);
+  place(state || form.addTextItem().setTitle('State').setHelpText('e.g. Tamil Nadu').setRequired(true));
+  var pin = findItem_(form, 'PIN code', FormApp.ItemType.TEXT);
+  place(pin || form.addTextItem().setTitle('PIN code').setRequired(true)
+      .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{6}$').setHelpText('Enter the 6-digit PIN code').build()));
+  var travel = findItem_(form, 'Mode of travel to office', FormApp.ItemType.MULTIPLE_CHOICE);
+  if (!travel) {
+    var mc = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
+    mc.setChoices(TRAVEL_MODES.map(function (m) { return mc.createChoice(m); })).showOtherOption(true);
+    travel = mc;
+  }
+  place(travel);
+}
+
+/** Adds the address parts and travel question, the Source question, the Department → Sub-work sections and the Aadhaar consent declaration to the form that is already live. */
 function updateExistingForm() {
   var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
   if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
   var form = FormApp.openByUrl(formUrl);
+  setUpAddressQuestions_(form);
   setUpSourceQuestion_(form);
   setUpDepartmentSections_(form);
 
@@ -316,7 +351,9 @@ function addDemoCandidates() {
   demos.forEach(function (d, i) {
     var answers = {
       'Full Name': d.name, 'Date of Birth': new Date(d.dob + 'T00:00:00'), 'Mobile Number': d.mobile,
-      'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Coimbatore 641001',
+      'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Gandhipuram', 'Door No., Street and Area': (i + 1) + ', Main Road, Gandhipuram',
+      'City / Town': 'Coimbatore', 'District': 'Coimbatore', 'State': 'Tamil Nadu', 'PIN code': '641012',
+      'Mode of travel to office': TRAVEL_MODES[i % TRAVEL_MODES.length],
       'Highest Qualification': d.qual, 'Institution': d.inst, 'Year of Passing': d.year,
       'Total Experience (in years)': d.exp, 'Previous Company': d.company, 'Previous Designation': d.designation,
       'Key Skills': d.skills, 'Expected Salary': d.salary, 'Source': SOURCES[i % SOURCES.length], 'Department': d.dept,
@@ -341,6 +378,9 @@ function addDemoCandidates() {
           break;
         case FormApp.ItemType.LIST:
           if (answers[title]) response.withItemResponse(item.asListItem().createResponse(answers[title]));
+          break;
+        case FormApp.ItemType.MULTIPLE_CHOICE:
+          if (answers[title]) response.withItemResponse(item.asMultipleChoiceItem().createResponse(answers[title]));
           break;
         case FormApp.ItemType.CHECKBOX:
           if (title === 'Declaration') {

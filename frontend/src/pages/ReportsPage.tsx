@@ -60,6 +60,25 @@ function activityLink(action: string, rows: Record<string, string | number | nul
   return `/candidates?archive=ALL&ids=${ids.join(',')}&idsLabel=${encodeURIComponent(action)}`;
 }
 
+/** Candidates behind a row of a summary report (department, month, day, status, rating). */
+function summaryRowLink(type: ReportType, row: Record<string, string | number | null> | undefined, departmentLink: (name: string) => string | null): string | null {
+  if (!row) return null;
+  switch (type) {
+    case 'DEPARTMENT':
+      return row.department ? departmentLink(String(row.department)) : null;
+    case 'MONTHLY':
+      return row.from ? `/candidates?appliedFrom=${row.from}&appliedTo=${row.to}` : null;
+    case 'APPLICATIONS_BY_DATE':
+      return row.date ? `/candidates?appliedFrom=${row.date}&appliedTo=${row.date}` : null;
+    case 'STATUS':
+      return barLink(type, String(row.status));
+    case 'RATING_DISTRIBUTION':
+      return barLink(type, row.rating === 'Not Rated' ? 'Not Rated' : String(row.rating).split('/')[0]);
+    default:
+      return null;
+  }
+}
+
 export default function ReportsPage() {
   const toast = useToast();
   // kept in the URL, so Back from a candidate returns to the same report
@@ -157,7 +176,14 @@ export default function ReportsPage() {
               {r.chart.length === 0 || r.chart.every((c) => c.value === 0) ? (
                 <EmptyState icon={<BarChart3 size={20} />} title="Nothing to chart for this selection" />
               ) : type === 'MONTHLY' || type === 'APPLICATIONS_BY_DATE' ? (
-                <TrendArea data={r.chart.map((c) => ({ label: c.label, value: c.value }))} />
+                <TrendArea
+                  data={r.chart.map((c) => ({ label: c.label, value: c.value }))}
+                  // the table lists newest first, the chart oldest first: the same period sits at the mirrored index
+                  onSelect={(x) => {
+                    const i = r.chart.findIndex((c) => c.label === x.label);
+                    if (i >= 0) go(summaryRowLink(type, r.rows[r.rows.length - 1 - i], departmentLink));
+                  }}
+                />
               ) : type === 'INTERVIEW_STATUS' || type === 'RATING_DISTRIBUTION' || type === 'STATUS' ? (
                 <VerticalBars data={r.chart.map((c) => ({ label: c.label, value: c.value }))} color={CATEGORICAL[0]} onSelect={(x) => go(barLink(type, x.label))} />
               ) : (
@@ -190,12 +216,13 @@ export default function ReportsPage() {
                         const profile = row.id && row.fullName
                           ? `/candidates/${row.id}${type === 'ACTIVITY' && typeof row.action === 'string' ? `#${activitySection(row.action)}` : ''}`
                           : null;
+                        const link = profile ?? summaryRowLink(type, row, departmentLink);
                         return (
                         <tr
                           key={idx}
-                          className={clsx('border-b border-line/40 last:border-0 hover:bg-white/[0.02]', profile && 'cursor-pointer')}
+                          className={clsx('border-b border-line/40 last:border-0 hover:bg-white/[0.02]', link && 'cursor-pointer')}
                           onClick={() => {
-                            if (profile && !window.getSelection()?.toString()) navigate(profile);
+                            if (link && !window.getSelection()?.toString()) navigate(link);
                           }}
                         >
                           {r.columns.map((c, i) => {

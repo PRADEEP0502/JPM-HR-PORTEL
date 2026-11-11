@@ -455,6 +455,11 @@ public class SyncService {
         c.setMobile(p.mobile());
         c.setEmail(p.email());
         c.setAddress(p.address());
+        c.setCity(p.city());
+        c.setDistrict(p.district());
+        c.setState(p.state());
+        c.setPincode(p.pincode());
+        c.setTravelMode(p.travelMode());
         c.setQualification(p.qualification());
         c.setInstitution(p.institution());
         c.setPassingYear(p.passingYear());

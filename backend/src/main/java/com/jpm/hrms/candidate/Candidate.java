@@ -26,7 +26,14 @@ public class Candidate implements SequencedEntity {
     private LocalDate dateOfBirth;
     private String mobile;
     private String email;
+    /** Door number, street and area; city, district, state and PIN code are kept separately. */
     private String address;
+    private String city;
+    private String district;
+    private String state;
+    private String pincode;
+    /** How the candidate will come to the office: Own vehicle, Bus, Cycle, Walk, Other. */
+    private String travelMode;
 
     private String qualification;
     private String institution;
@@ -110,6 +117,16 @@ public class Candidate implements SequencedEntity {
     public void setEmail(String email) { this.email = email; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+    public String getPincode() { return pincode; }
+    public void setPincode(String pincode) { this.pincode = pincode; }
+    public String getTravelMode() { return travelMode; }
+    public void setTravelMode(String travelMode) { this.travelMode = travelMode; }
     public String getQualification() { return qualification; }
     public void setQualification(String qualification) { this.qualification = qualification; }
     public String getInstitution() { return institution; }

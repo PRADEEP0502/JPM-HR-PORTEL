@@ -133,6 +133,11 @@ export interface CandidateDetail {
   mobile: string | null;
   email: string | null;
   address: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  pincode: string | null;
+  travelMode: string | null;
   qualification: string | null;
   institution: string | null;
   passingYear: number | null;

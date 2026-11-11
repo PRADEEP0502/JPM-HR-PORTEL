@@ -142,6 +142,25 @@ class SheetRowMapperTest {
     }
 
     @Test
+    void readsAddressPartsAndModeOfTravel() {
+        var cols = SheetRowMapper.resolveColumns(List.of("Timestamp", "Full name", "Mobile number", "Door No., Street and Area",
+                "City / Town", "District", "State", "PIN code", "Mode of travel to office"), Map.of()).columns();
+        var p = SheetRowMapper.parse(List.of("10/20/2026 9:15:00", "Asha Rao", "9876500000", "8A VOC Nagar, 1st Street",
+                "Palladam", "Tiruppur", "Tamil Nadu", "641 664", "Bus"), 2, cols, IST, TODAY);
+        assertThat(p.address()).isEqualTo("8A VOC Nagar, 1st Street");
+        assertThat(p.city()).isEqualTo("Palladam");
+        assertThat(p.district()).isEqualTo("Tiruppur");
+        assertThat(p.state()).isEqualTo("Tamil Nadu");
+        assertThat(p.pincode()).isEqualTo("641664");
+        assertThat(p.travelMode()).isEqualTo("Bus");
+        assertThat(p.warnings()).isEmpty();
+
+        var bad = SheetRowMapper.parse(List.of("10/20/2026 9:15:00", "Asha Rao", "9876500000", "", "", "", "", "6416", ""), 3, cols, IST, TODAY);
+        assertThat(bad.pincode()).isNull();
+        assertThat(bad.warnings()).contains("invalid PIN code \"6416\"");
+    }
+
+    @Test
     void rowWithoutContactIsInvalidAndBadEmailIsWarning() {
         var cols = SheetRowMapper.resolveColumns(List.of("Timestamp", "Full name", "Email", "Mobile number"), Map.of()).columns();
         var p = SheetRowMapper.parse(List.of("10/20/2026 9:15:00", "No Contact", "not-an-email", "123"), 3, cols, IST, TODAY);

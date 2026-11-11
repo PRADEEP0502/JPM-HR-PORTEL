@@ -176,6 +176,8 @@ public class ReportService {
             String label = m.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " " + m.getYear();
             Map<String, Object> r = new LinkedHashMap<>();
             r.put("month", label);
+            r.put("from", m.atDay(1));
+            r.put("to", m.atEndOfMonth());
             r.put("applications", a[0]);
             r.put("shortlisted", a[3]);
             r.put("selected", a[1]);
@@ -187,7 +189,7 @@ public class ReportService {
                 List.of(new Column("month", "Month"), new Column("applications", "Applications"),
                         new Column("shortlisted", "Currently Shortlisted"), new Column("selected", "Selected"),
                         new Column("rejected", "Rejected")),
-                rows, chart);
+                newestFirst(rows), chart);
     }
 
     private Report candidateList(ReportType type, LocalDate from, LocalDate to, Criteria filter) {
@@ -232,6 +234,7 @@ public class ReportService {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm").withZone(zone);
         List<Interview> list = interviews.findAll(spec, Sort.by(Sort.Direction.DESC, "scheduledAt"));
         Map<Long, Candidate> byId = views.candidatesOf(list);
+        DepartmentDirectory.Names names = depts.snapshot();
         Map<InterviewStatus, Long> counts = new EnumMap<>(InterviewStatus.class);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Interview i : list) {
@@ -240,6 +243,7 @@ public class ReportService {
             r.put("id", i.getCandidateId());
             r.put("candidateCode", c == null ? null : c.getCandidateCode());
             r.put("fullName", c == null ? null : c.getFullName());
+            r.put("department", c == null ? null : names.nameOrRaw(c));
             r.put("interviewer", i.getInterviewer());
             r.put("scheduledAt", fmt.format(i.getScheduledAt()));
             r.put("mode", i.getMode().name().replace('_', ' '));
@@ -254,7 +258,7 @@ public class ReportService {
         }
         return new Report(ReportType.INTERVIEW_STATUS, ReportType.INTERVIEW_STATUS.title, from, to, clock.instant(),
                 List.of(new Column("candidateCode", "Candidate ID"), new Column("fullName", "Name"),
-                        new Column("interviewer", "Interviewer"),
+                        new Column("department", "Department"), new Column("interviewer", "Interviewer"),
                         new Column("scheduledAt", "Date & Time"), new Column("mode", "Mode"),
                         new Column("status", "Status"), new Column("remarks", "Remarks")),
                 rows, chart);
@@ -285,7 +289,7 @@ public class ReportService {
         });
         return new Report(ReportType.APPLICATIONS_BY_DATE, ReportType.APPLICATIONS_BY_DATE.title, start, end, clock.instant(),
                 List.of(new Column("date", "Date"), new Column("applications", "Applications"),
-                        new Column("pending", "Still pending")), rows, chart);
+                        new Column("pending", "Still pending")), newestFirst(rows), chart);
     }
 
     private Report byStatus(LocalDate from, LocalDate to) {
@@ -347,6 +351,7 @@ public class ReportService {
         candidates.findAllById(logs.stream().map(AuditLog::getEntityId).filter(java.util.Objects::nonNull).distinct().toList())
                 .forEach(c -> byId.put(c.getId(), c));
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm").withZone(zone);
+        DepartmentDirectory.Names names = depts.snapshot();
         Map<String, Long> byAction = new LinkedHashMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (AuditLog a : logs) {
@@ -358,7 +363,8 @@ public class ReportService {
             r.put("id", a.getEntityId());
             r.put("when", fmt.format(a.getOccurredAt()));
             r.put("candidateCode", c == null ? null : c.getCandidateCode());
-            r.put("fullName", c == null ? null : c.getFullName());
+            r.put("fullName", c.getFullName());
+            r.put("department", names.nameOrRaw(c));
             r.put("action", a.getAction().replace('_', ' ').toLowerCase(Locale.ROOT));
             r.put("details", a.getDetails());
             r.put("actor", a.getActor());
@@ -368,8 +374,15 @@ public class ReportService {
         return new Report(ReportType.ACTIVITY, ReportType.ACTIVITY.title + (logs.size() == limit ? " (latest " + limit + ")" : ""),
                 from, to, clock.instant(),
                 List.of(new Column("when", "Date & Time"), new Column("candidateCode", "Candidate ID"), new Column("fullName", "Name"),
-                        new Column("action", "Action"), new Column("details", "Details"), new Column("actor", "By")),
+                        new Column("department", "Department"), new Column("action", "Action"), new Column("details", "Details"), new Column("actor", "By")),
                 rows, byAction.entrySet().stream().map(e -> new ChartPoint(e.getKey(), e.getValue())).toList());
+    }
+
+    /** Tables list the latest dates first; the charts keep oldest to newest so they read left to right. */
+    private static List<Map<String, Object>> newestFirst(List<Map<String, Object>> rows) {
+        List<Map<String, Object>> out = new ArrayList<>(rows);
+        java.util.Collections.reverse(out);
+        return out;
     }
 
     private static Criteria statusSpec(ApplicationStatus s) {

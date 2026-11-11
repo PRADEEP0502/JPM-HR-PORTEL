@@ -279,7 +279,12 @@ export default function CandidateProfilePage() {
               ['Date of birth', c.dateOfBirth && fmtDate(c.dateOfBirth)],
               ['Mobile number', c.mobile && <a className="hover:underline" href={`tel:${c.mobile}`}>{c.mobile}</a>],
               ['Email', c.email && <a className="hover:underline" href={`mailto:${c.email}`}>{c.email}</a>],
-              ['Address', c.address],
+              ['Door no, street and area', c.address],
+              ['City / Town', c.city],
+              ['District', c.district],
+              ['State', c.state],
+              ['PIN code', c.pincode],
+              ['Mode of travel to office', c.travelMode],
             ]}
           />
           <Section

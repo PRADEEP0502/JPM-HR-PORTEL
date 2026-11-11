@@ -97,11 +97,18 @@ public class CandidateController {
             r.add(c.getApplicationStatus().label);
             r.add(c.getInterviewStatus().label);
             r.add(c.getVerificationStatus().label);
+            r.add(c.getAddress());
+            r.add(c.getCity());
+            r.add(c.getDistrict());
+            r.add(c.getState());
+            r.add(c.getPincode());
+            r.add(c.getTravelMode());
             rows.add(r);
         }
         var response = TableExporter.export(format, "Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Sub-work", "Source", "Qualification", "Experience (yrs)",
-                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification"),
+                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification",
+                        "Address", "City / Town", "District", "State", "PIN code", "Mode of travel"),
                 rows, "candidates");
         audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to " + format.toUpperCase());
         return response;
