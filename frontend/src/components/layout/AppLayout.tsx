@@ -185,7 +185,7 @@ function NotificationsMenu() {
                   <span className={clsx('mt-1.5 h-2 w-2 shrink-0 rounded-full', n.unread ? (n.type === 'SYNC_FAILED' ? 'bg-bad' : 'bg-info') : 'bg-transparent')} />
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-ink">{n.title}</span>
-                    <span className="block truncate text-xs text-ink-2">{n.message}</span>
+                    <span className="block whitespace-normal break-words text-xs leading-relaxed text-ink-2">{n.message}</span>
                     <span className="block text-[11px] text-ink-3">{fmtRelative(n.at)}</span>
                   </span>
                 </button>
