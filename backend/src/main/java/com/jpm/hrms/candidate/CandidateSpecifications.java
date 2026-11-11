@@ -72,7 +72,19 @@ public final class CandidateSpecifications {
             cs.add(Criteria.where("position").regex("^" + Pattern.quote(f.position().trim()) + "$", "i"));
         }
         if (StringUtils.hasText(f.hiringSource())) {
-            cs.add(Criteria.where("hiringSource").regex("^" + Pattern.quote(f.hiringSource().trim()) + "$", "i"));
+            String src = f.hiringSource().trim();
+            if (src.equalsIgnoreCase(com.jpm.hrms.analytics.SourceAnalyticsService.NOT_SPECIFIED)) {
+                // no answer to the Source question
+                cs.add(new Criteria().orOperator(Criteria.where("hiringSource").is(null), Criteria.where("hiringSource").regex("^\\s*$")));
+            } else if (src.equalsIgnoreCase("Others")) {
+                // "Others" plus anything typed in that is not one of the form's choices (same grouping as Source Analytics)
+                List<String> known = com.jpm.hrms.analytics.SourceAnalyticsService.SOURCES.stream()
+                        .filter(s -> !s.equals("Others")).map(s -> "^\\s*" + Pattern.quote(s) + "\\s*$").toList();
+                cs.add(Criteria.where("hiringSource").regex("\\S"));
+                for (String k : known) cs.add(Criteria.where("hiringSource").not().regex(k, "i"));
+            } else {
+                cs.add(Criteria.where("hiringSource").regex("^\\s*" + Pattern.quote(src) + "\\s*$", "i"));
+            }
         }
         if (f.experience() != null) {
             switch (f.experience()) {

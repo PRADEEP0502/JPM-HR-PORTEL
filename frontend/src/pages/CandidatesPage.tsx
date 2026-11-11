@@ -158,6 +158,7 @@ export default function CandidatesPage() {
           <select className="input" aria-label="Source" value={filters.hiringSource} onChange={(e) => update({ hiringSource: e.target.value })}>
             <option value="">All sources</option>
             {HIRING_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="Not specified">Not specified</option>
           </select>
           <select className="input" aria-label="Experience" value={filters.experience} onChange={(e) => update({ experience: e.target.value })}>
             <option value="">Any experience</option>

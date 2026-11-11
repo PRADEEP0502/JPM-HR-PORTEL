@@ -5,6 +5,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -146,7 +149,10 @@ export function HorizontalBars({ data, color = '#3987e5', onSelect }: { data: Da
           maxBarSize={22}
           fill={color}
           label={{ position: 'right', fill: '#b9b9b2', fontSize: 11 }}
-        />
+        >
+          {/* a datum may carry its own colour (e.g. one per hiring source); otherwise every bar uses `color` */}
+          {data.some((d) => d.color) && data.map((d, i) => <Cell key={i} fill={d.color ?? color} />)}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
@@ -224,6 +230,99 @@ export function WeekColumns({ data, height = 190, onSelect }: { data: Datum[]; h
         <Tooltip content={<TooltipBox />} cursor={cursor} />
         <Bar dataKey="value" fill="url(#weekFill)" radius={[8, 8, 8, 8]} maxBarSize={18} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export interface SeriesDef {
+  key: string;
+  label: string;
+  color: string;
+}
+
+function SeriesTooltip({ active, payload, label }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter((p) => Number(p.value) > 0);
+  return (
+    <div className="rounded-lg border border-line bg-raised px-3 py-2 text-xs shadow-card">
+      <div className="mb-1 text-ink-3">{label}</div>
+      {(rows.length ? rows : payload.slice(0, 1)).map((p) => (
+        <div key={String(p.dataKey)} className="flex items-center gap-2 text-ink">
+          <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-ink-2">{p.name}</span>
+          <span className="ml-auto pl-3 font-semibold">{fmtNumber(Number(p.value))}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const legendStyle = { fontSize: 11, color: '#b9b9b2', paddingTop: 8 };
+
+/** One bar per category, split into series (e.g. selected / pending / rejected per source). */
+export function StackedBars({ data, series, height = 280, onSelect }: {
+  data: Record<string, string | number>[];
+  series: SeriesDef[];
+  height?: number;
+  onSelect?: (label: string) => void;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+        {...(onSelect ? {
+          onClick: (state: unknown) => {
+            const l = (state as { activeLabel?: string } | null)?.activeLabel;
+            if (l) onSelect(l);
+          },
+          className: 'cursor-pointer',
+        } : {})}
+      >
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" {...AXIS} interval={0} height={36} tick={<WrapTick />} />
+        <YAxis {...AXIS} allowDecimals={false} axisLine={false} />
+        <Tooltip content={<SeriesTooltip />} cursor={cursor} />
+        <Legend wrapperStyle={legendStyle} iconType="circle" iconSize={8} />
+        {series.map((s, i) => (
+          <Bar key={s.key} dataKey={s.key} name={s.label} stackId="a" fill={s.color} maxBarSize={44}
+               radius={i === series.length - 1 ? [4, 4, 0, 0] : undefined} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** One line per series over time (e.g. applications per source per month). */
+export function MultiLine({ data, series, height = 280, onSelect }: {
+  data: Record<string, string | number>[];
+  series: SeriesDef[];
+  height?: number;
+  onSelect?: (label: string) => void;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 12, left: -18, bottom: 0 }}
+        {...(onSelect ? {
+          onClick: (state: unknown) => {
+            const l = (state as { activeLabel?: string } | null)?.activeLabel;
+            if (l) onSelect(l);
+          },
+          className: 'cursor-pointer',
+        } : {})}
+      >
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" {...AXIS} minTickGap={16} />
+        <YAxis {...AXIS} allowDecimals={false} axisLine={false} />
+        <Tooltip content={<SeriesTooltip />} />
+        <Legend wrapperStyle={legendStyle} iconType="circle" iconSize={8} />
+        {series.map((s) => (
+          <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2}
+                dot={data.length <= 31 ? { r: 2.5 } : false} activeDot={{ r: 4 }} />
+        ))}
+      </LineChart>
     </ResponsiveContainer>
   );
 }

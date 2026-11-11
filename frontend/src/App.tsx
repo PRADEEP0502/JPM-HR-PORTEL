@@ -9,6 +9,7 @@ import CandidateProfilePage from './pages/CandidateProfilePage';
 import InterviewsPage from './pages/InterviewsPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import ReportsPage from './pages/ReportsPage';
+import SourceAnalyticsPage from './pages/SourceAnalyticsPage';
 import SettingsPage from './pages/SettingsPage';
 import MyInterviewsPage from './pages/MyInterviewsPage';
 import PipelinePage from './pages/PipelinePage';
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="interviews" element={<InterviewsPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="source-analytics" element={<SourceAnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

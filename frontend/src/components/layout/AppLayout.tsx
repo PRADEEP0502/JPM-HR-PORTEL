@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
   BarChart3,
+  Megaphone,
   Bell,
   Building2,
   CalendarClock,
@@ -32,6 +33,7 @@ const NAV = [
   { to: '/requirements', label: 'Requirements', icon: ClipboardList },
   { to: '/interviews', label: 'Interview Schedule', icon: CalendarClock },
   { to: '/departments', label: 'Departments', icon: Building2 },
+  { to: '/source-analytics', label: 'Source Analytics', icon: Megaphone },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -48,6 +50,7 @@ const TITLES: Record<string, string> = {
   requirements: 'Requirements',
   interviews: 'Interview Schedule',
   departments: 'Departments',
+  'source-analytics': 'Source Analytics',
   reports: 'Reports',
   settings: 'Settings',
 };
