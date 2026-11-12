@@ -57,7 +57,8 @@ export default function RequirementsPage() {
   const [search, setSearch] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'OPEN' | 'FILLED'>('ALL');
-  const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
+  // Primary layout view toggle: Grid (Cards) vs List (Table)
+  const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
 
   // Shared modals
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
@@ -151,7 +152,7 @@ export default function RequirementsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold tracking-tight tabular-nums text-ink">{totalRoles}</span>
-            <span className="text-xs text-ink-3">active roles</span>
+            <span className="text-xs text-ink-3">configured</span>
           </div>
         </div>
 
@@ -181,7 +182,7 @@ export default function RequirementsPage() {
 
         <div className="panel p-4 transition hover:border-line">
           <div className="flex items-center justify-between text-ink-3">
-            <span className="text-xs font-medium">Hiring Progress</span>
+            <span className="text-xs font-medium">Fulfillment Rate</span>
             <Sparkles size={16} className="text-warn" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -191,7 +192,7 @@ export default function RequirementsPage() {
                 : 0}
               %
             </span>
-            <span className="text-xs text-ink-3">overall fulfillment</span>
+            <span className="text-xs text-ink-3">progress</span>
           </div>
         </div>
       </div>
@@ -276,7 +277,7 @@ export default function RequirementsPage() {
       {/* Search & Filter Toolbar */}
       <div className="panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
             <input
               type="text"
@@ -331,32 +332,41 @@ export default function RequirementsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 border-t border-line/40 pt-2 sm:border-0 sm:pt-0">
-          <span className="text-xs text-ink-3 mr-1">View:</span>
+        {/* View Mode Toggle: Grid vs List with distinct button labels */}
+        <div className="flex items-center gap-1.5 border-t border-line/40 pt-2 sm:border-0 sm:pt-0">
+          <span className="text-xs text-ink-3 font-medium mr-1">View:</span>
           <button
-            onClick={() => setViewMode('CARDS')}
-            title="Profile Cards View"
+            type="button"
+            onClick={() => setViewMode('GRID')}
+            title="Grid View (Cards)"
             className={clsx(
-              'rounded-lg p-1.5 transition',
-              viewMode === 'CARDS' ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+              viewMode === 'GRID'
+                ? 'bg-info text-white shadow-sm ring-1 ring-info'
+                : 'bg-raised text-ink-3 hover:text-ink hover:bg-line'
             )}
           >
-            <LayoutGrid size={16} />
+            <LayoutGrid size={14} />
+            <span>Grid</span>
           </button>
           <button
-            onClick={() => setViewMode('TABLE')}
-            title="Table View"
+            type="button"
+            onClick={() => setViewMode('LIST')}
+            title="List View (Table)"
             className={clsx(
-              'rounded-lg p-1.5 transition',
-              viewMode === 'TABLE' ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+              viewMode === 'LIST'
+                ? 'bg-info text-white shadow-sm ring-1 ring-info'
+                : 'bg-raised text-ink-3 hover:text-ink hover:bg-line'
             )}
           >
-            <List size={16} />
+            <List size={14} />
+            <span>List</span>
           </button>
         </div>
       </div>
 
-      {/* Requirements List */}
+      {/* Requirements List / Grid Display */}
       {requirements.isLoading ? (
         <div className="panel">
           <LoadingBlock label="Loading manpower dashboard…" />
@@ -377,19 +387,27 @@ export default function RequirementsPage() {
         <div className="panel p-8 text-center text-sm text-ink-3">
           No requirements match your current search or filter.
         </div>
-      ) : (
-        <div className="space-y-5">
+      ) : viewMode === 'GRID' ? (
+        /* GRID VIEW: 2-3 column responsive cards layout */
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredList.map((r) => (
-            <RequirementCard
+            <RequirementGridCard
               key={r.id}
               requirement={r}
-              viewMode={viewMode}
               statusFilter={filterStatus}
               onStatusChange={(target) => setStatusTarget(target)}
               onRatingChange={(target) => setRatingTarget(target)}
             />
           ))}
         </div>
+      ) : (
+        /* LIST VIEW: Compact Data Table layout */
+        <RequirementListView
+          requirements={filteredList}
+          statusFilter={filterStatus}
+          onStatusChange={(target) => setStatusTarget(target)}
+          onRatingChange={(target) => setRatingTarget(target)}
+        />
       )}
 
       {/* Modals */}
@@ -399,15 +417,17 @@ export default function RequirementsPage() {
   );
 }
 
-function RequirementCard({
+// -------------------------------------------------------------------------------------------------
+// GRID VIEW CARD COMPONENT
+// -------------------------------------------------------------------------------------------------
+
+function RequirementGridCard({
   requirement: r,
-  viewMode,
   statusFilter,
   onStatusChange,
   onRatingChange,
 }: {
   requirement: Requirement;
-  viewMode: 'CARDS' | 'TABLE';
   statusFilter: 'ALL' | 'OPEN' | 'FILLED';
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
@@ -415,14 +435,13 @@ function RequirementCard({
   const toast = useToast();
   const qc = useQueryClient();
   const [draft, setDraft] = useState(String(r.needed));
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => setDraft(String(r.needed)), [r.needed]);
 
-  const scope = { departmentId: r.departmentId, position: r.position };
+  const scope = { departmentId: r.departmentId, position: r.position || undefined };
   const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
 
-  // Queries for filled candidates and matching applicants
   const filled = useQuery({
     queryKey: ['candidates', 'requirement-filled', r.departmentId, r.position],
     queryFn: () =>
@@ -463,7 +482,7 @@ function RequirementCard({
     mutationFn: () => api.put<Requirement>(`/requirements/${r.id}`, { needed: Number(draft) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['requirements'] });
-      toast('success', 'Requirement count updated');
+      toast('success', 'Requirement updated');
     },
     onError: (e) => toast('error', e.message),
   });
@@ -481,125 +500,113 @@ function RequirementCard({
   const stillNeed = Math.max(r.needed - selected, 0);
   const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
 
-  // Filter out if user selected OPEN or FILLED tabs
   if (statusFilter === 'OPEN' && stillNeed === 0) return null;
   if (statusFilter === 'FILLED' && stillNeed > 0) return null;
 
   const ratedList = ranked.data?.content ?? [];
   const suggested = ratedList.slice(0, stillNeed);
-  const cutOff = suggested.length === stillNeed && stillNeed > 0 ? suggested[stillNeed - 1].profileRating : null;
-  const tied = cutOff === null ? [] : ratedList.slice(stillNeed).filter((c) => c.profileRating === cutOff);
   const unratedList = unrated.data?.content ?? [];
+  const totalApplicants = ratedList.length + unratedList.length;
   const dirty = draft !== String(r.needed);
 
-  const title = `${r.departmentName ?? 'Unassigned Department'}${r.position ? ` – ${r.position}` : ''}`;
+  const title = `${r.departmentName ?? 'Unassigned'}${r.position ? ` – ${r.position}` : ''}`;
 
   return (
-    <section className="panel overflow-hidden border border-line/80 shadow-card transition-all">
-      {/* Top Banner / Card Header */}
-      <div className="border-b border-line/60 bg-raised/40 p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
+    <div className="panel flex flex-col justify-between overflow-hidden border border-line/80 shadow-card transition-all hover:border-line">
+      {/* Card Header */}
+      <div className="p-4 border-b border-line/60 bg-raised/30">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5">
             <span
               className={clsx(
-                'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white font-semibold',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold',
                 stillNeed === 0 ? 'bg-good/20 text-good' : selected > 0 ? 'bg-info/20 text-info' : 'bg-warn/20 text-warn'
               )}
             >
-              {stillNeed === 0 ? <CheckCircle2 size={18} /> : <Building2 size={18} />}
+              <Building2 size={16} />
             </span>
-
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-bold text-ink">{title}</h2>
-                {stillNeed === 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-good/15 px-2 py-0.5 text-xs font-semibold text-good">
-                    <CheckCircle2 size={12} /> Filled
-                  </span>
-                ) : selected > 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-info/15 px-2 py-0.5 text-xs font-semibold text-[#8fb4f5]">
-                    In Progress ({selected}/{r.needed})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-warn/15 px-2 py-0.5 text-xs font-semibold text-warn">
-                    <AlertCircle size={12} /> {stillNeed} Needed
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-xs text-ink-3">
-                Department: <span className="text-ink-2 font-medium">{r.departmentName ?? 'General'}</span>
-                {r.position && (
-                  <>
-                    {' '}• Role: <span className="text-ink-2 font-medium">{r.position}</span>
-                  </>
-                )}
-              </p>
+              <h2 className="font-bold text-sm text-ink line-clamp-1" title={title}>
+                {title}
+              </h2>
+              <span className="text-[11px] text-ink-3">
+                {r.position ? r.position : 'Whole Department'}
+              </span>
             </div>
           </div>
 
-          {/* Right Action Counters & Inline Controls */}
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            {/* Inline Editor for Needed */}
-            <div className="flex items-center gap-1.5 rounded-xl border border-line/70 bg-panel px-2.5 py-1">
-              <span className="text-ink-3">Target:</span>
+          <div className="flex items-center gap-1.5">
+            {stillNeed === 0 ? (
+              <span className="rounded-md bg-good/15 px-2 py-0.5 text-[11px] font-semibold text-good">
+                ✓ Filled
+              </span>
+            ) : selected > 0 ? (
+              <span className="rounded-md bg-info/15 px-2 py-0.5 text-[11px] font-semibold text-info">
+                In Progress
+              </span>
+            ) : (
+              <span className="rounded-md bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">
+                Shortage
+              </span>
+            )}
+
+            <button
+              className="btn-ghost p-1 text-ink-3 hover:text-bad"
+              title="Delete requirement"
+              disabled={remove.isPending}
+              onClick={() =>
+                window.confirm(`Delete the requirement "${title}"? Candidates are not affected.`) && remove.mutate()
+              }
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Metric Badges */}
+        <div className="mt-3.5 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-lg border border-line/50 bg-panel/70 p-2">
+            <span className="block text-[10px] text-ink-3">Target</span>
+            <div className="flex items-center justify-center gap-1 mt-0.5">
               <input
-                className="w-10 rounded bg-raised px-1 py-0.5 text-center font-bold text-ink outline-none"
+                className="w-8 rounded bg-raised px-1 text-center font-bold text-ink text-xs outline-none"
                 inputMode="numeric"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
               />
               {dirty && (
                 <button
-                  className="rounded bg-info px-2 py-0.5 text-[11px] font-semibold text-white transition hover:bg-info/80"
+                  className="rounded bg-info px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-info/80"
                   disabled={update.isPending}
-                  onClick={() => (validNumber(draft) ? update.mutate() : toast('error', `Enter 1 to ${MAX_NEEDED}`))}
+                  onClick={() => (validNumber(draft) ? update.mutate() : toast('error', `1 to ${MAX_NEEDED}`))}
                 >
-                  Save
+                  ✓
                 </button>
               )}
             </div>
+          </div>
 
-            <Link
-              to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
-              className="rounded-xl border border-line/70 bg-panel px-3 py-1.5 text-ink-3 transition hover:border-line hover:text-ink"
-            >
-              Hired: <span className="font-bold text-good tabular-nums">{selected}</span>
-            </Link>
+          <Link
+            to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
+            className="rounded-lg border border-line/50 bg-panel/70 p-2 transition hover:border-good/50"
+          >
+            <span className="block text-[10px] text-ink-3">Hired</span>
+            <span className="font-bold text-good tabular-nums text-xs mt-0.5 block">{selected}</span>
+          </Link>
 
-            <span className="rounded-xl border border-line/70 bg-panel px-3 py-1.5 text-ink-3">
-              Remaining: <span className="font-bold text-warn tabular-nums">{stillNeed}</span>
-            </span>
-
-            <button
-              className="btn-ghost p-1.5 text-ink-3 hover:text-bad"
-              title={`Delete requirement ${title}`}
-              disabled={remove.isPending}
-              onClick={() =>
-                window.confirm(`Delete the requirement "${title}"? Candidates will not be deleted.`) && remove.mutate()
-              }
-            >
-              <Trash2 size={16} />
-            </button>
-
-            <button
-              onClick={() => setIsExpanded((v) => !v)}
-              className="btn-ghost p-1.5 text-ink-3"
-              title={isExpanded ? 'Collapse' : 'Expand'}
-            >
-              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+          <div className="rounded-lg border border-line/50 bg-panel/70 p-2">
+            <span className="block text-[10px] text-ink-3">Remaining</span>
+            <span className="font-bold text-warn tabular-nums text-xs mt-0.5 block">{stillNeed}</span>
           </div>
         </div>
 
-        {/* Progress Bar Strip */}
-        <div className="mt-3.5 space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-ink-3">
-            <span>Fulfillment Status</span>
-            <span className="font-semibold text-ink-2">
-              {selected} of {r.needed} hired ({fulfillmentPct}%)
-            </span>
+        {/* Progress Bar */}
+        <div className="mt-3 space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-ink-3">
+            <span>Progress: {selected} of {r.needed}</span>
+            <span className="font-bold text-ink-2">{fulfillmentPct}%</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-raised">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
             <div
               className={clsx(
                 'h-full rounded-full transition-all duration-500',
@@ -611,168 +618,395 @@ function RequirementCard({
         </div>
       </div>
 
-      {/* Expandable Candidates & Profiles Section */}
-      {isExpanded && (
-        <div className="p-4 space-y-4">
-          {ranked.isLoading || filled.isLoading ? (
-            <LoadingBlock label="Matching applicant profiles…" />
-          ) : ranked.error ? (
-            <ErrorState error={ranked.error} onRetry={() => ranked.refetch()} />
-          ) : stillNeed === 0 ? (
-            <div className="rounded-xl border border-good/30 bg-good/10 p-4 text-center">
-              <CheckCircle2 size={24} className="mx-auto text-good" />
-              <h3 className="mt-2 text-sm font-semibold text-ink">Requirement Fully Met!</h3>
-              <p className="mt-1 text-xs text-ink-2">
-                All {r.needed} required candidate(s) have been successfully selected or joined.
-              </p>
-              <Link
-                to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
-                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-good hover:underline"
-              >
-                View Hired Candidates <ArrowUpRight size={13} />
-              </Link>
+      {/* Card Body: Profiles Preview or Full List */}
+      <div className="p-4 flex-1 space-y-3">
+        {ranked.isLoading ? (
+          <div className="py-4 text-center text-xs text-ink-3">Matching candidates…</div>
+        ) : stillNeed === 0 ? (
+          <div className="rounded-xl border border-good/30 bg-good/10 p-3 text-center text-xs text-good">
+            <CheckCircle2 size={18} className="mx-auto mb-1 text-good" />
+            <span className="font-semibold">Requirement fully filled</span>
+          </div>
+        ) : suggested.length > 0 ? (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-ink-2 flex items-center gap-1">
+                <Star size={12} className="text-warn fill-warn/20" /> Top Matched Profiles ({suggested.length})
+              </span>
             </div>
-          ) : (
-            <>
-              {/* Recommended Top Rated Candidates */}
-              {suggested.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Star size={15} className="text-warn fill-warn/20" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-ink-2">
-                        Top Rated Candidate Profiles ({suggested.length})
-                      </h3>
-                    </div>
-                    <span className="text-xs text-ink-3">Ranked by interview mark</span>
-                  </div>
 
-                  {viewMode === 'CARDS' ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {suggested.map((c) => (
-                        <CandidateProfileCard
-                          key={c.id}
-                          candidate={c}
-                          onStatusChange={onStatusChange}
-                          onRatingChange={onRatingChange}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="-mx-4 overflow-x-auto">
-                      <CandidateTableView
-                        candidates={suggested}
-                        onStatusChange={onStatusChange}
-                        onRatingChange={onRatingChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
+            {/* Show candidate profile mini cards */}
+            <div className="space-y-2">
+              {(isExpanded ? suggested : suggested.slice(0, 2)).map((c) => (
+                <CandidateMiniProfileCard
+                  key={c.id}
+                  candidate={c}
+                  onStatusChange={onStatusChange}
+                  onRatingChange={onRatingChange}
+                />
+              ))}
+            </div>
 
-              {/* Tied Candidates Alert */}
-              {tied.length > 0 && (
-                <div className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
-                  <p className="font-semibold">
-                    {tied.length} more applicant(s) tied with mark {cutOff}/10. Review their profiles:
-                  </p>
-                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {tied.map((c) => (
-                      <CandidateProfileCard
-                        key={c.id}
-                        candidate={c}
-                        onStatusChange={onStatusChange}
-                        onRatingChange={onRatingChange}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+            {suggested.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="w-full text-center text-xs text-info hover:underline py-1"
+              >
+                {isExpanded ? 'Show less' : `+ View ${suggested.length - 2} more matched candidate(s)`}
+              </button>
+            )}
+          </div>
+        ) : unratedList.length > 0 ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-ink-2 flex items-center gap-1">
+                <Users size={12} className="text-info" /> Applicants in this Role ({unratedList.length})
+              </span>
+              <span className="text-[10px] text-ink-3">Awaiting Score</span>
+            </div>
 
-              {/* Applicants Awaiting Rating (Shown so user can see candidates even before rating!) */}
-              {unratedList.length > 0 && (
-                <div className="mt-4 space-y-3 border-t border-line/60 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users size={15} className="text-info" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-ink-2">
-                        Applicants in this Role ({unratedList.length})
-                      </h3>
-                      <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-3">
-                        Awaiting Score
-                      </span>
-                    </div>
-                    <Link
-                      to={`/candidates?applicationStatus=${PENDING_STATUSES}&rating=UNRATED&${scopeLink}`}
-                      className="text-xs text-info hover:underline flex items-center gap-1"
-                    >
-                      Rate in candidate list <ArrowUpRight size={13} />
-                    </Link>
-                  </div>
+            <div className="space-y-2">
+              {(isExpanded ? unratedList : unratedList.slice(0, 2)).map((c) => (
+                <CandidateMiniProfileCard
+                  key={c.id}
+                  candidate={c}
+                  onStatusChange={onStatusChange}
+                  onRatingChange={onRatingChange}
+                />
+              ))}
+            </div>
 
-                  {viewMode === 'CARDS' ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {unratedList.slice(0, 6).map((c) => (
-                        <CandidateProfileCard
-                          key={c.id}
-                          candidate={c}
-                          onStatusChange={onStatusChange}
-                          onRatingChange={onRatingChange}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="-mx-4 overflow-x-auto">
-                      <CandidateTableView
-                        candidates={unratedList.slice(0, 6)}
-                        onStatusChange={onStatusChange}
-                        onRatingChange={onRatingChange}
-                      />
-                    </div>
-                  )}
+            {unratedList.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="w-full text-center text-xs text-info hover:underline py-1"
+              >
+                {isExpanded ? 'Show less' : `+ View ${unratedList.length - 2} more applicant(s)`}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-line/50 bg-raised/20 p-4 text-center">
+            <Users size={20} className="mx-auto text-ink-3" />
+            <p className="mt-1.5 text-xs text-ink-3">No active applicants for this position yet</p>
+            <Link
+              to={`/candidates?departmentId=${r.departmentId}`}
+              className="mt-2 inline-block text-[11px] text-info hover:underline"
+            >
+              Browse {r.departmentName ?? ''} Candidates →
+            </Link>
+          </div>
+        )}
+      </div>
 
-                  {unratedList.length > 6 && (
-                    <p className="text-center text-xs text-ink-3">
-                      + {unratedList.length - 6} more applicant(s).{' '}
-                      <Link
-                        to={`/candidates?${scopeLink}`}
-                        className="text-info underline hover:text-white"
-                      >
-                        View all in Candidates page
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Empty State when zero candidates are in database for this role */}
-              {suggested.length === 0 && unratedList.length === 0 && (
-                <div className="rounded-xl border border-line/60 bg-raised/30 p-6 text-center">
-                  <Users size={28} className="mx-auto text-ink-3" />
-                  <h4 className="mt-2 text-sm font-semibold text-ink">No applicants found for this position</h4>
-                  <p className="mt-1 text-xs text-ink-3">
-                    There are currently no active candidates applying for {title}.
-                  </p>
-                  <div className="mt-4 flex items-center justify-center gap-3">
-                    <Link
-                      to={`/candidates?departmentId=${r.departmentId}`}
-                      className="btn-secondary text-xs px-3 py-1.5"
-                    >
-                      Browse All {r.departmentName ?? ''} Applicants
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </section>
+      {/* Card Footer */}
+      <div className="border-t border-line/60 bg-raised/20 px-4 py-2.5 flex items-center justify-between text-xs">
+        <span className="text-ink-3 text-[11px]">
+          Total available: <strong className="text-ink-2">{totalApplicants}</strong>
+        </span>
+        <Link
+          to={`/candidates?${scopeLink}`}
+          className="text-info font-medium hover:underline flex items-center gap-1"
+        >
+          View in Candidates <ArrowUpRight size={12} />
+        </Link>
+      </div>
+    </div>
   );
 }
 
-/** Individual Visual Candidate Profile Card */
-function CandidateProfileCard({
+// -------------------------------------------------------------------------------------------------
+// LIST VIEW (TABLE) COMPONENT
+// -------------------------------------------------------------------------------------------------
+
+function RequirementListView({
+  requirements,
+  statusFilter,
+  onStatusChange,
+  onRatingChange,
+}: {
+  requirements: Requirement[];
+  statusFilter: 'ALL' | 'OPEN' | 'FILLED';
+  onStatusChange: (target: StatusTarget) => void;
+  onRatingChange: (target: RatingTarget) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  return (
+    <div className="panel overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[850px] text-left text-xs">
+          <thead>
+            <tr className="border-b border-line bg-raised/50 text-ink-3">
+              <th className="th pl-4">Department & Position</th>
+              <th className="th">Target Needed</th>
+              <th className="th">Hired</th>
+              <th className="th">Remaining</th>
+              <th className="th">Fulfillment Progress</th>
+              <th className="th">Status</th>
+              <th className="th">Matched Profiles</th>
+              <th className="th pr-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requirements.map((r) => (
+              <RequirementTableRow
+                key={r.id}
+                requirement={r}
+                statusFilter={statusFilter}
+                isExpanded={expandedId === r.id}
+                onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                onStatusChange={onStatusChange}
+                onRatingChange={onRatingChange}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RequirementTableRow({
+  requirement: r,
+  statusFilter,
+  isExpanded,
+  onToggleExpand,
+  onStatusChange,
+  onRatingChange,
+}: {
+  requirement: Requirement;
+  statusFilter: 'ALL' | 'OPEN' | 'FILLED';
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onStatusChange: (target: StatusTarget) => void;
+  onRatingChange: (target: RatingTarget) => void;
+}) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(String(r.needed));
+
+  useEffect(() => setDraft(String(r.needed)), [r.needed]);
+
+  const scope = { departmentId: r.departmentId, position: r.position || undefined };
+  const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
+
+  const filled = useQuery({
+    queryKey: ['candidates', 'requirement-filled', r.departmentId, r.position],
+    queryFn: () =>
+      api.get<Page<CandidateListItem>>('/candidates', {
+        ...scope,
+        applicationStatus: 'SELECTED,JOINED',
+        size: 1,
+      }),
+  });
+
+  const ranked = useQuery({
+    queryKey: ['candidates', 'requirement-ranked', r.departmentId, r.position],
+    queryFn: () =>
+      api.get<Page<CandidateListItem>>('/candidates', {
+        ...scope,
+        applicationStatus: PENDING_STATUSES,
+        rating: '1-10',
+        sort: 'rating',
+        dir: 'desc',
+        size: MAX_NEEDED,
+      }),
+  });
+
+  const unrated = useQuery({
+    queryKey: ['candidates', 'requirement-unrated', r.departmentId, r.position],
+    queryFn: () =>
+      api.get<Page<CandidateListItem>>('/candidates', {
+        ...scope,
+        applicationStatus: PENDING_STATUSES,
+        rating: 'UNRATED',
+        sort: 'applicationDate',
+        dir: 'desc',
+        size: MAX_NEEDED,
+      }),
+  });
+
+  const update = useMutation({
+    mutationFn: () => api.put<Requirement>(`/requirements/${r.id}`, { needed: Number(draft) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['requirements'] });
+      toast('success', 'Requirement updated');
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => api.del(`/requirements/${r.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['requirements'] });
+      toast('success', 'Requirement deleted');
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  const selected = filled.data?.totalElements ?? 0;
+  const stillNeed = Math.max(r.needed - selected, 0);
+  const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
+
+  if (statusFilter === 'OPEN' && stillNeed === 0) return null;
+  if (statusFilter === 'FILLED' && stillNeed > 0) return null;
+
+  const ratedList = ranked.data?.content ?? [];
+  const suggested = ratedList.slice(0, stillNeed);
+  const unratedList = unrated.data?.content ?? [];
+  const allCandidates = [...suggested, ...unratedList];
+  const dirty = draft !== String(r.needed);
+
+  return (
+    <>
+      <tr className="border-b border-line/50 transition hover:bg-white/[0.02]">
+        <td className="td pl-4">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={clsx(
+                'flex h-8 w-8 items-center justify-center rounded-lg',
+                stillNeed === 0 ? 'bg-good/15 text-good' : selected > 0 ? 'bg-info/15 text-info' : 'bg-warn/15 text-warn'
+              )}
+            >
+              <Building2 size={16} />
+            </span>
+            <div>
+              <span className="font-bold text-ink block">{r.departmentName ?? 'Unassigned'}</span>
+              <span className="text-[11px] text-ink-3 block">{r.position || 'Whole Department'}</span>
+            </div>
+          </div>
+        </td>
+
+        <td className="td">
+          <div className="flex items-center gap-1.5">
+            <input
+              className="w-10 rounded bg-raised px-1 py-0.5 text-center font-bold text-ink text-xs outline-none border border-line/60"
+              inputMode="numeric"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            />
+            {dirty && (
+              <button
+                className="rounded bg-info px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-info/80"
+                disabled={update.isPending}
+                onClick={() => (validNumber(draft) ? update.mutate() : toast('error', `1 to ${MAX_NEEDED}`))}
+              >
+                Save
+              </button>
+            )}
+          </div>
+        </td>
+
+        <td className="td tabular-nums font-semibold text-good">
+          <Link to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`} className="hover:underline">
+            {selected}
+          </Link>
+        </td>
+
+        <td className="td tabular-nums font-semibold text-warn">{stillNeed}</td>
+
+        <td className="td">
+          <div className="flex items-center gap-2 min-w-[130px]">
+            <div className="h-1.5 flex-1 rounded-full bg-raised overflow-hidden">
+              <div
+                className={clsx(
+                  'h-full rounded-full transition-all duration-500',
+                  stillNeed === 0 ? 'bg-good' : selected > 0 ? 'bg-info' : 'bg-warn'
+                )}
+                style={{ width: `${fulfillmentPct}%` }}
+              />
+            </div>
+            <span className="text-xs font-semibold tabular-nums text-ink-3">{fulfillmentPct}%</span>
+          </div>
+        </td>
+
+        <td className="td">
+          {stillNeed === 0 ? (
+            <span className="inline-flex items-center gap-1 rounded bg-good/15 px-2 py-0.5 text-[11px] font-semibold text-good">
+              <CheckCircle2 size={11} /> Filled
+            </span>
+          ) : selected > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded bg-info/15 px-2 py-0.5 text-[11px] font-semibold text-info">
+              In Progress
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">
+              <AlertCircle size={11} /> Vacancy
+            </span>
+          )}
+        </td>
+
+        <td className="td">
+          <button
+            onClick={onToggleExpand}
+            className={clsx(
+              'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border transition',
+              isExpanded ? 'bg-info/20 text-info border-info/40' : 'bg-raised text-ink-2 border-line hover:text-ink'
+            )}
+          >
+            <span>Candidates ({allCandidates.length})</span>
+            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        </td>
+
+        <td className="td pr-4 text-right">
+          <button
+            className="btn-ghost p-1.5 text-ink-3 hover:text-bad"
+            title="Delete requirement"
+            disabled={remove.isPending}
+            onClick={() =>
+              window.confirm(`Delete the requirement for "${r.departmentName}"?`) && remove.mutate()
+            }
+          >
+            <Trash2 size={15} />
+          </button>
+        </td>
+      </tr>
+
+      {/* Accordion Drawer for Candidates when row is expanded */}
+      {isExpanded && (
+        <tr className="bg-raised/20 border-b border-line">
+          <td colSpan={8} className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-semibold text-ink-2">
+                  Matching Applicant Profiles for {r.departmentName} ({allCandidates.length})
+                </span>
+                <Link to={`/candidates?${scopeLink}`} className="text-info hover:underline flex items-center gap-1">
+                  Open in Candidates List <ArrowUpRight size={12} />
+                </Link>
+              </div>
+
+              {allCandidates.length === 0 ? (
+                <p className="text-xs text-ink-3 py-2 italic">No applicants found for this position.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {allCandidates.map((c) => (
+                    <CandidateMiniProfileCard
+                      key={c.id}
+                      candidate={c}
+                      onStatusChange={onStatusChange}
+                      onRatingChange={onRatingChange}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// -------------------------------------------------------------------------------------------------
+// CANDIDATE PROFILE CARD (SHARED ACROSS GRID & LIST EXPANSIONS)
+// -------------------------------------------------------------------------------------------------
+
+function CandidateMiniProfileCard({
   candidate: c,
   onStatusChange,
   onRatingChange,
@@ -782,70 +1016,62 @@ function CandidateProfileCard({
   onRatingChange: (target: RatingTarget) => void;
 }) {
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-line/70 bg-card p-4 transition-all hover:border-line hover:shadow-md">
-      <div>
-        {/* Header: Avatar, Name, Code, Rating */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <Avatar name={c.fullName} size="md" />
-            <div>
-              <Link
-                to={`/candidates/${c.id}`}
-                className="font-bold text-sm text-ink hover:text-info hover:underline line-clamp-1"
-                title={c.fullName}
-              >
-                {c.fullName}
-              </Link>
-              <div className="flex items-center gap-2 text-[11px] text-ink-3 mt-0.5">
-                <span className="font-mono">{c.candidateCode}</span>
-                {c.mobile && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Phone size={10} className="text-ink-3" /> {c.mobile}
-                    </span>
-                  </>
-                )}
-              </div>
+    <div className="rounded-xl border border-line/70 bg-card p-3 shadow-sm transition hover:border-line">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <Avatar name={c.fullName} size="sm" />
+          <div>
+            <Link
+              to={`/candidates/${c.id}`}
+              className="font-bold text-xs text-ink hover:text-info hover:underline line-clamp-1"
+              title={c.fullName}
+            >
+              {c.fullName}
+            </Link>
+            <div className="flex items-center gap-1.5 text-[10px] text-ink-3">
+              <span className="font-mono">{c.candidateCode}</span>
+              {c.mobile && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5">
+                    <Phone size={9} /> {c.mobile}
+                  </span>
+                </>
+              )}
             </div>
-          </div>
-          <div className="shrink-0">
-            <RatingPill rating={c.profileRating} />
           </div>
         </div>
 
-        {/* Details Badges: Role, Exp, Qualification */}
-        <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg border border-line/40 bg-raised/50 p-2">
-            <span className="block text-[10px] text-ink-3">Sub-work / Role</span>
-            <span className="block truncate font-medium text-ink-2" title={c.position ?? 'Whole department'}>
-              {c.position || 'Department Wide'}
-            </span>
-          </div>
-
-          <div className="rounded-lg border border-line/40 bg-raised/50 p-2">
-            <span className="block text-[10px] text-ink-3">Experience</span>
-            <span className="block font-medium text-ink-2">{fmtExperience(c.experienceYears)}</span>
-          </div>
-
-          {c.qualification && (
-            <div className="col-span-2 rounded-lg border border-line/40 bg-raised/50 p-2">
-              <span className="flex items-center gap-1 text-[10px] text-ink-3">
-                <GraduationCap size={11} /> Qualification
-              </span>
-              <span className="block truncate font-medium text-ink-2" title={c.qualification}>
-                {c.qualification}
-              </span>
-            </div>
-          )}
+        <div className="shrink-0">
+          <RatingPill rating={c.profileRating} />
         </div>
       </div>
 
-      {/* Card Footer: Status & Actions */}
-      <div className="mt-4 flex items-center justify-between border-t border-line/50 pt-3">
+      <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="rounded bg-raised/50 px-2 py-1 truncate">
+          <span className="text-[10px] text-ink-3 block">Role</span>
+          <span className="font-medium text-ink-2 truncate block">{c.position || 'General'}</span>
+        </div>
+        <div className="rounded bg-raised/50 px-2 py-1">
+          <span className="text-[10px] text-ink-3 block">Exp</span>
+          <span className="font-medium text-ink-2">{fmtExperience(c.experienceYears)}</span>
+        </div>
+        {c.qualification && (
+          <div className="col-span-2 rounded bg-raised/50 px-2 py-1 truncate">
+            <span className="text-[10px] text-ink-3 flex items-center gap-1">
+              <GraduationCap size={10} /> Qualification
+            </span>
+            <span className="font-medium text-ink-2 truncate block" title={c.qualification}>
+              {c.qualification}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between border-t border-line/50 pt-2 text-[11px]">
         <ApplicationPill status={c.applicationStatus} />
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() =>
               onRatingChange({
@@ -856,11 +1082,10 @@ function CandidateProfileCard({
                 remark: c.ratingRemark,
               })
             }
-            className="rounded-lg border border-line/60 bg-raised px-2 py-1 text-xs text-ink-2 transition hover:text-warn hover:border-warn/40"
-            title="Set / update rating mark"
+            className="rounded border border-line bg-raised px-1.5 py-0.5 text-[10px] text-ink-2 hover:text-warn transition"
+            title="Rate candidate"
           >
-            <Star size={12} className="inline mr-1 text-warn" />
-            Rate
+            <Star size={10} className="inline mr-0.5 text-warn" /> Rate
           </button>
 
           <button
@@ -873,97 +1098,12 @@ function CandidateProfileCard({
                 verificationStatus: c.verificationStatus,
               })
             }
-            className="rounded-lg bg-raised px-2.5 py-1 text-xs font-medium text-ink border border-line hover:bg-line transition"
+            className="rounded border border-line bg-raised px-2 py-0.5 text-[10px] font-medium text-ink hover:bg-line transition"
           >
             Status
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-/** Table View Component */
-function CandidateTableView({
-  candidates,
-  onStatusChange,
-  onRatingChange,
-}: {
-  candidates: CandidateListItem[];
-  onStatusChange: (target: StatusTarget) => void;
-  onRatingChange: (target: RatingTarget) => void;
-}) {
-  return (
-    <table className="w-full min-w-[760px] text-left text-xs">
-      <thead>
-        <tr className="border-b border-line text-ink-3">
-          <th className="th pl-4">Candidate</th>
-          <th className="th">Match Rating</th>
-          <th className="th">Role</th>
-          <th className="th">Experience</th>
-          <th className="th">Qualification</th>
-          <th className="th">Status</th>
-          <th className="th pr-4 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {candidates.map((c) => (
-          <tr key={c.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
-            <td className="td pl-4">
-              <Link to={`/candidates/${c.id}`} className="flex items-center gap-2.5 font-medium text-ink hover:underline">
-                <Avatar name={c.fullName} size="sm" />
-                <div>
-                  <span className="block font-semibold">{c.fullName}</span>
-                  <span className="block text-[11px] text-ink-3">{c.candidateCode}</span>
-                </div>
-              </Link>
-            </td>
-            <td className="td">
-              <RatingPill rating={c.profileRating} />
-            </td>
-            <td className="td">{c.position ?? '—'}</td>
-            <td className="td">{fmtExperience(c.experienceYears)}</td>
-            <td className="td max-w-[160px] truncate" title={c.qualification ?? undefined}>
-              {c.qualification ?? '—'}
-            </td>
-            <td className="td">
-              <ApplicationPill status={c.applicationStatus} />
-            </td>
-            <td className="td pr-4 text-right">
-              <div className="flex items-center justify-end gap-1.5">
-                <button
-                  onClick={() =>
-                    onRatingChange({
-                      id: c.id,
-                      name: c.fullName,
-                      code: c.candidateCode,
-                      rating: c.profileRating,
-                      remark: c.ratingRemark,
-                    })
-                  }
-                  className="rounded border border-line bg-raised px-2 py-1 text-[11px] text-ink-2 hover:text-warn"
-                >
-                  <Star size={11} className="inline mr-0.5 text-warn" /> Rate
-                </button>
-                <button
-                  onClick={() =>
-                    onStatusChange({
-                      id: c.id,
-                      name: c.fullName,
-                      code: c.candidateCode,
-                      applicationStatus: c.applicationStatus,
-                      verificationStatus: c.verificationStatus,
-                    })
-                  }
-                  className="rounded border border-line bg-raised px-2 py-1 text-[11px] text-ink hover:bg-line"
-                >
-                  Status
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
