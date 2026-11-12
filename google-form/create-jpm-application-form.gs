@@ -237,7 +237,7 @@ function setUpSourceQuestion_(form) {
 }
 
 var ADDRESS_TITLE = 'Door No., Street and Area';
-var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk', 'Company transport'];
+var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk'];
 
 /**
  * Full address in parts (City / Town, District, State, PIN code) plus "Mode of travel to office", right after the
@@ -262,10 +262,10 @@ function setUpAddressQuestions_(form) {
       .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{6}$').setHelpText('Enter the 6-digit PIN code').build()));
   var travel = findItem_(form, 'Mode of travel to office', FormApp.ItemType.MULTIPLE_CHOICE);
   if (!travel) {
-    var mc = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
-    mc.setChoices(TRAVEL_MODES.map(function (m) { return mc.createChoice(m); })).showOtherOption(true);
-    travel = mc;
+    travel = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
   }
+  var mc = travel.asMultipleChoiceItem();
+  mc.setChoices(TRAVEL_MODES.map(function (m) { return mc.createChoice(m); })).showOtherOption(true);
   place(travel);
 }
 

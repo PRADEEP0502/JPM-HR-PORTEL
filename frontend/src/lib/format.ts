@@ -179,4 +179,4 @@ export const TEMPLATE_PURPOSES: { value: TemplatePurpose; label: string; needsIn
 ];
 
 /** Choices for "Mode of travel to office" (the Google Form offers the same list). */
-export const TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk', 'Company transport', 'Other'];
+export const TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk', 'Other'];
