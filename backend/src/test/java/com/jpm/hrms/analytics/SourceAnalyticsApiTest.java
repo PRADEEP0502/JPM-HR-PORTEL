@@ -84,6 +84,19 @@ class SourceAnalyticsApiTest {
         assertThat(req.get("filled").asInt()).isEqualTo(1);
         assertThat(req.get("filledBySource").get("Indeed").asInt()).isEqualTo(1);
 
+        // roles breakdown: which source brings candidates for each position
+        JsonNode roles = a.get("roles");
+        assertThat(roles).isNotEmpty();
+        boolean hasHelper = false;
+        for (JsonNode r : roles) {
+            if ("Helper".equals(r.get("position").asText())) {
+                hasHelper = true;
+                assertThat(r.get("totalApplications").asInt()).isEqualTo(2);
+                assertThat(r.get("selected").asInt()).isEqualTo(2);
+            }
+        }
+        assertThat(hasHelper).isTrue();
+
         JsonNode trend = a.get("trend");
         assertThat(trend).hasSize(3);
         assertThat(trend.get(0).get("applications").get("Indeed").asInt()).isEqualTo(2);

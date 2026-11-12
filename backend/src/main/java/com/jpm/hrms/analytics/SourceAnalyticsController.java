@@ -61,6 +61,13 @@ public class SourceAnalyticsController {
             shown.forEach(s -> r.add(p.applications().getOrDefault(s, 0L)));
             rows.add(r);
         }
+        rows.add(List.of());
+        rows.add(List.of("Role / Sub-work", "Department", "Total Applications", "Top Source", "Top Source Count", "Top Source Share", "Selected / Joined"));
+        for (var r : a.roles()) {
+            rows.add(List.of(r.position(), r.department(), r.totalApplications(),
+                    r.topSource() == null ? "None" : r.topSource(),
+                    r.topSourceCount(), r.topSourceShare() + "%", r.selected()));
+        }
         String range = (from == null ? "all dates" : from + " to " + (to == null ? "today" : to));
         audit.record("EXPORT", "REPORT", null, "Exported Source Analytics (" + range + ", " + format.toUpperCase() + ")");
         return TableExporter.export(format, "Source Analytics", "JPM HR Portal - Source Analytics (" + range + ")",

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Award, Download, FilterX, Megaphone, Target, Users } from 'lucide-react';
+import { Award, Briefcase, Building2, Download, FilterX, Megaphone, Search, Sparkles, Target, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
 import { CATEGORICAL, PENDING_STATUSES, fmtDate, fmtDateTime, fmtNumber } from '../lib/format';
@@ -27,10 +27,21 @@ type SourceRow = {
 };
 type Period = { label: string; from: string; to: string; applications: Record<string, number>; selected: Record<string, number> };
 type RequirementRow = { requirementId: number; department: string; position: string | null; needed: number; filled: number; filledBySource: Record<string, number> };
+type RoleSourceRow = {
+  department: string;
+  position: string;
+  totalApplications: number;
+  topSource: string | null;
+  topSourceCount: number;
+  topSourceShare: number;
+  selected: number;
+  applicationsBySource: Record<string, number>;
+};
 type Analytics = {
   from: string | null; to: string | null; granularity: 'DAY' | 'MONTH'; totalApplications: number;
   topSource: string | null; topRequirementSource: string | null;
   sources: SourceRow[]; trend: Period[]; requirements: RequirementRow[];
+  roles: RoleSourceRow[];
 };
 
 export default function SourceAnalyticsPage() {
@@ -38,6 +49,7 @@ export default function SourceAnalyticsPage() {
   const navigate = useNavigate();
   const { data: departments } = useDepartments();
   const [params, setParams] = useSearchParams();
+  const [roleSearch, setRoleSearch] = useState('');
   const f = {
     from: params.get('from') ?? '',
     to: params.get('to') ?? '',
@@ -255,6 +267,168 @@ export default function SourceAnalyticsPage() {
                     </tbody>
                   </table>
                 </div>
+              </section>
+
+              {/* Leading Source per Role / Position Section */}
+              <section className="panel p-5 space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line/60 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={18} className="text-warn" />
+                      <h2 className="text-base font-bold text-ink">Leading Source per Role & Position</h2>
+                    </div>
+                    <p className="text-xs text-ink-3 mt-0.5">
+                      Discover which recruitment source brings the most applicants for each job role (எந்தப் பதவிக்கு எந்த சோர்ஸ் அதிகம்?)
+                    </p>
+                  </div>
+
+                  <div className="relative min-w-[200px] sm:max-w-xs">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+                    <input
+                      type="text"
+                      placeholder="Filter roles or departments…"
+                      className="input pl-8 py-1.5 text-xs"
+                      value={roleSearch}
+                      onChange={(e) => setRoleSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {(!a.roles || a.roles.length === 0) ? (
+                  <EmptyState title="No role data available" hint="Candidates with specified positions will show their source breakdowns here." />
+                ) : (
+                  <div className="-mx-5 overflow-x-auto">
+                    <table className="w-full min-w-[820px] text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-line text-ink-3">
+                          <th className="th pl-5">Role / Position</th>
+                          <th className="th">Department</th>
+                          <th className="th text-right">Total Applicants</th>
+                          <th className="th">Top / Leading Source</th>
+                          <th className="th text-right">Selected / Hired</th>
+                          <th className="th pr-5">All Sources Breakdown</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {a.roles
+                          .filter((r) => {
+                            if (!roleSearch) return true;
+                            const q = roleSearch.toLowerCase();
+                            return (
+                              r.position.toLowerCase().includes(q) ||
+                              r.department.toLowerCase().includes(q) ||
+                              (r.topSource ?? '').toLowerCase().includes(q)
+                            );
+                          })
+                          .map((r, idx) => {
+                            const roleExtra: Record<string, string> = r.position === 'General' ? {} : { position: r.position };
+                            return (
+                              <tr
+                                key={`${r.department}-${r.position}-${idx}`}
+                                className="border-b border-line/40 last:border-0 hover:bg-white/[0.02] transition"
+                              >
+                                <td className="td pl-5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-info/10 text-info font-bold text-xs">
+                                      <Briefcase size={13} />
+                                    </span>
+                                    <div>
+                                      <span className="font-bold text-ink block text-xs">{r.position}</span>
+                                      <span className="text-[10px] text-ink-3">Role</span>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="td">
+                                  <span className="inline-flex items-center gap-1 rounded bg-panel border border-line/70 px-2 py-0.5 text-[11px] font-medium text-ink-2">
+                                    <Building2 size={11} className="text-ink-3" /> {r.department}
+                                  </span>
+                                </td>
+
+                                <td className="td text-right font-bold text-ink tabular-nums">
+                                  <Link
+                                    to={candidatesLink(null, roleExtra)}
+                                    className="hover:underline hover:text-info"
+                                    title={`View all ${r.totalApplications} applicants for ${r.position}`}
+                                  >
+                                    {fmtNumber(r.totalApplications)}
+                                  </Link>
+                                </td>
+
+                                <td className="td">
+                                  {r.topSource ? (
+                                    <Link
+                                      to={candidatesLink(r.topSource, roleExtra)}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-line/80 bg-panel px-2.5 py-1 text-xs font-semibold hover:border-info/50 hover:bg-raised transition"
+                                      title={`${r.topSource}: ${r.topSourceCount} of ${r.totalApplications} (${r.topSourceShare}%)`}
+                                    >
+                                      <span
+                                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                                        style={{ background: sourceColor(r.topSource) }}
+                                      />
+                                      <span className="text-ink font-bold">{r.topSource}</span>
+                                      <span className="text-good font-bold tabular-nums">
+                                        {r.topSourceCount} apps
+                                      </span>
+                                      <span className="rounded bg-info/15 px-1 py-0.2 text-[10px] text-[#8fb4f5] tabular-nums">
+                                        {r.topSourceShare}%
+                                      </span>
+                                    </Link>
+                                  ) : (
+                                    <span className="text-ink-3">—</span>
+                                  )}
+                                </td>
+
+                                <td className="td text-right font-semibold text-good tabular-nums">
+                                  {r.selected > 0 ? (
+                                    <Link
+                                      to={candidatesLink(null, { ...roleExtra, applicationStatus: 'SELECTED,JOINED' })}
+                                      className="hover:underline"
+                                    >
+                                      {r.selected}
+                                    </Link>
+                                  ) : (
+                                    <span className="text-ink-3">0</span>
+                                  )}
+                                </td>
+
+                                <td className="td pr-5">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {Object.entries(r.applicationsBySource)
+                                      .filter(([, count]) => count > 0)
+                                      .sort(([, a], [, b]) => b - a)
+                                      .map(([s, count]) => {
+                                        const isTop = s === r.topSource;
+                                        return (
+                                          <Link
+                                            key={s}
+                                            to={candidatesLink(s, roleExtra)}
+                                            className={clsx(
+                                              'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border transition',
+                                              isTop
+                                                ? 'bg-raised border-line font-bold text-ink hover:border-info/50'
+                                                : 'bg-panel/60 border-line/50 text-ink-3 hover:text-ink hover:border-line'
+                                            )}
+                                            title={`${s}: ${count} applicant(s)`}
+                                          >
+                                            <span
+                                              className="h-1.5 w-1.5 rounded-full shrink-0"
+                                              style={{ background: sourceColor(s) }}
+                                            />
+                                            <span>{s}:</span>
+                                            <span className="font-semibold tabular-nums text-ink-2">{count}</span>
+                                          </Link>
+                                        );
+                                      })}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
 
               <section className="panel p-5">

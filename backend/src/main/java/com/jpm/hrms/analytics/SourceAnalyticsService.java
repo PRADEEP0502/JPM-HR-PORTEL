@@ -54,9 +54,15 @@ public class SourceAnalyticsService {
                                  Map<String, Long> filledBySource) {
     }
 
+    public record RoleSourceRow(String department, String position, long totalApplications,
+                                String topSource, long topSourceCount, double topSourceShare,
+                                long selected, Map<String, Long> applicationsBySource) {
+    }
+
     public record Analytics(LocalDate from, LocalDate to, Long departmentId, String source, Granularity granularity,
                             long totalApplications, String topSource, String topRequirementSource,
-                            List<SourceRow> sources, List<Period> trend, List<RequirementRow> requirements) {
+                            List<SourceRow> sources, List<Period> trend, List<RequirementRow> requirements,
+                            List<RoleSourceRow> roles) {
     }
 
     private final CandidateRepository candidates;
@@ -177,7 +183,46 @@ public class SourceAnalyticsService {
             if (isHired(c)) p.selected().merge(s, 1L, Long::sum);
         }
 
-        return new Analytics(from, to, departmentId, onlySource, g, all.size(), top, topReq, rows, trend, reqRows);
+        // Role-wise source breakdown: which source brings the most candidates for each role / position
+        Map<String, List<Candidate>> byRole = new LinkedHashMap<>();
+        for (Candidate c : all) {
+            String deptName = depts.find(c.getDepartmentId()).map(d -> d.getName())
+                    .orElse(c.getDepartmentId() == null ? "Unassigned" : "Department " + c.getDepartmentId());
+            String pos = c.getPosition() != null && !c.getPosition().isBlank() ? c.getPosition().trim() : "General";
+            String roleKey = deptName + "::: " + pos;
+            byRole.computeIfAbsent(roleKey, k -> new ArrayList<>()).add(c);
+        }
+
+        List<RoleSourceRow> roleRows = new ArrayList<>();
+        for (var entry : byRole.entrySet()) {
+            String[] parts = entry.getKey().split("::: ", 2);
+            String deptName = parts[0];
+            String pos = parts[1];
+            List<Candidate> cands = entry.getValue();
+
+            Map<String, Long> srcCounts = zeros(shown);
+            long hired = 0;
+            for (Candidate c : cands) {
+                srcCounts.merge(category(c.getHiringSource()), 1L, Long::sum);
+                if (isHired(c)) hired++;
+            }
+
+            String roleTopSrc = null;
+            long roleTopCount = 0;
+            for (var se : srcCounts.entrySet()) {
+                if (se.getValue() > roleTopCount) {
+                    roleTopCount = se.getValue();
+                    roleTopSrc = se.getKey();
+                }
+            }
+            double roleTopShare = pct(roleTopCount, cands.size());
+
+            roleRows.add(new RoleSourceRow(deptName, pos, cands.size(), roleTopSrc, roleTopCount, roleTopShare, hired, srcCounts));
+        }
+
+        roleRows.sort((a, b) -> Long.compare(b.totalApplications(), a.totalApplications()));
+
+        return new Analytics(from, to, departmentId, onlySource, g, all.size(), top, topReq, rows, trend, reqRows, roleRows);
     }
 
     private static boolean isHired(Candidate c) {
