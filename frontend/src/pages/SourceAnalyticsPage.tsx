@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
 import { CATEGORICAL, PENDING_STATUSES, fmtDate, fmtDateTime, fmtNumber } from '../lib/format';
 import { REFRESH_MS, useDepartments } from '../lib/queries';
+import type { CandidateListItem, Page } from '../lib/types';
 import { SectionTitle } from '../components/ui/Misc';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { HorizontalBars, MultiLine, StackedBars, type SeriesDef } from '../components/charts/Charts';
@@ -76,6 +77,90 @@ export default function SourceAnalyticsPage() {
     placeholderData: keepPreviousData,
   });
   const a = query.data;
+
+  // Query candidates to compute role-source analytics directly (provides instant display and fallback)
+  const candidatesQuery = useQuery({
+    queryKey: ['source-analytics-candidates-fallback', f.departmentId, f.source, f.from, f.to],
+    queryFn: () =>
+      api.get<Page<CandidateListItem>>('/candidates', {
+        departmentId: f.departmentId || undefined,
+        hiringSource: f.source || undefined,
+        appliedFrom: f.from || undefined,
+        appliedTo: f.to || undefined,
+        archive: 'ALL',
+        size: 500,
+      }),
+  });
+
+  const computedRoles = useMemo<RoleSourceRow[]>(() => {
+    if (a?.roles && a.roles.length > 0) {
+      return a.roles;
+    }
+
+    const cands = candidatesQuery.data?.content ?? [];
+    if (cands.length === 0) return [];
+
+    const byRole: Record<string, CandidateListItem[]> = {};
+    for (const c of cands) {
+      const deptName = c.departmentName || 'General';
+      const posName = c.position?.trim() || 'General';
+      const key = `${deptName}:::${posName}`;
+      if (!byRole[key]) byRole[key] = [];
+      byRole[key].push(c);
+    }
+
+    const rows: RoleSourceRow[] = [];
+    for (const [key, list] of Object.entries(byRole)) {
+      const [dept, pos] = key.split(':::');
+      const srcMap: Record<string, number> = {};
+      let hired = 0;
+
+      for (const c of list) {
+        const src = c.hiringSource?.trim() || 'Not specified';
+        srcMap[src] = (srcMap[src] ?? 0) + 1;
+        if (c.applicationStatus === 'SELECTED' || c.applicationStatus === 'JOINED') {
+          hired++;
+        }
+      }
+
+      let topSrc: string | null = null;
+      let topCount = 0;
+      for (const [s, cnt] of Object.entries(srcMap)) {
+        if (cnt > topCount) {
+          topCount = cnt;
+          topSrc = s;
+        }
+      }
+
+      const total = list.length;
+      const share = total > 0 ? Math.round((topCount / total) * 1000) / 10 : 0;
+
+      rows.push({
+        department: dept,
+        position: pos,
+        totalApplications: total,
+        topSource: topSrc,
+        topSourceCount: topCount,
+        topSourceShare: share,
+        selected: hired,
+        applicationsBySource: srcMap,
+      });
+    }
+
+    return rows.sort((x, y) => y.totalApplications - x.totalApplications);
+  }, [a?.roles, candidatesQuery.data?.content]);
+
+  const filteredRoles = useMemo(() => {
+    return computedRoles.filter((r) => {
+      if (!roleSearch) return true;
+      const q = roleSearch.toLowerCase();
+      return (
+        r.position.toLowerCase().includes(q) ||
+        r.department.toLowerCase().includes(q) ||
+        (r.topSource ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [computedRoles, roleSearch]);
 
   /** Candidate list for a source (and optionally an outcome or a period), within the current filters. */
   const candidatesLink = (source: string | null, extra: Record<string, string> = {}) => {
@@ -278,7 +363,7 @@ export default function SourceAnalyticsPage() {
                       <h2 className="text-base font-bold text-ink">Leading Source per Role & Position</h2>
                     </div>
                     <p className="text-xs text-ink-3 mt-0.5">
-                      Discover which recruitment source brings the most applicants for each job role (எந்தப் பதவிக்கு எந்த சோர்ஸ் அதிகம்?)
+                      Discover which recruitment source brings the most applicants for each job role and position.
                     </p>
                   </div>
 
@@ -294,8 +379,15 @@ export default function SourceAnalyticsPage() {
                   </div>
                 </div>
 
-                {(!a.roles || a.roles.length === 0) ? (
-                  <EmptyState title="No role data available" hint="Candidates with specified positions will show their source breakdowns here." />
+                {filteredRoles.length === 0 ? (
+                  computedRoles.length === 0 && candidatesQuery.isLoading ? (
+                    <LoadingBlock label="Analyzing leading sources per role…" />
+                  ) : (
+                    <EmptyState
+                      title="No role data available"
+                      hint={roleSearch ? 'No roles match the search filter.' : 'Candidates with specified positions will show their source breakdowns here.'}
+                    />
+                  )
                 ) : (
                   <div className="-mx-5 overflow-x-auto">
                     <table className="w-full min-w-[820px] text-left text-xs">
@@ -310,121 +402,111 @@ export default function SourceAnalyticsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {a.roles
-                          .filter((r) => {
-                            if (!roleSearch) return true;
-                            const q = roleSearch.toLowerCase();
-                            return (
-                              r.position.toLowerCase().includes(q) ||
-                              r.department.toLowerCase().includes(q) ||
-                              (r.topSource ?? '').toLowerCase().includes(q)
-                            );
-                          })
-                          .map((r, idx) => {
-                            const roleExtra: Record<string, string> = r.position === 'General' ? {} : { position: r.position };
-                            return (
-                              <tr
-                                key={`${r.department}-${r.position}-${idx}`}
-                                className="border-b border-line/40 last:border-0 hover:bg-white/[0.02] transition"
-                              >
-                                <td className="td pl-5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-info/10 text-info font-bold text-xs">
-                                      <Briefcase size={13} />
-                                    </span>
-                                    <div>
-                                      <span className="font-bold text-ink block text-xs">{r.position}</span>
-                                      <span className="text-[10px] text-ink-3">Role</span>
-                                    </div>
-                                  </div>
-                                </td>
-
-                                <td className="td">
-                                  <span className="inline-flex items-center gap-1 rounded bg-panel border border-line/70 px-2 py-0.5 text-[11px] font-medium text-ink-2">
-                                    <Building2 size={11} className="text-ink-3" /> {r.department}
+                        {filteredRoles.map((r, idx) => {
+                          const roleExtra: Record<string, string> = r.position === 'General' ? {} : { position: r.position };
+                          return (
+                            <tr
+                              key={`${r.department}-${r.position}-${idx}`}
+                              className="border-b border-line/40 last:border-0 hover:bg-white/[0.02] transition"
+                            >
+                              <td className="td pl-5">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-info/10 text-info font-bold text-xs">
+                                    <Briefcase size={13} />
                                   </span>
-                                </td>
-
-                                <td className="td text-right font-bold text-ink tabular-nums">
-                                  <Link
-                                    to={candidatesLink(null, roleExtra)}
-                                    className="hover:underline hover:text-info"
-                                    title={`View all ${r.totalApplications} applicants for ${r.position}`}
-                                  >
-                                    {fmtNumber(r.totalApplications)}
-                                  </Link>
-                                </td>
-
-                                <td className="td">
-                                  {r.topSource ? (
-                                    <Link
-                                      to={candidatesLink(r.topSource, roleExtra)}
-                                      className="inline-flex items-center gap-2 rounded-lg border border-line/80 bg-panel px-2.5 py-1 text-xs font-semibold hover:border-info/50 hover:bg-raised transition"
-                                      title={`${r.topSource}: ${r.topSourceCount} of ${r.totalApplications} (${r.topSourceShare}%)`}
-                                    >
-                                      <span
-                                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                                        style={{ background: sourceColor(r.topSource) }}
-                                      />
-                                      <span className="text-ink font-bold">{r.topSource}</span>
-                                      <span className="text-good font-bold tabular-nums">
-                                        {r.topSourceCount} apps
-                                      </span>
-                                      <span className="rounded bg-info/15 px-1 py-0.2 text-[10px] text-[#8fb4f5] tabular-nums">
-                                        {r.topSourceShare}%
-                                      </span>
-                                    </Link>
-                                  ) : (
-                                    <span className="text-ink-3">—</span>
-                                  )}
-                                </td>
-
-                                <td className="td text-right font-semibold text-good tabular-nums">
-                                  {r.selected > 0 ? (
-                                    <Link
-                                      to={candidatesLink(null, { ...roleExtra, applicationStatus: 'SELECTED,JOINED' })}
-                                      className="hover:underline"
-                                    >
-                                      {r.selected}
-                                    </Link>
-                                  ) : (
-                                    <span className="text-ink-3">0</span>
-                                  )}
-                                </td>
-
-                                <td className="td pr-5">
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {Object.entries(r.applicationsBySource)
-                                      .filter(([, count]) => count > 0)
-                                      .sort(([, a], [, b]) => b - a)
-                                      .map(([s, count]) => {
-                                        const isTop = s === r.topSource;
-                                        return (
-                                          <Link
-                                            key={s}
-                                            to={candidatesLink(s, roleExtra)}
-                                            className={clsx(
-                                              'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border transition',
-                                              isTop
-                                                ? 'bg-raised border-line font-bold text-ink hover:border-info/50'
-                                                : 'bg-panel/60 border-line/50 text-ink-3 hover:text-ink hover:border-line'
-                                            )}
-                                            title={`${s}: ${count} applicant(s)`}
-                                          >
-                                            <span
-                                              className="h-1.5 w-1.5 rounded-full shrink-0"
-                                              style={{ background: sourceColor(s) }}
-                                            />
-                                            <span>{s}:</span>
-                                            <span className="font-semibold tabular-nums text-ink-2">{count}</span>
-                                          </Link>
-                                        );
-                                      })}
+                                  <div>
+                                    <span className="font-bold text-ink block text-xs">{r.position}</span>
+                                    <span className="text-[10px] text-ink-3">Role</span>
                                   </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                </div>
+                              </td>
+
+                              <td className="td">
+                                <span className="inline-flex items-center gap-1 rounded bg-panel border border-line/70 px-2 py-0.5 text-[11px] font-medium text-ink-2">
+                                  <Building2 size={11} className="text-ink-3" /> {r.department}
+                                </span>
+                              </td>
+
+                              <td className="td text-right font-bold text-ink tabular-nums">
+                                <Link
+                                  to={candidatesLink(null, roleExtra)}
+                                  className="hover:underline hover:text-info"
+                                  title={`View all ${r.totalApplications} applicants for ${r.position}`}
+                                >
+                                  {fmtNumber(r.totalApplications)}
+                                </Link>
+                              </td>
+
+                              <td className="td">
+                                {r.topSource ? (
+                                  <Link
+                                    to={candidatesLink(r.topSource, roleExtra)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-line/80 bg-panel px-2.5 py-1 text-xs font-semibold hover:border-info/50 hover:bg-raised transition"
+                                    title={`${r.topSource}: ${r.topSourceCount} of ${r.totalApplications} (${r.topSourceShare}%)`}
+                                  >
+                                    <span
+                                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                                      style={{ background: sourceColor(r.topSource) }}
+                                    />
+                                    <span className="text-ink font-bold">{r.topSource}</span>
+                                    <span className="text-good font-bold tabular-nums">
+                                      {r.topSourceCount} apps
+                                    </span>
+                                    <span className="rounded bg-info/15 px-1 py-0.2 text-[10px] text-[#8fb4f5] tabular-nums">
+                                      {r.topSourceShare}%
+                                    </span>
+                                  </Link>
+                                ) : (
+                                  <span className="text-ink-3">—</span>
+                                )}
+                              </td>
+
+                              <td className="td text-right font-semibold text-good tabular-nums">
+                                {r.selected > 0 ? (
+                                  <Link
+                                    to={candidatesLink(null, { ...roleExtra, applicationStatus: 'SELECTED,JOINED' })}
+                                    className="hover:underline"
+                                  >
+                                    {r.selected}
+                                  </Link>
+                                ) : (
+                                  <span className="text-ink-3">0</span>
+                                )}
+                              </td>
+
+                              <td className="td pr-5">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {Object.entries(r.applicationsBySource)
+                                    .filter(([, count]) => count > 0)
+                                    .sort(([, a], [, b]) => b - a)
+                                    .map(([s, count]) => {
+                                      const isTop = s === r.topSource;
+                                      return (
+                                        <Link
+                                          key={s}
+                                          to={candidatesLink(s, roleExtra)}
+                                          className={clsx(
+                                            'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border transition',
+                                            isTop
+                                              ? 'bg-raised border-line font-bold text-ink hover:border-info/50'
+                                              : 'bg-panel/60 border-line/50 text-ink-3 hover:text-ink hover:border-line'
+                                          )}
+                                          title={`${s}: ${count} applicant(s)`}
+                                        >
+                                          <span
+                                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                                            style={{ background: sourceColor(s) }}
+                                          />
+                                          <span>{s}:</span>
+                                          <span className="font-semibold tabular-nums text-ink-2">{count}</span>
+                                        </Link>
+                                      );
+                                    })}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
