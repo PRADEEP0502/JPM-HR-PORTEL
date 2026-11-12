@@ -69,9 +69,14 @@ export default function RequirementsPage() {
     queryFn: () => api.get<Requirement[]>('/requirements'),
   });
 
-  const overallFilled = useQuery({
-    queryKey: ['candidates', 'overall-filled-count'],
-    queryFn: () => api.get<Page<CandidateListItem>>('/candidates', { applicationStatus: 'SELECTED,JOINED', size: 1 }),
+  // Query all hired (SELECTED, JOINED) candidates to accurately calculate fulfillment across all roles
+  const selectedCandidatesQuery = useQuery({
+    queryKey: ['candidates', 'all-selected-joined'],
+    queryFn: () =>
+      api.get<Page<CandidateListItem>>('/candidates', {
+        applicationStatus: 'SELECTED,JOINED',
+        size: 100,
+      }),
   });
 
   const add = useMutation({
@@ -99,10 +104,38 @@ export default function RequirementsPage() {
   };
 
   const reqList = requirements.data ?? [];
+  const selectedList = selectedCandidatesQuery.data?.content ?? [];
+
+  // Helper functions to calculate hired & remaining counts for any requirement
+  const getHiredCount = (r: Requirement) => {
+    return selectedList.filter((c) => {
+      if (c.departmentId !== r.departmentId) return false;
+      if (r.position && c.position && c.position.trim().toLowerCase() !== r.position.trim().toLowerCase()) {
+        return false;
+      }
+      return true;
+    }).length;
+  };
+
+  const getStillNeed = (r: Requirement) => {
+    const hired = getHiredCount(r);
+    return Math.max(0, r.needed - hired);
+  };
+
   const totalRoles = reqList.length;
   const totalNeeded = reqList.reduce((acc, r) => acc + r.needed, 0);
+  const totalHired = selectedCandidatesQuery.data?.totalElements ?? 0;
 
-  // Filtered requirements
+  // Accurately calculate open vs filled counts
+  const openRolesCount = useMemo(() => {
+    return reqList.filter((r) => getStillNeed(r) > 0).length;
+  }, [reqList, selectedList]);
+
+  const filledRolesCount = useMemo(() => {
+    return reqList.filter((r) => getStillNeed(r) === 0).length;
+  }, [reqList, selectedList]);
+
+  // Filtered requirements list with status filter properly applied
   const filteredList = useMemo(() => {
     return reqList.filter((r) => {
       const depName = r.departmentName ?? '';
@@ -112,9 +145,16 @@ export default function RequirementsPage() {
         depName.toLowerCase().includes(search.toLowerCase()) ||
         posName.toLowerCase().includes(search.toLowerCase());
       const depMatch = filterDepartment === '' || String(r.departmentId) === filterDepartment;
-      return textMatch && depMatch;
+
+      const stillNeed = getStillNeed(r);
+      const statusMatch =
+        filterStatus === 'ALL' ||
+        (filterStatus === 'OPEN' && stillNeed > 0) ||
+        (filterStatus === 'FILLED' && stillNeed === 0);
+
+      return textMatch && depMatch && statusMatch;
     });
-  }, [reqList, search, filterDepartment]);
+  }, [reqList, search, filterDepartment, filterStatus, selectedList]);
 
   return (
     <div className="space-y-6">
@@ -173,9 +213,7 @@ export default function RequirementsPage() {
             <UserCheck size={16} className="text-good" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-good">
-              {overallFilled.data?.totalElements ?? 0}
-            </span>
+            <span className="text-2xl font-bold tracking-tight tabular-nums text-good">{totalHired}</span>
             <span className="text-xs text-ink-3">selected / joined</span>
           </div>
         </div>
@@ -187,10 +225,7 @@ export default function RequirementsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold tracking-tight tabular-nums text-warn">
-              {totalNeeded > 0
-                ? Math.min(100, Math.round(((overallFilled.data?.totalElements ?? 0) / totalNeeded) * 100))
-                : 0}
-              %
+              {totalNeeded > 0 ? Math.min(100, Math.round((totalHired / totalNeeded) * 100)) : 0}%
             </span>
             <span className="text-xs text-ink-3">progress</span>
           </div>
@@ -301,33 +336,43 @@ export default function RequirementsPage() {
             ))}
           </select>
 
+          {/* Status Tabs with Exact Dynamic Counts and Clear Active Highlighting */}
           <div className="flex items-center rounded-xl bg-raised p-1 text-xs border border-line/60">
             <button
+              type="button"
               onClick={() => setFilterStatus('ALL')}
               className={clsx(
-                'rounded-lg px-2.5 py-1 font-medium transition',
-                filterStatus === 'ALL' ? 'bg-panel text-ink shadow-sm' : 'text-ink-3 hover:text-ink'
+                'rounded-lg px-3 py-1 font-semibold transition',
+                filterStatus === 'ALL'
+                  ? 'bg-panel text-ink shadow-sm ring-1 ring-line/80'
+                  : 'text-ink-3 hover:text-ink'
               )}
             >
               All Roles ({reqList.length})
             </button>
             <button
+              type="button"
               onClick={() => setFilterStatus('OPEN')}
               className={clsx(
-                'rounded-lg px-2.5 py-1 font-medium transition',
-                filterStatus === 'OPEN' ? 'bg-panel text-warn shadow-sm' : 'text-ink-3 hover:text-ink'
+                'rounded-lg px-3 py-1 font-semibold transition',
+                filterStatus === 'OPEN'
+                  ? 'bg-panel text-warn shadow-sm ring-1 ring-warn/50'
+                  : 'text-ink-3 hover:text-ink'
               )}
             >
-              Open Vacancies
+              Open Vacancies ({openRolesCount})
             </button>
             <button
+              type="button"
               onClick={() => setFilterStatus('FILLED')}
               className={clsx(
-                'rounded-lg px-2.5 py-1 font-medium transition',
-                filterStatus === 'FILLED' ? 'bg-panel text-good shadow-sm' : 'text-ink-3 hover:text-ink'
+                'rounded-lg px-3 py-1 font-semibold transition',
+                filterStatus === 'FILLED'
+                  ? 'bg-panel text-good shadow-sm ring-1 ring-good/50'
+                  : 'text-ink-3 hover:text-ink'
               )}
             >
-              Filled
+              Filled ({filledRolesCount})
             </button>
           </div>
         </div>
@@ -384,8 +429,58 @@ export default function RequirementsPage() {
           />
         </div>
       ) : filteredList.length === 0 ? (
-        <div className="panel p-8 text-center text-sm text-ink-3">
-          No requirements match your current search or filter.
+        /* Informative Empty State based on active filter */
+        <div className="panel p-8 text-center">
+          {filterStatus === 'FILLED' ? (
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warn/15 text-warn mx-auto mb-2">
+                <AlertCircle size={24} />
+              </div>
+              <h3 className="text-base font-bold text-ink">No Filled Positions Yet</h3>
+              <p className="text-xs text-ink-3">
+                All {reqList.length} configured roles currently have open vacancies ({openRolesCount} pending hiring). Once candidates are hired (Selected / Joined), they will appear here.
+              </p>
+              <button
+                type="button"
+                onClick={() => setFilterStatus('OPEN')}
+                className="btn-primary mt-3 text-xs px-4 py-2"
+              >
+                View Open Vacancies ({openRolesCount})
+              </button>
+            </div>
+          ) : filterStatus === 'OPEN' ? (
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-good/15 text-good mx-auto mb-2">
+                <CheckCircle2 size={24} />
+              </div>
+              <h3 className="text-base font-bold text-ink">All Positions Are Filled!</h3>
+              <p className="text-xs text-ink-3">
+                Great job! There are no remaining vacancies among your requirements.
+              </p>
+              <button
+                type="button"
+                onClick={() => setFilterStatus('ALL')}
+                className="btn-secondary mt-3 text-xs px-4 py-2"
+              >
+                View All Roles ({reqList.length})
+              </button>
+            </div>
+          ) : (
+            <div className="max-w-md mx-auto space-y-2">
+              <p className="text-sm text-ink-2 font-medium">No requirements match your current search or filters.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setFilterDepartment('');
+                  setFilterStatus('ALL');
+                }}
+                className="btn-secondary text-xs mt-3 px-3.5 py-1.5"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
         </div>
       ) : viewMode === 'GRID' ? (
         /* GRID VIEW: 2-3 column responsive cards layout */
@@ -394,7 +489,6 @@ export default function RequirementsPage() {
             <RequirementGridCard
               key={r.id}
               requirement={r}
-              statusFilter={filterStatus}
               onStatusChange={(target) => setStatusTarget(target)}
               onRatingChange={(target) => setRatingTarget(target)}
             />
@@ -404,7 +498,6 @@ export default function RequirementsPage() {
         /* LIST VIEW: Compact Data Table layout */
         <RequirementListView
           requirements={filteredList}
-          statusFilter={filterStatus}
           onStatusChange={(target) => setStatusTarget(target)}
           onRatingChange={(target) => setRatingTarget(target)}
         />
@@ -423,12 +516,10 @@ export default function RequirementsPage() {
 
 function RequirementGridCard({
   requirement: r,
-  statusFilter,
   onStatusChange,
   onRatingChange,
 }: {
   requirement: Requirement;
-  statusFilter: 'ALL' | 'OPEN' | 'FILLED';
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
@@ -499,9 +590,6 @@ function RequirementGridCard({
   const selected = filled.data?.totalElements ?? 0;
   const stillNeed = Math.max(r.needed - selected, 0);
   const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
-
-  if (statusFilter === 'OPEN' && stillNeed === 0) return null;
-  if (statusFilter === 'FILLED' && stillNeed > 0) return null;
 
   const ratedList = ranked.data?.content ?? [];
   const suggested = ratedList.slice(0, stillNeed);
@@ -723,12 +811,10 @@ function RequirementGridCard({
 
 function RequirementListView({
   requirements,
-  statusFilter,
   onStatusChange,
   onRatingChange,
 }: {
   requirements: Requirement[];
-  statusFilter: 'ALL' | 'OPEN' | 'FILLED';
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
@@ -755,7 +841,6 @@ function RequirementListView({
               <RequirementTableRow
                 key={r.id}
                 requirement={r}
-                statusFilter={statusFilter}
                 isExpanded={expandedId === r.id}
                 onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                 onStatusChange={onStatusChange}
@@ -771,14 +856,12 @@ function RequirementListView({
 
 function RequirementTableRow({
   requirement: r,
-  statusFilter,
   isExpanded,
   onToggleExpand,
   onStatusChange,
   onRatingChange,
 }: {
   requirement: Requirement;
-  statusFilter: 'ALL' | 'OPEN' | 'FILLED';
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (target: StatusTarget) => void;
@@ -850,9 +933,6 @@ function RequirementTableRow({
   const selected = filled.data?.totalElements ?? 0;
   const stillNeed = Math.max(r.needed - selected, 0);
   const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
-
-  if (statusFilter === 'OPEN' && stillNeed === 0) return null;
-  if (statusFilter === 'FILLED' && stillNeed > 0) return null;
 
   const ratedList = ranked.data?.content ?? [];
   const suggested = ratedList.slice(0, stillNeed);
