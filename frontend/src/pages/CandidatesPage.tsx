@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Calendar, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
@@ -21,7 +21,7 @@ import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../componen
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
-import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, type ArchiveTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
+import { ArchiveModal, EditCandidateModal, JoiningDateModal, RatingModal, StatusModal, type ArchiveTarget, type JoiningDateTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { CommunicationDialog, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 
@@ -46,6 +46,7 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
   { key: 'qualification', label: 'Qualification', sortable: true },
   { key: 'experience', label: 'Experience', sortable: true },
   { key: 'applicationDate', label: 'Application Date', sortable: true },
+  { key: 'joiningDate', label: 'Joining Date', sortable: true },
   { key: 'rating', label: 'Profile Match', sortable: true },
   { key: 'applicationStatus', label: 'Application Status', sortable: true },
   { key: 'interviewStatus', label: 'Interview Status', sortable: true },
@@ -59,6 +60,7 @@ export default function CandidatesPage() {
   const [search, setSearch] = useState(params.get('q') ?? '');
   const [editId, setEditId] = useState<number | 'new' | null>(null);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [joiningDateTarget, setJoiningDateTarget] = useState<JoiningDateTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveTarget | null>(null);
   const [viewing, setViewing] = useState<ViewTarget | null>(null);
@@ -258,6 +260,15 @@ export default function CandidatesPage() {
                       <RatingPill rating={c.profileRating} />
                     </button>
                     <span>Applied {fmtDate(c.applicationDate)}</span>
+                    {c.joiningDate && (
+                      <button
+                        onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate })}
+                        className="inline-flex items-center gap-1 rounded bg-info/10 px-1.5 py-0.5 text-[11px] font-semibold text-info"
+                        title="Click to change joining date"
+                      >
+                        <Calendar size={11} /> {c.applicationStatus === 'JOINED' ? 'Joined' : 'Joining'}: {fmtDate(c.joiningDate)}
+                      </button>
+                    )}
                   </div>
                   <div className="mt-2 flex items-center gap-1 border-t border-line/60 pt-2">
                     <button className="btn-ghost p-2" disabled={!!phoneProblem(c.mobile)} onClick={() => call.start(c.id)} aria-label={`Call ${c.fullName}`}><Phone size={16} /></button>
@@ -269,7 +280,7 @@ export default function CandidatesPage() {
               ))}
             </ul>
             <div className={clsx('-mx-4 hidden overflow-x-auto transition-opacity md:block', query.isFetching && 'opacity-70')}>
-              <table className="w-full min-w-[1380px]">
+              <table className="w-full min-w-[1480px]">
                 <thead>
                   <tr className="border-b border-line">
                     {COLUMNS.map((c) => (
@@ -330,6 +341,28 @@ export default function CandidatesPage() {
                           </button>
                         )}
                       </td>
+                      <td className="td whitespace-nowrap tabular-nums">
+                        {c.joiningDate ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-raised/80 px-2 py-0.5 text-xs font-semibold text-ink hover:border-info/50 hover:bg-raised transition"
+                            title="Click to edit joining date"
+                            onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate })}
+                          >
+                            <Calendar size={12} className="text-info" />
+                            {fmtDate(c.joiningDate)}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-xs text-ink-3/60 hover:text-info hover:underline"
+                            title="Set joining date"
+                            onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: null })}
+                          >
+                            + Set date
+                          </button>
+                        )}
+                      </td>
                       <td className="td">
                         <button
                           className="rounded-md hover:opacity-80"
@@ -382,9 +415,14 @@ export default function CandidatesPage() {
                                 items={[
                                   { label: 'Edit details', icon: <PenSquare size={15} />, onClick: () => setEditId(c.id) },
                                   {
+                                    label: c.joiningDate ? 'Change joining date' : 'Set joining date',
+                                    icon: <Calendar size={15} />,
+                                    onClick: () => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate }),
+                                  },
+                                  {
                                     label: 'Update status',
                                     icon: <UserCheck size={15} />,
-                                    onClick: () => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus }),
+                                    onClick: () => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus, joiningDate: c.joiningDate }),
                                   },
                                   {
                                     label: c.profileRating == null ? 'Rate profile' : 'Update rating',
@@ -427,6 +465,7 @@ export default function CandidatesPage() {
 
       <EditCandidateModal candidateId={editId} onClose={() => setEditId(null)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <JoiningDateModal target={joiningDateTarget} onClose={() => setJoiningDateTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <ArchiveModal target={archiveTarget} onClose={() => setArchiveTarget(null)} />
       <DocumentViewer target={viewing} onClose={() => setViewing(null)} />

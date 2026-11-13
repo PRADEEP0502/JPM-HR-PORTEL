@@ -59,6 +59,7 @@ public class CandidateService {
             "qualification", "qualification",
             "experience", "experienceYears",
             "applicationDate", "appliedAt",
+            "joiningDate", "joiningDate",
             "applicationStatus", "applicationStatus",
             "interviewStatus", "interviewStatus");
 
@@ -170,7 +171,7 @@ public class CandidateService {
                 c.getQualification(), c.getInstitution(), c.getPassingYear(),
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
                 d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(), c.getHiringSource(),
-                c.getApplicationDate(), c.getAppliedAt(),
+                c.getApplicationDate(), c.getAppliedAt(), c.getJoiningDate(),
                 c.getApplicationStatus(), c.getInterviewStatus(), c.getVerificationStatus(),
                 c.getReferenceName(), c.getReferenceRelation(), c.getReferenceContact(),
                 c.getFamilyRefName(), c.getFamilyRefRelation(), c.getFamilyRefContact(),
@@ -260,6 +261,7 @@ public class CandidateService {
         }
         set(changed, "Sub-work", c.getPosition(), trim(req.position()), c::setPosition);
         set(changed, "Source", c.getHiringSource(), trim(req.hiringSource()), c::setHiringSource);
+        set(changed, "Joining date", c.getJoiningDate(), req.joiningDate(), c::setJoiningDate);
         set(changed, "Reference name", c.getReferenceName(), trim(req.referenceName()), c::setReferenceName);
         set(changed, "Reference relation", c.getReferenceRelation(), trim(req.referenceRelation()), c::setReferenceRelation);
         set(changed, "Reference contact", c.getReferenceContact(), trim(req.referenceContact()), c::setReferenceContact);
@@ -271,16 +273,25 @@ public class CandidateService {
 
     public CandidateDetail updateStatus(Long id, StatusUpdateRequest req, String actor) {
         Candidate c = get(id);
-        if (req.applicationStatus() == null && req.verificationStatus() == null) {
-            throw ApiException.badRequest("Provide an application or verification status");
+        if (req.applicationStatus() == null && req.verificationStatus() == null && req.joiningDate() == null) {
+            throw ApiException.badRequest("Provide an application status, verification status, or joining date");
         }
         boolean changed = false;
+        if (req.joiningDate() != null && !Objects.equals(c.getJoiningDate(), req.joiningDate())) {
+            audit.record("JOINING_DATE_UPDATED", "CANDIDATE", c.getId(), "Joining date: "
+                    + (c.getJoiningDate() == null ? "Not set" : c.getJoiningDate()) + " → " + req.joiningDate());
+            c.setJoiningDate(req.joiningDate());
+            changed = true;
+        }
         if (req.applicationStatus() != null && req.applicationStatus() != c.getApplicationStatus()) {
             audit.record("STATUS_CHANGED", "CANDIDATE", c.getId(), "Application status: " + c.getApplicationStatus().label
                     + " → " + req.applicationStatus().label + (StringUtils.hasText(req.note()) ? " - " + req.note().trim() : ""));
             statusHistory.save(new StatusChange(c.getId(), c.getApplicationStatus(), req.applicationStatus(), actor,
                     StringUtils.hasText(req.note()) ? req.note().trim() : null));
             c.setApplicationStatus(req.applicationStatus());
+            if (req.applicationStatus() == ApplicationStatus.JOINED && c.getJoiningDate() == null) {
+                c.setJoiningDate(LocalDate.now(clock.withZone(zone)));
+            }
             changed = true;
         }
         if (req.verificationStatus() != null && req.verificationStatus() != c.getVerificationStatus()) {
@@ -289,9 +300,23 @@ public class CandidateService {
             c.setVerificationStatus(req.verificationStatus());
             changed = true;
         }
-        if (!changed) throw ApiException.badRequest("The candidate already has this status");
+        if (!changed) throw ApiException.badRequest("No changes were made to candidate status or joining date");
         repo.save(c);
         if (StringUtils.hasText(req.note())) remarks.save(new HrRemark(c, actor, req.note().trim()));
+        return detail(id);
+    }
+
+    /** Sets, updates or clears the candidate's joining date. */
+    public CandidateDetail updateJoiningDate(Long id, LocalDate joiningDate, String actor) {
+        Candidate c = get(id);
+        LocalDate old = c.getJoiningDate();
+        if (Objects.equals(old, joiningDate)) {
+            return detail(id);
+        }
+        c.setJoiningDate(joiningDate);
+        audit.record("JOINING_DATE_UPDATED", "CANDIDATE", c.getId(), "Joining date: "
+                + (old == null ? "Not set" : old) + " → " + (joiningDate == null ? "Cleared" : joiningDate));
+        repo.save(c);
         return detail(id);
     }
 

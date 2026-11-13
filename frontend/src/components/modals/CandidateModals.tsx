@@ -34,6 +34,7 @@ const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; m
   { key: 'qualification', label: 'Qualification', max: 200, heading: 'Education and work' },
   { key: 'institution', label: 'Institution', max: 200 },
   { key: 'passingYear', label: 'Passing year', type: 'number' },
+  { key: 'joiningDate', label: 'Joining date', type: 'date', heading: 'Joining details' },
   { key: 'previousCompany', label: 'Previous company', max: 200 },
   { key: 'experienceYears', label: 'Total experience (years)', type: 'number' },
   { key: 'previousDesignation', label: 'Previous designation', max: 150 },
@@ -272,6 +273,7 @@ export interface StatusTarget {
   code: string;
   applicationStatus: ApplicationStatus;
   verificationStatus: VerificationStatus;
+  joiningDate?: string | null;
 }
 
 export function StatusModal({ target, onClose }: { target: StatusTarget | null; onClose: () => void }) {
@@ -279,24 +281,34 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
   const invalidate = useInvalidateCandidates();
   const [app, setApp] = useState<ApplicationStatus>('NEW');
   const [ver, setVer] = useState<VerificationStatus>('PENDING');
+  const [joiningDate, setJoiningDate] = useState<string>('');
   const [note, setNote] = useState('');
 
   useEffect(() => {
     if (target) {
       setApp(target.applicationStatus);
       setVer(target.verificationStatus);
+      setJoiningDate(target.joiningDate ?? '');
       setNote('');
     }
   }, [target]);
 
-  const unchanged = !!target && app === target.applicationStatus && ver === target.verificationStatus;
+  const unchanged =
+    !!target &&
+    app === target.applicationStatus &&
+    ver === target.verificationStatus &&
+    joiningDate === (target.joiningDate ?? '');
+
   const save = useMutation({
-    mutationFn: () =>
-      api.patch(`/candidates/${target!.id}/status`, {
+    mutationFn: () => {
+      const hasDateChanged = joiningDate !== (target!.joiningDate ?? '');
+      return api.patch(`/candidates/${target!.id}/status`, {
         applicationStatus: app !== target!.applicationStatus ? app : null,
         verificationStatus: ver !== target!.verificationStatus ? ver : null,
+        joiningDate: hasDateChanged ? (joiningDate ? joiningDate : null) : undefined,
         note: note.trim() || null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast('success', `Status updated for ${target!.name}`);
       invalidate();
@@ -331,8 +343,96 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
             {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </Field>
+        <Field
+          label="Joining date"
+          hint={app === 'SELECTED' || app === 'JOINED' ? 'Expected or confirmed date of joining for the candidate' : 'Set or clear joining date (optional)'}
+        >
+          <input
+            type="date"
+            className="input"
+            value={joiningDate}
+            onChange={(e) => setJoiningDate(e.target.value)}
+          />
+        </Field>
         <Field label="HR remark (optional)" hint="Saved to the candidate's HR remarks and the status history.">
           <textarea className="input min-h-[84px]" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reason for the change…" />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ joining date quick modal
+
+export interface JoiningDateTarget {
+  id: number;
+  name: string;
+  code: string;
+  joiningDate: string | null;
+}
+
+export function JoiningDateModal({ target, onClose }: { target: JoiningDateTarget | null; onClose: () => void }) {
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const [date, setDate] = useState('');
+
+  useEffect(() => {
+    if (target) {
+      setDate(target.joiningDate ?? '');
+    }
+  }, [target]);
+
+  const unchanged = !!target && (date || null) === (target.joiningDate || null);
+
+  const save = useMutation({
+    mutationFn: (newDate: string | null) =>
+      api.patch(`/candidates/${target!.id}/joining-date`, {
+        joiningDate: newDate,
+      }),
+    onSuccess: (_, newDate) => {
+      toast('success', newDate ? `Joining date set for ${target!.name}` : `Joining date cleared for ${target!.name}`);
+      invalidate();
+      onClose();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onClose}
+      title="Candidate Joining Date"
+      description={target ? `${target.name} · ${target.code}` : undefined}
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          {target?.joiningDate && (
+            <button
+              className="btn-ghost text-bad hover:text-bad/80"
+              disabled={save.isPending}
+              onClick={() => save.mutate(null)}
+            >
+              Clear date
+            </button>
+          )}
+          <button
+            className="btn-primary"
+            disabled={unchanged || save.isPending}
+            onClick={() => save.mutate(date ? date : null)}
+          >
+            {save.isPending && <Spinner size={14} />} Save joining date
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Joining date" hint="Set or change the confirmed or expected joining date">
+          <input
+            type="date"
+            className="input"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </Field>
       </div>
     </Modal>

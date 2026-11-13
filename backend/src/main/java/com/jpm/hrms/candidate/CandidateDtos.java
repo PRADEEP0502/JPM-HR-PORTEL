@@ -31,7 +31,7 @@ public final class CandidateDtos {
 
     public record CandidateListItem(Long id, String candidateCode, String fullName, String mobile, String email,
                                     Long departmentId, String departmentName, String position, String hiringSource, String qualification,
-                                    BigDecimal experienceYears, LocalDate applicationDate,
+                                    BigDecimal experienceYears, LocalDate applicationDate, LocalDate joiningDate,
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
                                     VerificationStatus verificationStatus, CandidateSource source,
                                     Integer profileRating, String ratingRemark, boolean archived) {
@@ -39,7 +39,7 @@ public final class CandidateDtos {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
                     depts.name(c) == null ? null : c.getDepartmentId(),
                     depts.nameOrRaw(c), c.getPosition(), c.getHiringSource(),
-                    c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getApplicationStatus(),
+                    c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getJoiningDate(), c.getApplicationStatus(),
                     c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
                     c.getProfileRating(), c.getRatingRemark(), c.isArchived());
         }
@@ -77,7 +77,7 @@ public final class CandidateDtos {
             String previousCompany, BigDecimal experienceYears, String previousDesignation, String skills,
             String expectedSalary,
             // D. application
-            Long departmentId, String departmentName, String departmentRaw, String position, String hiringSource, LocalDate applicationDate, Instant appliedAt,
+            Long departmentId, String departmentName, String departmentRaw, String position, String hiringSource, LocalDate applicationDate, Instant appliedAt, LocalDate joiningDate,
             ApplicationStatus applicationStatus, InterviewStatus interviewStatus, VerificationStatus verificationStatus,
             // E. references
             String referenceName, String referenceRelation, String referenceContact,
@@ -135,6 +135,7 @@ public final class CandidateDtos {
             Long departmentId,
             @Size(max = 100) String position,
             @Size(max = 100) String hiringSource,
+            LocalDate joiningDate,
             @Size(max = 150) String referenceName,
             @Size(max = 150) String referenceRelation,
             @Size(max = 200) String referenceContact,
@@ -145,6 +146,7 @@ public final class CandidateDtos {
     }
 
     public record StatusUpdateRequest(ApplicationStatus applicationStatus, VerificationStatus verificationStatus,
+                                      LocalDate joiningDate,
                                       @Size(max = 2000) String note) {
     }
 

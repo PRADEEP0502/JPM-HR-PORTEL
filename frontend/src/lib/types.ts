@@ -67,6 +67,7 @@ export interface CandidateListItem {
   qualification: string | null;
   experienceYears: number | null;
   applicationDate: string;
+  joiningDate: string | null;
   applicationStatus: ApplicationStatus;
   interviewStatus: InterviewStatus;
   verificationStatus: VerificationStatus;
@@ -153,6 +154,7 @@ export interface CandidateDetail {
   hiringSource: string | null;
   applicationDate: string;
   appliedAt: string;
+  joiningDate: string | null;
   applicationStatus: ApplicationStatus;
   interviewStatus: InterviewStatus;
   verificationStatus: VerificationStatus;

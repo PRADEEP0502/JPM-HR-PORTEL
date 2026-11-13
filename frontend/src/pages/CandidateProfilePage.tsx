@@ -7,6 +7,7 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Briefcase,
+  Calendar,
   CalendarPlus,
   ClipboardList,
   Download,
@@ -37,7 +38,7 @@ import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
-import { ArchiveModal, EditCandidateModal, RatingModal, StatusModal, useInvalidateCandidates, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
+import { ArchiveModal, EditCandidateModal, JoiningDateModal, RatingModal, StatusModal, useInvalidateCandidates, type JoiningDateTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
@@ -117,6 +118,7 @@ export default function CandidateProfilePage() {
   }, [loaded, hash]);
   const [editing, setEditing] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [joiningDateTarget, setJoiningDateTarget] = useState<JoiningDateTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [viewing, setViewing] = useState<ViewTarget | null>(null);
@@ -195,11 +197,21 @@ export default function CandidateProfilePage() {
               <p className="text-sm text-ink-3">
                 <span className="font-mono">{c.candidateCode}</span> · {c.departmentName ?? (c.departmentRaw ? `${c.departmentRaw} (not configured)` : 'Unassigned')}{c.position ? ` – ${c.position}` : ''} · Applied {fmtDate(c.applicationDate)}
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <ApplicationPill status={c.applicationStatus} />
                 <InterviewPill status={c.interviewStatus} />
                 <VerificationPill status={c.verificationStatus} />
                 <RatingPill rating={c.profileRating} />
+                {c.joiningDate && (
+                  <button
+                    onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate })}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-info/40 bg-info/10 px-2.5 py-0.5 text-xs font-semibold text-info hover:bg-info/20 transition"
+                    title="Click to edit joining date"
+                  >
+                    <Calendar size={12} />
+                    <span>{c.applicationStatus === 'JOINED' ? 'Joined' : 'Joining'}: {fmtDate(c.joiningDate)}</span>
+                  </button>
+                )}
               </div>
               {c.profileRating != null && (
                 <p className="mt-1.5 max-w-xl text-xs text-ink-3">
@@ -224,7 +236,13 @@ export default function CandidateProfilePage() {
             <button className="btn-secondary" onClick={() => setEditing(true)}><PenSquare size={15} /> Edit</button>
             <button
               className="btn-secondary"
-              onClick={() => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus })}
+              onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate })}
+            >
+              <Calendar size={15} /> {c.joiningDate ? 'Joining Date' : 'Set joining date'}
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus, joiningDate: c.joiningDate })}
             >
               <UserCheck size={15} /> Update status
             </button>
@@ -323,6 +341,24 @@ export default function CandidateProfilePage() {
                 ? <Link to={`/candidates?departmentId=${c.departmentId}&position=${encodeURIComponent(c.position)}`} className="hover:underline">{c.position}</Link>
                 : c.position],
               ['Application date', fmtDateTime(c.appliedAt)],
+              ['Joining date', (
+                <div className="flex items-center gap-2">
+                  {c.joiningDate ? (
+                    <span className="font-semibold text-ink inline-flex items-center gap-1">
+                      <Calendar size={13} className="text-info" /> {fmtDate(c.joiningDate)}
+                    </span>
+                  ) : (
+                    <span className="text-ink-3">Not set</span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-ghost px-1.5 py-0.5 text-xs text-info hover:underline"
+                    onClick={() => setJoiningDateTarget({ id: c.id, name: c.fullName, code: c.candidateCode, joiningDate: c.joiningDate })}
+                  >
+                    {c.joiningDate ? 'Change' : 'Set date'}
+                  </button>
+                </div>
+              )],
               ['Current status', <ApplicationPill status={c.applicationStatus} />],
               ['Source', c.hiringSource && <Link to={`/candidates?hiringSource=${encodeURIComponent(c.hiringSource)}`} className="hover:underline">{c.hiringSource}</Link>],
               ['Added through', c.source === 'GOOGLE_SHEETS' ? 'Filled by candidate' : c.source === 'DEMO' ? 'Demo data (not a real applicant)' : 'Filled by HR'],
@@ -586,6 +622,7 @@ export default function CandidateProfilePage() {
 
       <EditCandidateModal candidateId={editing ? c.id : null} onClose={() => setEditing(false)} />
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <JoiningDateModal target={joiningDateTarget} onClose={() => setJoiningDateTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <DocumentViewer target={viewing} onClose={() => setViewing(null)} />
       <ArchiveModal target={archiving ? { id: c.id, name: c.fullName, code: c.candidateCode, archived: c.archived } : null} onClose={() => setArchiving(false)} />

@@ -56,6 +56,8 @@ public class Candidate implements SequencedEntity {
 
     private LocalDate applicationDate;
     private Instant appliedAt;
+    /** Expected or confirmed date the candidate will join / has joined. */
+    private LocalDate joiningDate;
 
     private ApplicationStatus applicationStatus = ApplicationStatus.NEW;
     private InterviewStatus interviewStatus = InterviewStatus.NOT_SCHEDULED;
@@ -157,6 +159,8 @@ public class Candidate implements SequencedEntity {
     public void setApplicationDate(LocalDate applicationDate) { this.applicationDate = applicationDate; }
     public Instant getAppliedAt() { return appliedAt; }
     public void setAppliedAt(Instant appliedAt) { this.appliedAt = appliedAt; }
+    public LocalDate getJoiningDate() { return joiningDate; }
+    public void setJoiningDate(LocalDate joiningDate) { this.joiningDate = joiningDate; }
     public ApplicationStatus getApplicationStatus() { return applicationStatus; }
     public void setApplicationStatus(ApplicationStatus applicationStatus) { this.applicationStatus = applicationStatus; }
     public InterviewStatus getInterviewStatus() { return interviewStatus; }

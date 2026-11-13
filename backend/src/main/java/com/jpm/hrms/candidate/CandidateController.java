@@ -93,6 +93,7 @@ public class CandidateController {
             r.add(c.getQualification());
             r.add(c.getExperienceYears());
             r.add(c.getApplicationDate());
+            r.add(c.getJoiningDate() == null ? "—" : c.getJoiningDate());
             r.add(c.getProfileRating() == null ? "Not Rated" : c.getProfileRating());
             r.add(c.getApplicationStatus().label);
             r.add(c.getInterviewStatus().label);
@@ -107,7 +108,7 @@ public class CandidateController {
         }
         var response = TableExporter.export(format, "Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Sub-work", "Source", "Qualification", "Experience (yrs)",
-                        "Application Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification",
+                        "Application Date", "Joining Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification",
                         "Address", "City / Town", "District", "State", "PIN code", "Mode of travel"),
                 rows, "candidates");
         audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to " + format.toUpperCase());
@@ -160,6 +161,14 @@ public class CandidateController {
     @PatchMapping("/candidates/{id}/status")
     public CandidateDetail updateStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateRequest req, Authentication auth) {
         return service.updateStatus(id, req, auth.getName());
+    }
+
+    public record JoiningDateRequest(java.time.LocalDate joiningDate) {
+    }
+
+    @PatchMapping("/candidates/{id}/joining-date")
+    public CandidateDetail updateJoiningDate(@PathVariable Long id, @RequestBody JoiningDateRequest req, Authentication auth) {
+        return service.updateJoiningDate(id, req == null ? null : req.joiningDate(), auth.getName());
     }
 
     /** Profile Match Rating (1-10), set by HR / admin after reviewing the application. Never exposed to candidates. */
