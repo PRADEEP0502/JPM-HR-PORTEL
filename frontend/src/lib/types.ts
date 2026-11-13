@@ -6,9 +6,10 @@ export type ApplicationStatus =
   | 'INTERVIEW_SCHEDULED'
   | 'INTERVIEW_COMPLETED'
   | 'SELECTED'
-  | 'REJECTED'
+  | 'JOINED'
+  | 'NOT_JOINED'
   | 'ON_HOLD'
-  | 'JOINED';
+  | 'REJECTED';
 export type Recommendation = 'STRONGLY_RECOMMEND' | 'RECOMMEND' | 'NEUTRAL' | 'NOT_RECOMMENDED';
 export type ArchiveScope = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type InterviewStatus = 'NOT_SCHEDULED' | 'SCHEDULED' | 'COMPLETED' | 'RESCHEDULED' | 'CANCELLED';

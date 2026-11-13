@@ -76,12 +76,19 @@ export default function PipelinePage() {
                           className="btn-ghost px-1.5 py-1 text-xs"
                           title="Change recruitment status"
                           aria-label={`Change status of ${c.fullName}`}
-                          onClick={() => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus })}
+                          onClick={() => setStatusTarget({ id: c.id, name: c.fullName, code: c.candidateCode, applicationStatus: c.applicationStatus, verificationStatus: c.verificationStatus, joiningDate: c.joiningDate })}
                         >
                           <ArrowRightLeft size={14} /> Move
                         </button>
                       </div>
-                      <p className="mt-1 text-[11px] text-ink-3">Applied {fmtDate(c.applicationDate)}</p>
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[11px] text-ink-3">
+                        <span>Applied {fmtDate(c.applicationDate)}</span>
+                        {c.joiningDate && (
+                          <span className="font-medium text-info">
+                            {c.applicationStatus === 'JOINED' ? 'Joined' : 'Joining'}: {fmtDate(c.joiningDate)}
+                          </span>
+                        )}
+                      </div>
                     </li>
                   ))}
                   {col.count > col.candidates.length && (
