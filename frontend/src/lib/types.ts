@@ -53,6 +53,10 @@ export interface Requirement {
   departmentName: string | null;
   position: string | null;
   needed: number;
+  /** 1 = fill first; the list comes back in this order. */
+  priority: number;
+  /** Active selected / joined candidates in this department and sub-work. */
+  hired: number;
 }
 
 export interface CandidateListItem {

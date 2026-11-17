@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Flag,
   GraduationCap,
   LayoutGrid,
   List,
@@ -40,6 +41,15 @@ const validNumber = (text: string) => {
   return Number.isInteger(n) && n >= 1 && n <= MAX_NEEDED;
 };
 
+/** 1 → "1st", 2 → "2nd", 11 → "11th" … */
+const ordinal = (n: number) => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+const requirementTitle = (r: Requirement) => `${r.departmentName ?? 'Unassigned'}${r.position ? ` – ${r.position}` : ''}`;
+
 export default function RequirementsPage() {
   const toast = useToast();
   const qc = useQueryClient();
@@ -51,11 +61,13 @@ export default function RequirementsPage() {
   const [departmentId, setDepartmentId] = useState(params.get('departmentId') ?? '');
   const [position, setPosition] = useState('');
   const [needed, setNeeded] = useState('');
+  const [priority, setPriority] = useState('');
   const subWork = departments?.find((d) => String(d.id) === departmentId)?.positions ?? [];
 
   // Filters & search
   const [search, setSearch] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
+  // opened from the Departments page (?departmentId=…) → show that department's requirements
+  const [filterDepartment, setFilterDepartment] = useState(params.get('departmentId') ?? '');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'OPEN' | 'FILLED'>('ALL');
   // Primary layout view toggle: Grid (Cards) vs List (Table)
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
@@ -69,27 +81,19 @@ export default function RequirementsPage() {
     queryFn: () => api.get<Requirement[]>('/requirements'),
   });
 
-  // Query all hired (SELECTED, JOINED) candidates to accurately calculate fulfillment across all roles
-  const selectedCandidatesQuery = useQuery({
-    queryKey: ['candidates', 'all-selected-joined'],
-    queryFn: () =>
-      api.get<Page<CandidateListItem>>('/candidates', {
-        applicationStatus: 'SELECTED,JOINED',
-        size: 100,
-      }),
-  });
-
   const add = useMutation({
     mutationFn: () =>
       api.post<Requirement>('/requirements', {
         departmentId: Number(departmentId),
         position: position || null,
         needed: Number(needed),
+        priority: priority ? Number(priority) : null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['requirements'] });
       setPosition('');
       setNeeded('');
+      setPriority('');
       setShowAddForm(false);
       toast('success', 'Requirement added successfully');
     },
@@ -103,58 +107,36 @@ export default function RequirementsPage() {
     add.mutate();
   };
 
-  const reqList = requirements.data ?? [];
-  const selectedList = selectedCandidatesQuery.data?.content ?? [];
+  // the server sends them in priority order (1st first); sorting again keeps that true after any local change
+  const reqList = useMemo(
+    () => [...(requirements.data ?? [])].sort((a, b) => a.priority - b.priority || a.id - b.id),
+    [requirements.data]
+  );
 
-  // Helper functions to calculate hired & remaining counts for any requirement
-  const getHiredCount = (r: Requirement) => {
-    return selectedList.filter((c) => {
-      if (c.departmentId !== r.departmentId) return false;
-      if (r.position && c.position && c.position.trim().toLowerCase() !== r.position.trim().toLowerCase()) {
-        return false;
-      }
-      return true;
-    }).length;
-  };
-
-  const getStillNeed = (r: Requirement) => {
-    const hired = getHiredCount(r);
-    return Math.max(0, r.needed - hired);
-  };
+  // hired counts come from the server for each requirement (same department + sub-work match as the candidate list)
+  const stillNeedOf = (r: Requirement) => Math.max(0, r.needed - r.hired);
 
   const totalRoles = reqList.length;
   const totalNeeded = reqList.reduce((acc, r) => acc + r.needed, 0);
-  const totalHired = selectedCandidatesQuery.data?.totalElements ?? 0;
+  // only hires that count towards a target (extra hires beyond the number needed do not inflate the rate)
+  const totalHired = reqList.reduce((acc, r) => acc + Math.min(r.hired, r.needed), 0);
+  const openRolesCount = reqList.filter((r) => stillNeedOf(r) > 0).length;
+  const filledRolesCount = reqList.length - openRolesCount;
 
-  // Accurately calculate open vs filled counts
-  const openRolesCount = useMemo(() => {
-    return reqList.filter((r) => getStillNeed(r) > 0).length;
-  }, [reqList, selectedList]);
-
-  const filledRolesCount = useMemo(() => {
-    return reqList.filter((r) => getStillNeed(r) === 0).length;
-  }, [reqList, selectedList]);
-
-  // Filtered requirements list with status filter properly applied
   const filteredList = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return reqList.filter((r) => {
-      const depName = r.departmentName ?? '';
-      const posName = r.position ?? '';
       const textMatch =
-        search === '' ||
-        depName.toLowerCase().includes(search.toLowerCase()) ||
-        posName.toLowerCase().includes(search.toLowerCase());
+        q === '' || (r.departmentName ?? '').toLowerCase().includes(q) || (r.position ?? '').toLowerCase().includes(q);
       const depMatch = filterDepartment === '' || String(r.departmentId) === filterDepartment;
-
-      const stillNeed = getStillNeed(r);
+      const stillNeed = stillNeedOf(r);
       const statusMatch =
         filterStatus === 'ALL' ||
         (filterStatus === 'OPEN' && stillNeed > 0) ||
         (filterStatus === 'FILLED' && stillNeed === 0);
-
       return textMatch && depMatch && statusMatch;
     });
-  }, [reqList, search, filterDepartment, filterStatus, selectedList]);
+  }, [reqList, search, filterDepartment, filterStatus]);
 
   return (
     <div className="space-y-6">
@@ -214,7 +196,7 @@ export default function RequirementsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold tracking-tight tabular-nums text-good">{totalHired}</span>
-            <span className="text-xs text-ink-3">selected / joined</span>
+            <span className="text-xs text-ink-3">towards targets</span>
           </div>
         </div>
 
@@ -246,7 +228,7 @@ export default function RequirementsPage() {
             <span className="text-xs text-ink-3">Specify how many candidates are needed</span>
           </div>
 
-          <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Field label="Department *">
               <select
                 className="input"
@@ -291,6 +273,17 @@ export default function RequirementsPage() {
                 value={needed}
                 onChange={(e) => setNeeded(e.target.value.replace(/\D/g, '').slice(0, 3))}
               />
+            </Field>
+
+            <Field label="Priority">
+              <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="">Last ({ordinal(reqList.length + 1)})</option>
+                {reqList.map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {ordinal(i + 1)} priority{i === 0 ? ' (most urgent)' : ''}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <div className="flex items-center gap-2">
@@ -489,6 +482,7 @@ export default function RequirementsPage() {
             <RequirementGridCard
               key={r.id}
               requirement={r}
+              total={reqList.length}
               onStatusChange={(target) => setStatusTarget(target)}
               onRatingChange={(target) => setRatingTarget(target)}
             />
@@ -498,6 +492,7 @@ export default function RequirementsPage() {
         /* LIST VIEW: Compact Data Table layout */
         <RequirementListView
           requirements={filteredList}
+          total={reqList.length}
           onStatusChange={(target) => setStatusTarget(target)}
           onRatingChange={(target) => setRatingTarget(target)}
         />
@@ -516,10 +511,12 @@ export default function RequirementsPage() {
 
 function RequirementGridCard({
   requirement: r,
+  total,
   onStatusChange,
   onRatingChange,
 }: {
   requirement: Requirement;
+  total: number;
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
@@ -532,16 +529,6 @@ function RequirementGridCard({
 
   const scope = { departmentId: r.departmentId, position: r.position || undefined };
   const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
-
-  const filled = useQuery({
-    queryKey: ['candidates', 'requirement-filled', r.departmentId, r.position],
-    queryFn: () =>
-      api.get<Page<CandidateListItem>>('/candidates', {
-        ...scope,
-        applicationStatus: 'SELECTED,JOINED',
-        size: 1,
-      }),
-  });
 
   const ranked = useQuery({
     queryKey: ['candidates', 'requirement-ranked', r.departmentId, r.position],
@@ -587,7 +574,7 @@ function RequirementGridCard({
     onError: (e) => toast('error', e.message),
   });
 
-  const selected = filled.data?.totalElements ?? 0;
+  const selected = r.hired;
   const stillNeed = Math.max(r.needed - selected, 0);
   const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
 
@@ -597,7 +584,7 @@ function RequirementGridCard({
   const totalApplicants = ratedList.length + unratedList.length;
   const dirty = draft !== String(r.needed);
 
-  const title = `${r.departmentName ?? 'Unassigned'}${r.position ? ` – ${r.position}` : ''}`;
+  const title = requirementTitle(r);
 
   return (
     <div className="panel flex flex-col justify-between overflow-hidden border border-line/80 shadow-card transition-all hover:border-line">
@@ -615,11 +602,14 @@ function RequirementGridCard({
             </span>
             <div>
               <h2 className="font-bold text-sm text-ink line-clamp-1" title={title}>
-                {title}
+                {r.departmentName ?? 'Unassigned'}
               </h2>
               <span className="text-[11px] text-ink-3">
                 {r.position ? r.position : 'Whole Department'}
               </span>
+              <div className="mt-1.5">
+                <PriorityControl requirement={r} total={total} />
+              </div>
             </div>
           </div>
 
@@ -811,10 +801,12 @@ function RequirementGridCard({
 
 function RequirementListView({
   requirements,
+  total,
   onStatusChange,
   onRatingChange,
 }: {
   requirements: Requirement[];
+  total: number;
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
@@ -823,10 +815,11 @@ function RequirementListView({
   return (
     <div className="panel overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[850px] text-left text-xs">
+        <table className="w-full min-w-[960px] text-left text-xs">
           <thead>
             <tr className="border-b border-line bg-raised/50 text-ink-3">
-              <th className="th pl-4">Department & Position</th>
+              <th className="th pl-4">Priority</th>
+              <th className="th">Department & Position</th>
               <th className="th">Target Needed</th>
               <th className="th">Hired</th>
               <th className="th">Remaining</th>
@@ -841,6 +834,7 @@ function RequirementListView({
               <RequirementTableRow
                 key={r.id}
                 requirement={r}
+                total={total}
                 isExpanded={expandedId === r.id}
                 onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                 onStatusChange={onStatusChange}
@@ -856,12 +850,14 @@ function RequirementListView({
 
 function RequirementTableRow({
   requirement: r,
+  total,
   isExpanded,
   onToggleExpand,
   onStatusChange,
   onRatingChange,
 }: {
   requirement: Requirement;
+  total: number;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (target: StatusTarget) => void;
@@ -875,16 +871,6 @@ function RequirementTableRow({
 
   const scope = { departmentId: r.departmentId, position: r.position || undefined };
   const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
-
-  const filled = useQuery({
-    queryKey: ['candidates', 'requirement-filled', r.departmentId, r.position],
-    queryFn: () =>
-      api.get<Page<CandidateListItem>>('/candidates', {
-        ...scope,
-        applicationStatus: 'SELECTED,JOINED',
-        size: 1,
-      }),
-  });
 
   const ranked = useQuery({
     queryKey: ['candidates', 'requirement-ranked', r.departmentId, r.position],
@@ -930,7 +916,7 @@ function RequirementTableRow({
     onError: (e) => toast('error', e.message),
   });
 
-  const selected = filled.data?.totalElements ?? 0;
+  const selected = r.hired;
   const stillNeed = Math.max(r.needed - selected, 0);
   const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
 
@@ -944,6 +930,9 @@ function RequirementTableRow({
     <>
       <tr className="border-b border-line/50 transition hover:bg-white/[0.02]">
         <td className="td pl-4">
+          <PriorityControl requirement={r} total={total} />
+        </td>
+        <td className="td">
           <div className="flex items-center gap-2.5">
             <span
               className={clsx(
@@ -1038,7 +1027,7 @@ function RequirementTableRow({
             title="Delete requirement"
             disabled={remove.isPending}
             onClick={() =>
-              window.confirm(`Delete the requirement for "${r.departmentName}"?`) && remove.mutate()
+              window.confirm(`Delete the requirement "${requirementTitle(r)}"? Candidates are not affected.`) && remove.mutate()
             }
           >
             <Trash2 size={15} />
@@ -1049,11 +1038,11 @@ function RequirementTableRow({
       {/* Accordion Drawer for Candidates when row is expanded */}
       {isExpanded && (
         <tr className="bg-raised/20 border-b border-line">
-          <td colSpan={8} className="p-4">
+          <td colSpan={9} className="p-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-ink-3">
                 <span className="font-semibold text-ink-2">
-                  Matching Applicant Profiles for {r.departmentName} ({allCandidates.length})
+                  Matching Applicant Profiles for {requirementTitle(r)} ({allCandidates.length})
                 </span>
                 <Link to={`/candidates?${scopeLink}`} className="text-info hover:underline flex items-center gap-1">
                   Open in Candidates List <ArrowUpRight size={12} />
@@ -1079,6 +1068,67 @@ function RequirementTableRow({
         </tr>
       )}
     </>
+  );
+}
+
+// -------------------------------------------------------------------------------------------------
+// PRIORITY (1st, 2nd, 3rd …) — SHARED BY GRID & LIST
+// -------------------------------------------------------------------------------------------------
+
+const PRIORITY_STYLE = ['bg-bad/15 text-bad ring-bad/40', 'bg-warn/15 text-warn ring-warn/40', 'bg-info/15 text-info ring-info/40'];
+
+/** Shows "1st priority" etc. and lets HR move the requirement up, down or straight to a number; the others shift to make room. */
+function PriorityControl({ requirement: r, total }: { requirement: Requirement; total: number }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const move = useMutation({
+    mutationFn: (priority: number) => api.put<Requirement>(`/requirements/${r.id}`, { priority }),
+    onSuccess: (saved) => {
+      qc.invalidateQueries({ queryKey: ['requirements'] });
+      toast('success', `${requirementTitle(r)} is now ${ordinal(saved.priority)} priority`);
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const to = (p: number) => p !== r.priority && p >= 1 && p <= total && move.mutate(p);
+  const style = PRIORITY_STYLE[r.priority - 1] ?? 'bg-raised text-ink-2 ring-line';
+
+  return (
+    <div className="inline-flex items-center gap-0.5">
+      <button
+        type="button"
+        className="rounded p-0.5 text-ink-3 hover:bg-raised hover:text-ink disabled:opacity-30"
+        title="Move up (more urgent)"
+        disabled={move.isPending || r.priority <= 1}
+        onClick={() => to(r.priority - 1)}
+      >
+        <ChevronUp size={13} />
+      </button>
+      <label className={clsx('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1', style)}>
+        <Flag size={10} />
+        <select
+          className="cursor-pointer appearance-none bg-transparent font-semibold outline-none"
+          title="Priority"
+          value={r.priority}
+          disabled={move.isPending}
+          onChange={(e) => to(Number(e.target.value))}
+        >
+          {Array.from({ length: Math.max(total, r.priority) }, (_, i) => (
+            <option key={i + 1} value={i + 1} className="bg-panel text-ink">
+              {ordinal(i + 1)} priority
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        className="rounded p-0.5 text-ink-3 hover:bg-raised hover:text-ink disabled:opacity-30"
+        title="Move down (less urgent)"
+        disabled={move.isPending || r.priority >= total}
+        onClick={() => to(r.priority + 1)}
+      >
+        <ChevronDown size={13} />
+      </button>
+    </div>
   );
 }
 

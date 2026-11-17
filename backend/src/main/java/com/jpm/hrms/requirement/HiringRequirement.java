@@ -14,6 +14,8 @@ public class HiringRequirement implements SequencedEntity {
     private Long departmentId;
     private String position;
     private int needed;
+    /** 1 = filled first. Older records have none and are numbered after the rest. */
+    private Integer priority;
     private String createdBy;
     private Instant createdAt;
     private Instant updatedAt;
@@ -45,6 +47,8 @@ public class HiringRequirement implements SequencedEntity {
     public String getPosition() { return position; }
     public int getNeeded() { return needed; }
     public void setNeeded(int needed) { this.needed = needed; }
+    public Integer getPriority() { return priority; }
+    public void setPriority(Integer priority) { this.priority = priority; }
     public String getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

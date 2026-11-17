@@ -57,6 +57,19 @@ class HiringRequirementApiTest {
         mvc.perform(get("/api/candidates").header("Authorization", "Bearer " + admin).param("departmentId", String.valueOf(dept))
                 .param("applicationStatus", "SELECTED,JOINED").param("size", "1")).andExpect(status().isOk());
 
+        // priority: new ones go last unless a number is given; moving one shifts the others and keeps 1, 2, 3 …
+        long wholeDept = idOf(admin, dept, null);
+        assertThat(priority(admin, id)).isLessThan(priority(admin, wholeDept));
+        call(put("/api/requirements/" + wholeDept), admin, "{\"priority\":1}").andExpect(status().isOk());
+        assertThat(priority(admin, wholeDept)).isEqualTo(1);
+        assertThat(priority(admin, id)).isGreaterThan(1);
+        long third = mapper.readTree(call(post("/api/requirements"), admin, "{\"departmentId\":" + dept + ",\"position\":\"Third\",\"needed\":1,\"priority\":1}")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asLong();
+        assertThat(priority(admin, third)).isEqualTo(1);
+        assertThat(priority(admin, wholeDept)).isEqualTo(2);
+        assertThat(list(admin).get(0).get("hired").asLong()).isGreaterThanOrEqualTo(0);
+        call(put("/api/requirements/" + id), admin, "{}").andExpect(status().isBadRequest());
+
         call(put("/api/requirements/" + id), admin, "{\"needed\":8}").andExpect(status().isOk());
         assertThat(needed(admin, id)).isEqualTo(8);
 
@@ -70,6 +83,30 @@ class HiringRequirementApiTest {
 
         mvc.perform(delete("/api/requirements/" + id).header("Authorization", "Bearer " + admin)).andExpect(status().isNoContent());
         assertThat(needed(admin, id)).isEqualTo(-1);
+    }
+
+    private JsonNode list(String token) throws Exception {
+        return mapper.readTree(mvc.perform(get("/api/requirements").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    private int priority(String token, long id) throws Exception {
+        JsonNode all = list(token);
+        for (int i = 0; i < all.size(); i++) {
+            JsonNode r = all.get(i);
+            if (r.get("id").asLong() == id) {
+                assertThat(r.get("priority").asInt()).isEqualTo(i + 1); // the list is in priority order with no gaps
+                return r.get("priority").asInt();
+            }
+        }
+        return -1;
+    }
+
+    private long idOf(String token, long dept, String position) throws Exception {
+        for (JsonNode r : list(token)) {
+            if (r.get("departmentId").asLong() == dept && (position == null ? r.get("position").isNull() : position.equals(r.get("position").asText()))) return r.get("id").asLong();
+        }
+        return -1;
     }
 
     private int needed(String token, long id) throws Exception {
