@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   GraduationCap,
+  Pencil,
   Phone,
   Plus,
   Search,
@@ -29,6 +30,7 @@ import type { CandidateListItem, Page, Requirement } from '../lib/types';
 import { ApplicationPill, RatingPill } from '../components/ui/Pill';
 import { Avatar, Field } from '../components/ui/Misc';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
+import { Modal } from '../components/ui/Modal';
 import { RatingModal, StatusModal, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 
 const MAX_NEEDED = 100;
@@ -70,6 +72,7 @@ export default function RequirementsPage() {
   // Shared modals
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<Requirement | null>(null);
 
   const requirements = useQuery({
     queryKey: ['requirements'],
@@ -104,7 +107,7 @@ export default function RequirementsPage() {
 
   // the server sends them in priority order (1st first); sorting again keeps that true after any local change
   const reqList = useMemo(
-    () => [...(requirements.data ?? [])].sort((a, b) => a.priority - b.priority || a.id - b.id),
+    () => [...(requirements.data ?? [])].sort((a, b) => (a.priority || Infinity) - (b.priority || Infinity) || a.id - b.id),
     [requirements.data]
   );
 
@@ -411,6 +414,7 @@ export default function RequirementsPage() {
         <RequirementListView
           requirements={filteredList}
           total={reqList.length}
+          onEdit={setEditTarget}
           onStatusChange={(target) => setStatusTarget(target)}
           onRatingChange={(target) => setRatingTarget(target)}
         />
@@ -419,6 +423,7 @@ export default function RequirementsPage() {
       {/* Modals */}
       <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
+      <EditRequirementModal target={editTarget} total={reqList.length} onClose={() => setEditTarget(null)} />
     </div>
   );
 }
@@ -467,11 +472,13 @@ const fillState = (r: Requirement): FillState => (r.hired >= r.needed ? 'FILLED'
 function RequirementListView({
   requirements,
   total,
+  onEdit,
   onStatusChange,
   onRatingChange,
 }: {
   requirements: Requirement[];
   total: number;
+  onEdit: (r: Requirement) => void;
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
@@ -514,6 +521,7 @@ function RequirementListView({
                 key={r.id}
                 requirement={r}
                 total={total}
+                onEdit={() => onEdit(r)}
                 isExpanded={expandedId === r.id}
                 onToggleExpand={() => setExpandedId(expandedId === r.id ? null : r.id)}
                 onStatusChange={onStatusChange}
@@ -530,6 +538,7 @@ function RequirementListView({
 function RequirementTableRow({
   requirement: r,
   total,
+  onEdit,
   isExpanded,
   onToggleExpand,
   onStatusChange,
@@ -537,6 +546,7 @@ function RequirementTableRow({
 }: {
   requirement: Requirement;
   total: number;
+  onEdit: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (target: StatusTarget) => void;
@@ -708,14 +718,23 @@ function RequirementTableRow({
         </td>
 
         <td className="py-3.5 pl-3 pr-5 text-right">
-          <button
-            className="rounded-lg p-1.5 text-ink-3 opacity-60 transition hover:bg-bad/10 hover:text-bad group-hover:opacity-100 focus-visible:opacity-100"
-            title="Delete requirement"
-            disabled={remove.isPending}
-            onClick={() => window.confirm(`Delete the requirement "${requirementTitle(r)}"? Candidates are not affected.`) && remove.mutate()}
-          >
-            <Trash2 size={15} />
-          </button>
+          <div className="inline-flex items-center gap-1">
+            <button
+              className="inline-flex items-center gap-1 rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[11px] font-semibold text-ink-2 transition hover:border-info/50 hover:text-info"
+              title="Edit priority and target"
+              onClick={onEdit}
+            >
+              <Pencil size={12} /> Edit
+            </button>
+            <button
+              className="rounded-lg p-1.5 text-ink-3 opacity-60 transition hover:bg-bad/10 hover:text-bad group-hover:opacity-100 focus-visible:opacity-100"
+              title="Delete requirement"
+              disabled={remove.isPending}
+              onClick={() => window.confirm(`Delete the requirement "${requirementTitle(r)}"? Candidates are not affected.`) && remove.mutate()}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
         </td>
       </tr>
 
@@ -808,6 +827,110 @@ function CandidateGroup({
         ))}
       </div>
     </div>
+  );
+}
+
+// -------------------------------------------------------------------------------------------------
+// EDIT REQUIREMENT (PRIORITY + TARGET)
+// -------------------------------------------------------------------------------------------------
+
+function EditRequirementModal({ target: r, total, onClose }: { target: Requirement | null; total: number; onClose: () => void }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [priority, setPriority] = useState(1);
+  const [needed, setNeeded] = useState('');
+
+  useEffect(() => {
+    if (r) {
+      setPriority(r.priority || total);
+      setNeeded(String(r.needed));
+    }
+  }, [r, total]);
+
+  const save = useMutation({
+    mutationFn: (body: { priority?: number; needed?: number }) => api.put<Requirement>(`/requirements/${r!.id}`, body),
+    onSuccess: (saved) => {
+      qc.invalidateQueries({ queryKey: ['requirements'] });
+      toast(
+        'success',
+        saved.priority === 1 ? `${requirementTitle(saved)} is now 1st priority (top of the list)` : `Saved — ${ordinal(saved.priority)} priority`
+      );
+      onClose();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+
+  if (!r) return null;
+  const changed = priority !== r.priority || Number(needed) !== r.needed;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validNumber(needed)) return toast('error', `People needed must be 1 to ${MAX_NEEDED}`);
+    if (!changed) return onClose();
+    save.mutate({
+      ...(priority !== r.priority && { priority }),
+      ...(Number(needed) !== r.needed && { needed: Number(needed) }),
+    });
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Edit requirement"
+      description={requirementTitle(r)}
+      footer={
+        <>
+          <button type="button" className="btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" form="edit-requirement" className="btn-primary" disabled={save.isPending || !changed}>
+            {save.isPending ? <Spinner size={15} /> : <Check size={15} />} Save
+          </button>
+        </>
+      }
+    >
+      <form id="edit-requirement" className="space-y-5" onSubmit={submit}>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold text-ink-2">Priority</span>
+            <span className="text-[11px] text-ink-3">1st = top of the list, filled first</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: Math.max(total, 1) }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                className={clsx(
+                  'min-w-[56px] rounded-xl px-3 py-2 text-xs font-bold ring-1 transition',
+                  priority === p
+                    ? clsx(PRIORITY_STYLE[p - 1] ?? 'bg-info/15 text-info ring-info/50', 'scale-105 ring-2')
+                    : 'bg-raised text-ink-2 ring-line hover:text-ink hover:ring-info/40'
+                )}
+              >
+                {ordinal(p)}
+              </button>
+            ))}
+          </div>
+          {priority !== r.priority && (
+            <p className="mt-2 text-[11px] text-ink-3">
+              Moves from <strong className="text-ink-2">{ordinal(r.priority)}</strong> to{' '}
+              <strong className="text-ink-2">{ordinal(priority)}</strong>
+              {priority === 1 ? ' — it will show at the top.' : '.'} The others shift to make room.
+            </p>
+          )}
+        </div>
+
+        <Field label="People needed *">
+          <input
+            className="input"
+            inputMode="numeric"
+            value={needed}
+            onChange={(e) => setNeeded(e.target.value.replace(/\D/g, '').slice(0, 3))}
+          />
+        </Field>
+      </form>
+    </Modal>
   );
 }
 
