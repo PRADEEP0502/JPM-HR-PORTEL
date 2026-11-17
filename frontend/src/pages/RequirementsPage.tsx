@@ -5,15 +5,12 @@ import clsx from 'clsx';
 import {
   AlertCircle,
   ArrowUpRight,
+  Check,
   Briefcase,
-  Building2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Flag,
   GraduationCap,
-  LayoutGrid,
-  List,
   Phone,
   Plus,
   Search,
@@ -69,8 +66,6 @@ export default function RequirementsPage() {
   // opened from the Departments page (?departmentId=…) → show that department's requirements
   const [filterDepartment, setFilterDepartment] = useState(params.get('departmentId') ?? '');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'OPEN' | 'FILLED'>('ALL');
-  // Primary layout view toggle: Grid (Cards) vs List (Table)
-  const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
 
   // Shared modals
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
@@ -122,6 +117,7 @@ export default function RequirementsPage() {
   const totalHired = reqList.reduce((acc, r) => acc + Math.min(r.hired, r.needed), 0);
   const openRolesCount = reqList.filter((r) => stillNeedOf(r) > 0).length;
   const filledRolesCount = reqList.length - openRolesCount;
+  const fulfillment = totalNeeded > 0 ? Math.min(100, Math.round((totalHired / totalNeeded) * 100)) : 0;
 
   const filteredList = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,10 +143,10 @@ export default function RequirementsPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-info/15 text-info">
               <TrendingUp size={18} />
             </span>
-            <h1 className="text-xl font-bold tracking-tight text-ink">Manpower & Requirements Dashboard</h1>
+            <h1 className="text-xl font-bold tracking-tight text-ink">Manpower Requirements</h1>
           </div>
           <p className="mt-1 text-xs text-ink-3">
-            Real-time workforce planning, position fulfillment, and matching applicant profiles.
+            Every role in priority order: how far each one is filled and who can fill it next.
           </p>
         </div>
         <button
@@ -166,52 +162,21 @@ export default function RequirementsPage() {
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
-        <div className="panel p-4 transition hover:border-line">
-          <div className="flex items-center justify-between text-ink-3">
-            <span className="text-xs font-medium">Target Roles</span>
-            <Briefcase size={16} className="text-info" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-ink">{totalRoles}</span>
-            <span className="text-xs text-ink-3">configured</span>
-          </div>
-        </div>
-
-        <div className="panel p-4 transition hover:border-line">
-          <div className="flex items-center justify-between text-ink-3">
-            <span className="text-xs font-medium">Total Openings</span>
-            <Users size={16} className="text-violet" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-ink">{totalNeeded}</span>
-            <span className="text-xs text-ink-3">people needed</span>
-          </div>
-        </div>
-
-        <div className="panel p-4 transition hover:border-line">
-          <div className="flex items-center justify-between text-ink-3">
-            <span className="text-xs font-medium">Hired Candidates</span>
-            <UserCheck size={16} className="text-good" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-good">{totalHired}</span>
-            <span className="text-xs text-ink-3">towards targets</span>
-          </div>
-        </div>
-
-        <div className="panel p-4 transition hover:border-line">
-          <div className="flex items-center justify-between text-ink-3">
-            <span className="text-xs font-medium">Fulfillment Rate</span>
-            <Sparkles size={16} className="text-warn" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-warn">
-              {totalNeeded > 0 ? Math.min(100, Math.round((totalHired / totalNeeded) * 100)) : 0}%
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${filledRolesCount} filled`} />
+        <Kpi icon={<Users size={16} />} tone="violet" label="People needed" value={totalNeeded} hint="across all roles" />
+        <Kpi icon={<UserCheck size={16} />} tone="good" label="Hired" value={totalHired} hint="selected / joined, towards targets" />
+        <Kpi
+          icon={<Sparkles size={16} />}
+          tone="warn"
+          label="Fulfillment"
+          value={`${fulfillment}%`}
+          hint={
+            <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-raised">
+              <span className="block h-full rounded-full bg-gradient-to-r from-warn to-good transition-all duration-700" style={{ width: `${fulfillment}%` }} />
             </span>
-            <span className="text-xs text-ink-3">progress</span>
-          </div>
-        </div>
+          }
+        />
       </div>
 
       {/* Collapsible Add Requirement Form */}
@@ -369,42 +334,9 @@ export default function RequirementsPage() {
             </button>
           </div>
         </div>
-
-        {/* View Mode Toggle: Grid vs List with distinct button labels */}
-        <div className="flex items-center gap-1.5 border-t border-line/40 pt-2 sm:border-0 sm:pt-0">
-          <span className="text-xs text-ink-3 font-medium mr-1">View:</span>
-          <button
-            type="button"
-            onClick={() => setViewMode('GRID')}
-            title="Grid View (Cards)"
-            className={clsx(
-              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-              viewMode === 'GRID'
-                ? 'bg-info text-white shadow-sm ring-1 ring-info'
-                : 'bg-raised text-ink-3 hover:text-ink hover:bg-line'
-            )}
-          >
-            <LayoutGrid size={14} />
-            <span>Grid</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('LIST')}
-            title="List View (Table)"
-            className={clsx(
-              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-              viewMode === 'LIST'
-                ? 'bg-info text-white shadow-sm ring-1 ring-info'
-                : 'bg-raised text-ink-3 hover:text-ink hover:bg-line'
-            )}
-          >
-            <List size={14} />
-            <span>List</span>
-          </button>
-        </div>
       </div>
 
-      {/* Requirements List / Grid Display */}
+      {/* Requirements list (priority order) */}
       {requirements.isLoading ? (
         <div className="panel">
           <LoadingBlock label="Loading manpower dashboard…" />
@@ -475,21 +407,7 @@ export default function RequirementsPage() {
             </div>
           )}
         </div>
-      ) : viewMode === 'GRID' ? (
-        /* GRID VIEW: 2-3 column responsive cards layout */
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filteredList.map((r) => (
-            <RequirementGridCard
-              key={r.id}
-              requirement={r}
-              total={reqList.length}
-              onStatusChange={(target) => setStatusTarget(target)}
-              onRatingChange={(target) => setRatingTarget(target)}
-            />
-          ))}
-        </div>
       ) : (
-        /* LIST VIEW: Compact Data Table layout */
         <RequirementListView
           requirements={filteredList}
           total={reqList.length}
@@ -506,298 +424,45 @@ export default function RequirementsPage() {
 }
 
 // -------------------------------------------------------------------------------------------------
-// GRID VIEW CARD COMPONENT
+// KPI TILE
 // -------------------------------------------------------------------------------------------------
 
-function RequirementGridCard({
-  requirement: r,
-  total,
-  onStatusChange,
-  onRatingChange,
-}: {
-  requirement: Requirement;
-  total: number;
-  onStatusChange: (target: StatusTarget) => void;
-  onRatingChange: (target: RatingTarget) => void;
-}) {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const [draft, setDraft] = useState(String(r.needed));
-  const [isExpanded, setIsExpanded] = useState(false);
+const TONE = {
+  info: 'from-info/25 to-info/5 text-info',
+  violet: 'from-violet/25 to-violet/5 text-violet',
+  good: 'from-good/25 to-good/5 text-good',
+  warn: 'from-warn/25 to-warn/5 text-warn',
+} as const;
 
-  useEffect(() => setDraft(String(r.needed)), [r.needed]);
-
-  const scope = { departmentId: r.departmentId, position: r.position || undefined };
-  const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
-
-  const ranked = useQuery({
-    queryKey: ['candidates', 'requirement-ranked', r.departmentId, r.position],
-    queryFn: () =>
-      api.get<Page<CandidateListItem>>('/candidates', {
-        ...scope,
-        applicationStatus: PENDING_STATUSES,
-        rating: '1-10',
-        sort: 'rating',
-        dir: 'desc',
-        size: MAX_NEEDED,
-      }),
-  });
-
-  const unrated = useQuery({
-    queryKey: ['candidates', 'requirement-unrated', r.departmentId, r.position],
-    queryFn: () =>
-      api.get<Page<CandidateListItem>>('/candidates', {
-        ...scope,
-        applicationStatus: PENDING_STATUSES,
-        rating: 'UNRATED',
-        sort: 'applicationDate',
-        dir: 'desc',
-        size: MAX_NEEDED,
-      }),
-  });
-
-  const update = useMutation({
-    mutationFn: () => api.put<Requirement>(`/requirements/${r.id}`, { needed: Number(draft) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['requirements'] });
-      toast('success', 'Requirement updated');
-    },
-    onError: (e) => toast('error', e.message),
-  });
-
-  const remove = useMutation({
-    mutationFn: () => api.del(`/requirements/${r.id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['requirements'] });
-      toast('success', 'Requirement deleted');
-    },
-    onError: (e) => toast('error', e.message),
-  });
-
-  const selected = r.hired;
-  const stillNeed = Math.max(r.needed - selected, 0);
-  const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
-
-  const ratedList = ranked.data?.content ?? [];
-  const suggested = ratedList.slice(0, stillNeed);
-  const unratedList = unrated.data?.content ?? [];
-  const totalApplicants = ratedList.length + unratedList.length;
-  const dirty = draft !== String(r.needed);
-
-  const title = requirementTitle(r);
-
+function Kpi({ icon, tone, label, value, hint }: { icon: React.ReactNode; tone: keyof typeof TONE; label: string; value: React.ReactNode; hint: React.ReactNode }) {
   return (
-    <div className="panel flex flex-col justify-between overflow-hidden border border-line/80 shadow-card transition-all hover:border-line">
-      {/* Card Header */}
-      <div className="p-4 border-b border-line/60 bg-raised/30">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={clsx(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold',
-                stillNeed === 0 ? 'bg-good/20 text-good' : selected > 0 ? 'bg-info/20 text-info' : 'bg-warn/20 text-warn'
-              )}
-            >
-              <Building2 size={16} />
-            </span>
-            <div>
-              <h2 className="font-bold text-sm text-ink line-clamp-1" title={title}>
-                {r.departmentName ?? 'Unassigned'}
-              </h2>
-              <span className="text-[11px] text-ink-3">
-                {r.position ? r.position : 'Whole Department'}
-              </span>
-              <div className="mt-1.5">
-                <PriorityControl requirement={r} total={total} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {stillNeed === 0 ? (
-              <span className="rounded-md bg-good/15 px-2 py-0.5 text-[11px] font-semibold text-good">
-                ✓ Filled
-              </span>
-            ) : selected > 0 ? (
-              <span className="rounded-md bg-info/15 px-2 py-0.5 text-[11px] font-semibold text-info">
-                In Progress
-              </span>
-            ) : (
-              <span className="rounded-md bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">
-                Shortage
-              </span>
-            )}
-
-            <button
-              className="btn-ghost p-1 text-ink-3 hover:text-bad"
-              title="Delete requirement"
-              disabled={remove.isPending}
-              onClick={() =>
-                window.confirm(`Delete the requirement "${title}"? Candidates are not affected.`) && remove.mutate()
-              }
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Metric Badges */}
-        <div className="mt-3.5 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-lg border border-line/50 bg-panel/70 p-2">
-            <span className="block text-[10px] text-ink-3">Target</span>
-            <div className="flex items-center justify-center gap-1 mt-0.5">
-              <input
-                className="w-8 rounded bg-raised px-1 text-center font-bold text-ink text-xs outline-none"
-                inputMode="numeric"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
-              />
-              {dirty && (
-                <button
-                  className="rounded bg-info px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-info/80"
-                  disabled={update.isPending}
-                  onClick={() => (validNumber(draft) ? update.mutate() : toast('error', `1 to ${MAX_NEEDED}`))}
-                >
-                  ✓
-                </button>
-              )}
-            </div>
-          </div>
-
-          <Link
-            to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
-            className="rounded-lg border border-line/50 bg-panel/70 p-2 transition hover:border-good/50"
-          >
-            <span className="block text-[10px] text-ink-3">Hired</span>
-            <span className="font-bold text-good tabular-nums text-xs mt-0.5 block">{selected}</span>
-          </Link>
-
-          <div className="rounded-lg border border-line/50 bg-panel/70 p-2">
-            <span className="block text-[10px] text-ink-3">Remaining</span>
-            <span className="font-bold text-warn tabular-nums text-xs mt-0.5 block">{stillNeed}</span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-3 space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-ink-3">
-            <span>Progress: {selected} of {r.needed}</span>
-            <span className="font-bold text-ink-2">{fulfillmentPct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
-            <div
-              className={clsx(
-                'h-full rounded-full transition-all duration-500',
-                stillNeed === 0 ? 'bg-good' : selected > 0 ? 'bg-info' : 'bg-warn'
-              )}
-              style={{ width: `${fulfillmentPct}%` }}
-            />
-          </div>
+    <div className="panel relative overflow-hidden p-4">
+      <div className={clsx('pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br opacity-60 blur-xl', TONE[tone])} />
+      <div className="relative flex items-center gap-3">
+        <span className={clsx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ring-1 ring-line/60', TONE[tone])}>{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">{label}</div>
+          <div className="text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink">{value}</div>
         </div>
       </div>
-
-      {/* Card Body: Profiles Preview or Full List */}
-      <div className="p-4 flex-1 space-y-3">
-        {ranked.isLoading ? (
-          <div className="py-4 text-center text-xs text-ink-3">Matching candidates…</div>
-        ) : stillNeed === 0 ? (
-          <div className="rounded-xl border border-good/30 bg-good/10 p-3 text-center text-xs text-good">
-            <CheckCircle2 size={18} className="mx-auto mb-1 text-good" />
-            <span className="font-semibold">Requirement fully filled</span>
-          </div>
-        ) : suggested.length > 0 ? (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-ink-2 flex items-center gap-1">
-                <Star size={12} className="text-warn fill-warn/20" /> Top Matched Profiles ({suggested.length})
-              </span>
-            </div>
-
-            {/* Show candidate profile mini cards */}
-            <div className="space-y-2">
-              {(isExpanded ? suggested : suggested.slice(0, 2)).map((c) => (
-                <CandidateMiniProfileCard
-                  key={c.id}
-                  candidate={c}
-                  onStatusChange={onStatusChange}
-                  onRatingChange={onRatingChange}
-                />
-              ))}
-            </div>
-
-            {suggested.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setIsExpanded((v) => !v)}
-                className="w-full text-center text-xs text-info hover:underline py-1"
-              >
-                {isExpanded ? 'Show less' : `+ View ${suggested.length - 2} more matched candidate(s)`}
-              </button>
-            )}
-          </div>
-        ) : unratedList.length > 0 ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-ink-2 flex items-center gap-1">
-                <Users size={12} className="text-info" /> Applicants in this Role ({unratedList.length})
-              </span>
-              <span className="text-[10px] text-ink-3">Awaiting Score</span>
-            </div>
-
-            <div className="space-y-2">
-              {(isExpanded ? unratedList : unratedList.slice(0, 2)).map((c) => (
-                <CandidateMiniProfileCard
-                  key={c.id}
-                  candidate={c}
-                  onStatusChange={onStatusChange}
-                  onRatingChange={onRatingChange}
-                />
-              ))}
-            </div>
-
-            {unratedList.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setIsExpanded((v) => !v)}
-                className="w-full text-center text-xs text-info hover:underline py-1"
-              >
-                {isExpanded ? 'Show less' : `+ View ${unratedList.length - 2} more applicant(s)`}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-line/50 bg-raised/20 p-4 text-center">
-            <Users size={20} className="mx-auto text-ink-3" />
-            <p className="mt-1.5 text-xs text-ink-3">No active applicants for this position yet</p>
-            <Link
-              to={`/candidates?departmentId=${r.departmentId}`}
-              className="mt-2 inline-block text-[11px] text-info hover:underline"
-            >
-              Browse {r.departmentName ?? ''} Candidates →
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* Card Footer */}
-      <div className="border-t border-line/60 bg-raised/20 px-4 py-2.5 flex items-center justify-between text-xs">
-        <span className="text-ink-3 text-[11px]">
-          Total available: <strong className="text-ink-2">{totalApplicants}</strong>
-        </span>
-        <Link
-          to={`/candidates?${scopeLink}`}
-          className="text-info font-medium hover:underline flex items-center gap-1"
-        >
-          View in Candidates <ArrowUpRight size={12} />
-        </Link>
-      </div>
+      <div className="relative mt-1 text-[11px] text-ink-3">{hint}</div>
     </div>
   );
 }
 
 // -------------------------------------------------------------------------------------------------
-// LIST VIEW (TABLE) COMPONENT
+// LIST VIEW
 // -------------------------------------------------------------------------------------------------
+
+type FillState = 'OPEN' | 'PROGRESS' | 'FILLED';
+
+const FILL_META: Record<FillState, { label: string; dot: string; pill: string; bar: string; accent: string }> = {
+  OPEN: { label: 'Hiring', dot: 'bg-warn', pill: 'bg-warn/10 text-warn ring-warn/30', bar: 'bg-warn', accent: 'bg-warn' },
+  PROGRESS: { label: 'In progress', dot: 'bg-info', pill: 'bg-info/10 text-info ring-info/30', bar: 'bg-gradient-to-r from-info to-good', accent: 'bg-info' },
+  FILLED: { label: 'Filled', dot: 'bg-good', pill: 'bg-good/10 text-good ring-good/30', bar: 'bg-good', accent: 'bg-good' },
+};
+
+const fillState = (r: Requirement): FillState => (r.hired >= r.needed ? 'FILLED' : r.hired > 0 ? 'PROGRESS' : 'OPEN');
 
 function RequirementListView({
   requirements,
@@ -813,23 +478,37 @@ function RequirementListView({
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel overflow-hidden p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/60 px-5 py-4">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">Hiring priorities</h2>
+          <p className="mt-0.5 text-[11px] text-ink-3">The top row is filled first. Use the arrows or click the number to change the order.</p>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-ink-3">
+          {(Object.keys(FILL_META) as FillState[]).map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5">
+              <span className={clsx('h-2 w-2 rounded-full', FILL_META[k].dot)} /> {FILL_META[k].label}
+            </span>
+          ))}
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-xs">
+        <table className="w-full min-w-[1000px] text-left text-xs">
           <thead>
-            <tr className="border-b border-line bg-raised/50 text-ink-3">
-              <th className="th pl-4">Priority</th>
-              <th className="th">Department & Position</th>
-              <th className="th">Target Needed</th>
-              <th className="th">Hired</th>
-              <th className="th">Remaining</th>
-              <th className="th">Fulfillment Progress</th>
-              <th className="th">Status</th>
-              <th className="th">Matched Profiles</th>
-              <th className="th pr-4 text-right">Actions</th>
+            <tr className="bg-raised/40 text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+              <th className="w-[110px] py-2.5 pl-5 pr-2 font-semibold">Priority</th>
+              <th className="px-3 py-2.5 font-semibold">Role</th>
+              <th className="px-3 py-2.5 font-semibold">Target</th>
+              <th className="px-3 py-2.5 text-center font-semibold">Hired</th>
+              <th className="px-3 py-2.5 text-center font-semibold">Remaining</th>
+              <th className="w-[210px] px-3 py-2.5 font-semibold">Fulfillment</th>
+              <th className="px-3 py-2.5 font-semibold">Status</th>
+              <th className="px-3 py-2.5 font-semibold">Candidates</th>
+              <th className="py-2.5 pl-3 pr-5" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-line/50">
             {requirements.map((r) => (
               <RequirementTableRow
                 key={r.id}
@@ -872,6 +551,7 @@ function RequirementTableRow({
   const scope = { departmentId: r.departmentId, position: r.position || undefined };
   const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
 
+  // waiting candidates in this department / sub-work: rated ones best first, then the unrated ones newest first
   const ranked = useQuery({
     queryKey: ['candidates', 'requirement-ranked', r.departmentId, r.position],
     queryFn: () =>
@@ -902,7 +582,7 @@ function RequirementTableRow({
     mutationFn: () => api.put<Requirement>(`/requirements/${r.id}`, { needed: Number(draft) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['requirements'] });
-      toast('success', 'Requirement updated');
+      toast('success', 'Target updated');
     },
     onError: (e) => toast('error', e.message),
   });
@@ -916,152 +596,172 @@ function RequirementTableRow({
     onError: (e) => toast('error', e.message),
   });
 
-  const selected = r.hired;
-  const stillNeed = Math.max(r.needed - selected, 0);
-  const fulfillmentPct = r.needed > 0 ? Math.min(100, Math.round((selected / r.needed) * 100)) : 0;
-
+  const state = fillState(r);
+  const meta = FILL_META[state];
+  const stillNeed = Math.max(r.needed - r.hired, 0);
+  const pct = r.needed > 0 ? Math.min(100, Math.round((r.hired / r.needed) * 100)) : 0;
   const ratedList = ranked.data?.content ?? [];
-  const suggested = ratedList.slice(0, stillNeed);
   const unratedList = unrated.data?.content ?? [];
-  const allCandidates = [...suggested, ...unratedList];
+  const waiting = ratedList.length + unratedList.length;
   const dirty = draft !== String(r.needed);
+  const saveTarget = () => (validNumber(draft) ? update.mutate() : toast('error', `Target must be 1 to ${MAX_NEEDED}`));
+  const deptName = r.departmentName ?? 'Unassigned';
 
   return (
     <>
-      <tr className="border-b border-line/50 transition hover:bg-white/[0.02]">
-        <td className="td pl-4">
+      <tr className={clsx('group transition-colors hover:bg-raised/40', isExpanded && 'bg-raised/30')}>
+        <td className="relative py-3.5 pl-5 pr-2">
+          <span className={clsx('absolute inset-y-3 left-0 w-1 rounded-r-full', meta.accent)} />
           <PriorityControl requirement={r} total={total} />
         </td>
-        <td className="td">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={clsx(
-                'flex h-8 w-8 items-center justify-center rounded-lg',
-                stillNeed === 0 ? 'bg-good/15 text-good' : selected > 0 ? 'bg-info/15 text-info' : 'bg-warn/15 text-warn'
-              )}
-            >
-              <Building2 size={16} />
+
+        <td className="px-3 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-info/25 to-violet/20 text-sm font-bold text-ink ring-1 ring-line/60">
+              {deptName.charAt(0).toUpperCase()}
             </span>
-            <div>
-              <span className="font-bold text-ink block">{r.departmentName ?? 'Unassigned'}</span>
-              <span className="text-[11px] text-ink-3 block">{r.position || 'Whole Department'}</span>
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold text-ink" title={requirementTitle(r)}>{deptName}</div>
+              <span className="mt-0.5 inline-flex max-w-[220px] items-center gap-1 truncate rounded-md bg-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
+                <Briefcase size={10} className="shrink-0" /> {r.position || 'Whole department'}
+              </span>
             </div>
           </div>
         </td>
 
-        <td className="td">
-          <div className="flex items-center gap-1.5">
+        <td className="px-3 py-3.5">
+          <form
+            className="flex items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (dirty) saveTarget();
+            }}
+          >
             <input
-              className="w-10 rounded bg-raised px-1 py-0.5 text-center font-bold text-ink text-xs outline-none border border-line/60"
+              className="w-12 rounded-lg border border-line/70 bg-raised px-1.5 py-1 text-center text-[13px] font-bold tabular-nums text-ink outline-none transition focus:border-info focus:ring-2 focus:ring-info/25"
               inputMode="numeric"
+              aria-label="People needed"
               value={draft}
               onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
             />
             {dirty && (
               <button
-                className="rounded bg-info px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-info/80"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-info text-white shadow-sm transition hover:bg-info/85"
+                title="Save target"
                 disabled={update.isPending}
-                onClick={() => (validNumber(draft) ? update.mutate() : toast('error', `1 to ${MAX_NEEDED}`))}
               >
-                Save
+                {update.isPending ? <Spinner size={12} /> : <Check size={14} />}
               </button>
             )}
-          </div>
+          </form>
         </td>
 
-        <td className="td tabular-nums font-semibold text-good">
-          <Link to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`} className="hover:underline">
-            {selected}
+        <td className="px-3 py-3.5 text-center">
+          <Link
+            to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
+            className="text-[15px] font-bold tabular-nums text-good hover:underline"
+            title="See the hired candidates"
+          >
+            {r.hired}
           </Link>
         </td>
 
-        <td className="td tabular-nums font-semibold text-warn">{stillNeed}</td>
-
-        <td className="td">
-          <div className="flex items-center gap-2 min-w-[130px]">
-            <div className="h-1.5 flex-1 rounded-full bg-raised overflow-hidden">
-              <div
-                className={clsx(
-                  'h-full rounded-full transition-all duration-500',
-                  stillNeed === 0 ? 'bg-good' : selected > 0 ? 'bg-info' : 'bg-warn'
-                )}
-                style={{ width: `${fulfillmentPct}%` }}
-              />
-            </div>
-            <span className="text-xs font-semibold tabular-nums text-ink-3">{fulfillmentPct}%</span>
-          </div>
-        </td>
-
-        <td className="td">
-          {stillNeed === 0 ? (
-            <span className="inline-flex items-center gap-1 rounded bg-good/15 px-2 py-0.5 text-[11px] font-semibold text-good">
-              <CheckCircle2 size={11} /> Filled
-            </span>
-          ) : selected > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded bg-info/15 px-2 py-0.5 text-[11px] font-semibold text-info">
-              In Progress
-            </span>
+        <td className="px-3 py-3.5 text-center">
+          {stillNeed > 0 ? (
+            <span className="text-[15px] font-bold tabular-nums text-warn">{stillNeed}</span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">
-              <AlertCircle size={11} /> Vacancy
-            </span>
+            <span className="text-ink-3">—</span>
           )}
         </td>
 
-        <td className="td">
+        <td className="px-3 py-3.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-ink-3">
+              <span className="font-semibold text-ink-2">{r.hired}</span> of {r.needed}
+            </span>
+            <span className="font-bold tabular-nums text-ink-2">{pct}%</span>
+          </div>
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-raised">
+            <div className={clsx('h-full rounded-full transition-all duration-700', meta.bar)} style={{ width: `${Math.max(pct, 2)}%` }} />
+          </div>
+        </td>
+
+        <td className="px-3 py-3.5">
+          <span className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1', meta.pill)}>
+            <span className={clsx('h-1.5 w-1.5 rounded-full', meta.dot, state === 'OPEN' && 'animate-pulse')} />
+            {meta.label}
+          </span>
+        </td>
+
+        <td className="px-3 py-3.5">
           <button
             onClick={onToggleExpand}
             className={clsx(
-              'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border transition',
-              isExpanded ? 'bg-info/20 text-info border-info/40' : 'bg-raised text-ink-2 border-line hover:text-ink'
+              'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition',
+              isExpanded ? 'border-info/40 bg-info/15 text-info' : 'border-line bg-raised text-ink-2 hover:border-info/40 hover:text-ink'
             )}
           >
-            <span>Candidates ({allCandidates.length})</span>
+            <Users size={12} />
+            {ranked.isLoading || unrated.isLoading ? <Spinner size={11} /> : waiting}
             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </td>
 
-        <td className="td pr-4 text-right">
+        <td className="py-3.5 pl-3 pr-5 text-right">
           <button
-            className="btn-ghost p-1.5 text-ink-3 hover:text-bad"
+            className="rounded-lg p-1.5 text-ink-3 opacity-60 transition hover:bg-bad/10 hover:text-bad group-hover:opacity-100 focus-visible:opacity-100"
             title="Delete requirement"
             disabled={remove.isPending}
-            onClick={() =>
-              window.confirm(`Delete the requirement "${requirementTitle(r)}"? Candidates are not affected.`) && remove.mutate()
-            }
+            onClick={() => window.confirm(`Delete the requirement "${requirementTitle(r)}"? Candidates are not affected.`) && remove.mutate()}
           >
             <Trash2 size={15} />
           </button>
         </td>
       </tr>
 
-      {/* Accordion Drawer for Candidates when row is expanded */}
       {isExpanded && (
-        <tr className="bg-raised/20 border-b border-line">
-          <td colSpan={9} className="p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-ink-3">
+        <tr className="bg-raised/20">
+          <td colSpan={9} className="px-5 pb-5 pt-3">
+            <div className="animate-fade-up space-y-4">
+              <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-ink-2">
-                  Matching Applicant Profiles for {requirementTitle(r)} ({allCandidates.length})
+                  Waiting candidates for {requirementTitle(r)} <span className="text-ink-3">({waiting})</span>
                 </span>
-                <Link to={`/candidates?${scopeLink}`} className="text-info hover:underline flex items-center gap-1">
-                  Open in Candidates List <ArrowUpRight size={12} />
+                <Link to={`/candidates?${scopeLink}`} className="flex items-center gap-1 font-medium text-info hover:underline">
+                  Open in Candidates <ArrowUpRight size={12} />
                 </Link>
               </div>
 
-              {allCandidates.length === 0 ? (
-                <p className="text-xs text-ink-3 py-2 italic">No applicants found for this position.</p>
+              {waiting === 0 ? (
+                <div className="rounded-xl border border-dashed border-line/70 p-6 text-center">
+                  <Users size={20} className="mx-auto text-ink-3" />
+                  <p className="mt-1.5 text-xs text-ink-3">No candidates are waiting for this role yet.</p>
+                </div>
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {allCandidates.map((c) => (
-                    <CandidateMiniProfileCard
-                      key={c.id}
-                      candidate={c}
+                <>
+                  {ratedList.length > 0 && (
+                    <CandidateGroup
+                      title="Rated — best first"
+                      note={stillNeed > 0 ? `Top ${Math.min(stillNeed, ratedList.length)} suggested to fill the remaining ${stillNeed}` : undefined}
+                      icon={<Star size={12} className="fill-warn/20 text-warn" />}
+                      list={ratedList}
+                      suggestedCount={stillNeed}
                       onStatusChange={onStatusChange}
                       onRatingChange={onRatingChange}
                     />
-                  ))}
-                </div>
+                  )}
+                  {unratedList.length > 0 && (
+                    <CandidateGroup
+                      title="Not rated yet"
+                      note="Rate them to rank them"
+                      icon={<Users size={12} className="text-info" />}
+                      list={unratedList}
+                      suggestedCount={0}
+                      onStatusChange={onStatusChange}
+                      onRatingChange={onRatingChange}
+                    />
+                  )}
+                </>
               )}
             </div>
           </td>
@@ -1071,13 +771,57 @@ function RequirementTableRow({
   );
 }
 
+function CandidateGroup({
+  title,
+  note,
+  icon,
+  list,
+  suggestedCount,
+  onStatusChange,
+  onRatingChange,
+}: {
+  title: string;
+  note?: string;
+  icon: React.ReactNode;
+  list: CandidateListItem[];
+  suggestedCount: number;
+  onStatusChange: (target: StatusTarget) => void;
+  onRatingChange: (target: RatingTarget) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="flex items-center gap-1 font-semibold uppercase tracking-wider text-ink-2">
+          {icon} {title} ({list.length})
+        </span>
+        {note && <span className="text-ink-3">· {note}</span>}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {list.map((c, i) => (
+          <CandidateMiniProfileCard
+            key={c.id}
+            candidate={c}
+            suggested={i < suggestedCount}
+            onStatusChange={onStatusChange}
+            onRatingChange={onRatingChange}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // -------------------------------------------------------------------------------------------------
-// PRIORITY (1st, 2nd, 3rd …) — SHARED BY GRID & LIST
+// PRIORITY (1st, 2nd, 3rd …)
 // -------------------------------------------------------------------------------------------------
 
-const PRIORITY_STYLE = ['bg-bad/15 text-bad ring-bad/40', 'bg-warn/15 text-warn ring-warn/40', 'bg-info/15 text-info ring-info/40'];
+const PRIORITY_STYLE = [
+  'bg-gradient-to-br from-bad/25 to-bad/5 text-bad ring-bad/40',
+  'bg-gradient-to-br from-warn/25 to-warn/5 text-warn ring-warn/40',
+  'bg-gradient-to-br from-info/25 to-info/5 text-info ring-info/40',
+];
 
-/** Shows "1st priority" etc. and lets HR move the requirement up, down or straight to a number; the others shift to make room. */
+/** A rank chip ("1st", "2nd" …); click it to jump to a number, or nudge with the arrows. The others shift to make room. */
 function PriorityControl({ requirement: r, total }: { requirement: Requirement; total: number }) {
   const toast = useToast();
   const qc = useQueryClient();
@@ -1091,62 +835,87 @@ function PriorityControl({ requirement: r, total }: { requirement: Requirement; 
   });
   const to = (p: number) => p !== r.priority && p >= 1 && p <= total && move.mutate(p);
   const style = PRIORITY_STYLE[r.priority - 1] ?? 'bg-raised text-ink-2 ring-line';
+  const suffix = ordinal(r.priority).slice(String(r.priority).length);
 
   return (
-    <div className="inline-flex items-center gap-0.5">
-      <button
-        type="button"
-        className="rounded p-0.5 text-ink-3 hover:bg-raised hover:text-ink disabled:opacity-30"
-        title="Move up (more urgent)"
-        disabled={move.isPending || r.priority <= 1}
-        onClick={() => to(r.priority - 1)}
+    <div className="flex items-center gap-1.5">
+      <label
+        className={clsx('relative flex h-11 w-11 cursor-pointer flex-col items-center justify-center rounded-xl ring-1 transition hover:scale-105', style)}
+        title="Change priority"
       >
-        <ChevronUp size={13} />
-      </button>
-      <label className={clsx('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1', style)}>
-        <Flag size={10} />
+        {move.isPending ? (
+          <Spinner size={14} />
+        ) : (
+          <>
+            <span className="text-base font-extrabold leading-none tabular-nums">{r.priority}</span>
+            <span className="mt-0.5 text-[9px] font-bold uppercase leading-none">{suffix}</span>
+          </>
+        )}
         <select
-          className="cursor-pointer appearance-none bg-transparent font-semibold outline-none"
-          title="Priority"
+          className="absolute inset-0 cursor-pointer opacity-0"
+          aria-label="Priority"
           value={r.priority}
           disabled={move.isPending}
           onChange={(e) => to(Number(e.target.value))}
         >
           {Array.from({ length: Math.max(total, r.priority) }, (_, i) => (
-            <option key={i + 1} value={i + 1} className="bg-panel text-ink">
+            <option key={i + 1} value={i + 1}>
               {ordinal(i + 1)} priority
             </option>
           ))}
         </select>
       </label>
-      <button
-        type="button"
-        className="rounded p-0.5 text-ink-3 hover:bg-raised hover:text-ink disabled:opacity-30"
-        title="Move down (less urgent)"
-        disabled={move.isPending || r.priority >= total}
-        onClick={() => to(r.priority + 1)}
-      >
-        <ChevronDown size={13} />
-      </button>
+      <div className="flex flex-col">
+        <button
+          type="button"
+          className="rounded p-0.5 text-ink-3 transition hover:bg-raised hover:text-ink disabled:opacity-25"
+          title="Move up (more urgent)"
+          disabled={move.isPending || r.priority <= 1}
+          onClick={() => to(r.priority - 1)}
+        >
+          <ChevronUp size={14} />
+        </button>
+        <button
+          type="button"
+          className="rounded p-0.5 text-ink-3 transition hover:bg-raised hover:text-ink disabled:opacity-25"
+          title="Move down (less urgent)"
+          disabled={move.isPending || r.priority >= total}
+          onClick={() => to(r.priority + 1)}
+        >
+          <ChevronDown size={14} />
+        </button>
+      </div>
     </div>
   );
 }
 
 // -------------------------------------------------------------------------------------------------
-// CANDIDATE PROFILE CARD (SHARED ACROSS GRID & LIST EXPANSIONS)
+// CANDIDATE PROFILE CARD (INSIDE AN EXPANDED ROW)
 // -------------------------------------------------------------------------------------------------
 
 function CandidateMiniProfileCard({
   candidate: c,
+  suggested = false,
   onStatusChange,
   onRatingChange,
 }: {
   candidate: CandidateListItem;
+  suggested?: boolean;
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
   return (
-    <div className="rounded-xl border border-line/70 bg-card p-3 shadow-sm transition hover:border-line">
+    <div
+      className={clsx(
+        'relative rounded-xl border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card',
+        suggested ? 'border-warn/50 ring-1 ring-warn/20' : 'border-line/70 hover:border-line'
+      )}
+    >
+      {suggested && (
+        <span className="absolute -top-2 right-3 inline-flex items-center gap-1 rounded-full bg-warn px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+          <Star size={9} className="fill-white" /> Suggested
+        </span>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <Avatar name={c.fullName} size="sm" />
