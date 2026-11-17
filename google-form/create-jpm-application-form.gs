@@ -265,7 +265,7 @@ function setUpAddressQuestions_(form) {
     travel = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
   }
   var mc = travel.asMultipleChoiceItem();
-  mc.setChoices(TRAVEL_MODES.map(function (m) { return mc.createChoice(m); })).showOtherOption(false);
+  mc.setChoices(TRAVEL_MODES.map(function (m) { return mc.createChoice(m); })).showOtherOption(true);
   place(travel);
 }
 
