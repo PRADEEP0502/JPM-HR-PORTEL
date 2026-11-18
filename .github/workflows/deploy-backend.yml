@@ -1,0 +1,29 @@
+# Redeploys the Render backend whenever backend code is pushed to main.
+# Needs the repository secret RENDER_DEPLOY_HOOK_URL (Render -> service -> Settings -> Deploy Hook).
+# Never put the hook URL itself in this file: anyone with it can start deploys.
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "render.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "Secret RENDER_DEPLOY_HOOK_URL is not set - add it under Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          curl -fsS -X POST "$HOOK"
+          echo
+          echo "Render deploy started"
