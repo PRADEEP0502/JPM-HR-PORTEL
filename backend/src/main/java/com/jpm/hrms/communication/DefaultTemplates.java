@@ -82,7 +82,12 @@ final class DefaultTemplates {
                     Date of joining: {{JoiningDate}}
                     Reporting location: {{Venue}}
 
-                    Kindly report to the HR department on your date of joining. Our HR team will share your reporting time and the list of documents to bring before that day.
+                    Kindly report to the HR department at 9:00 AM on your date of joining, and bring the following documents with you:
+
+                    - Aadhaar card (original and one photocopy)
+                    - Educational and experience certificates (originals and one photocopy of each)
+                    - Bank passbook or a cancelled cheque
+                    - Two recent passport-size photographs
 
                     Should you have any questions in the meantime, please reply to this message and we will be glad to assist you.
 
@@ -131,6 +136,25 @@ final class DefaultTemplates {
 
             Date of joining: {{JoiningDate}}
             Department: {{Department}}
+            Reporting location: {{Venue}}
+
+            Kindly report to the HR department on your date of joining. Our HR team will share your reporting time and the list of documents to bring before that day.
+
+            Should you have any questions in the meantime, please reply to this message and we will be glad to assist you.
+
+            We look forward to working with you.
+
+            Warm regards,
+            {{HRSignature}}""", """
+            Dear {{CandidateName}},
+
+            Congratulations, and welcome to {{CompanyName}}! We are delighted to have you join our {{Department}} team as {{Position}}.
+
+            Reporting Details
+
+            Position: {{Position}}
+            Department: {{Department}}
+            Date of joining: {{JoiningDate}}
             Reporting location: {{Venue}}
 
             Kindly report to the HR department on your date of joining. Our HR team will share your reporting time and the list of documents to bring before that day.
