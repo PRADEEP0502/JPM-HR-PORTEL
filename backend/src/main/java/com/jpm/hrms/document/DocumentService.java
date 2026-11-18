@@ -169,7 +169,9 @@ public class DocumentService {
 
     public ResponseEntity<InputStreamResource> latestResume(Long candidateId, boolean inline) {
         if (!candidates.existsById(candidateId)) throw ApiException.notFound("Candidate");
-        CandidateDocument d = docs.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(candidateId, DocType.RESUME)
+        // the company-format JPM resume (uploaded by HR) wins over the one the candidate sent
+        CandidateDocument d = docs.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(candidateId, DocType.JPM_RESUME)
+                .or(() -> docs.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(candidateId, DocType.RESUME))
                 .orElseThrow(() -> ApiException.notFound("Resume for this candidate"));
         return stream(d, inline);
     }

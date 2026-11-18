@@ -137,7 +137,8 @@ public class InterviewerService {
     }
 
     private CandidateSummary summary(Candidate c, DepartmentDirectory.Names names) {
-        boolean resume = documents.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(c.getId(), DocType.RESUME).isPresent();
+        boolean resume = documents.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(c.getId(), DocType.JPM_RESUME).isPresent()
+                || documents.findFirstByCandidateIdAndDocTypeOrderByCreatedAtDesc(c.getId(), DocType.RESUME).isPresent();
         return new CandidateSummary(c.getId(), c.getCandidateCode(), c.getFullName(), names.nameOrRaw(c), c.getQualification(),
                 c.getInstitution(), c.getPassingYear(), c.getExperienceYears(), c.getPreviousCompany(), c.getPreviousDesignation(),
                 c.getSkills(), resume);

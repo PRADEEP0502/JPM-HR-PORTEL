@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Download, FileWarning } from 'lucide-react';
-import { api } from '../../lib/api';
+import { Link } from 'react-router-dom';
+import { Download, FileWarning, UserRound } from 'lucide-react';
+import { ApiError, api } from '../../lib/api';
 import { Modal } from '../ui/Modal';
 import { ErrorState, LoadingBlock, Spinner } from '../ui/States';
 
@@ -9,6 +10,8 @@ export interface ViewTarget {
   /** API path that returns the file, e.g. /documents/12/download or /candidates/65/resume */
   path: string;
   fileName: string;
+  /** When set, the viewer also offers "Open full profile" (and shows it when there is no file). */
+  profileLink?: string;
 }
 
 /**
@@ -52,6 +55,7 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
     }
   };
 
+  const missing = error instanceof ApiError && error.status === 404;
   const isPdf = type === 'application/pdf';
   const isImage = type === 'image/png' || type === 'image/jpeg';
   return (
@@ -64,13 +68,26 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
       footer={
         <>
           <button className="btn-ghost" onClick={onClose}>Close</button>
-          <button className="btn-primary" onClick={download} disabled={downloading}>
-            {downloading ? <Spinner size={14} /> : <Download size={14} />} Download
-          </button>
+          {target?.profileLink && (
+            <Link to={target.profileLink} className="btn-secondary" onClick={onClose}>
+              <UserRound size={14} /> Open full profile
+            </Link>
+          )}
+          {!missing && (
+            <button className="btn-primary" onClick={download} disabled={downloading || !url}>
+              {downloading ? <Spinner size={14} /> : <Download size={14} />} Download
+            </button>
+          )}
         </>
       }
     >
-      {error ? (
+      {missing ? (
+        <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-ink-2">
+          <FileWarning size={28} className="text-ink-3" />
+          No resume on file for this candidate yet.
+          {target?.profileLink && <span className="text-xs text-ink-3">Open the full profile to upload one or see the other details.</span>}
+        </div>
+      ) : error ? (
         <ErrorState error={error} />
       ) : !url ? (
         <LoadingBlock label="Opening document…" />
