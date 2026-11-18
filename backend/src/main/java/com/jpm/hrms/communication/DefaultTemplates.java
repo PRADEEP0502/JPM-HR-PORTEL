@@ -77,10 +77,27 @@ final class DefaultTemplates {
                     Reporting Details
 
                     Department: {{Department}}
+                    Joining date: {{JoiningDate}}
                     Reporting location: {{Venue}}
 
-                    Our HR team will confirm your joining date, reporting time and the documents to bring. Please reply to this message if you have any questions.
+                    Please report on your joining date. Our HR team will confirm the reporting time and the documents to bring. Please reply to this message if you have any questions.
 
                     Best regards,
                     {{HRSignature}}"""));
+
+    /** The joining wording before it had the joining date; templates still on it are moved to the wording above. */
+    static final String PREVIOUS_JOINING_BODY = """
+            Dear {{CandidateName}},
+
+            Welcome to {{CompanyName}}!
+
+            Reporting Details
+
+            Department: {{Department}}
+            Reporting location: {{Venue}}
+
+            Our HR team will confirm your joining date, reporting time and the documents to bring. Please reply to this message if you have any questions.
+
+            Best regards,
+            {{HRSignature}}""";
 }

@@ -29,8 +29,9 @@ public enum TemplatePurpose {
                 : List.of(TemplateRenderer.CANDIDATE_NAME);
     }
 
-    /** Placeholders this purpose may use (interview details only exist for interview messages). */
+    /** Placeholders this purpose may use (interview details only exist for interview messages, the joining date only for joining instructions). */
     public boolean allows(String placeholder) {
+        if (TemplateRenderer.JOINING_DATE.equals(placeholder)) return this == JOINING;
         return needsInterview || !TemplateRenderer.INTERVIEW_PLACEHOLDERS.contains(placeholder);
     }
 }

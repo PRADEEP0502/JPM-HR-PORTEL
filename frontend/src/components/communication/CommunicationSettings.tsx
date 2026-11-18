@@ -20,9 +20,11 @@ export function CommunicationSettingsTab() {
   if (overview.error || !overview.data) return <div className="panel"><ErrorState error={overview.error} onRetry={() => overview.refetch()} /></div>;
   const o = overview.data;
   const current = o.purposes.find((p) => p.purpose === purpose) ?? o.purposes[0];
-  // Interview placeholders are only offered where an interview exists.
+  // Interview placeholders are only offered where an interview exists; the joining date only in joining instructions.
   const placeholders = Object.fromEntries(
-    Object.entries(o.placeholders).filter(([key]) => current.needsInterview || !o.interviewPlaceholders.includes(key)),
+    Object.entries(o.placeholders).filter(([key]) =>
+      key === 'JoiningDate' ? current.purpose === 'JOINING' : current.needsInterview || !o.interviewPlaceholders.includes(key),
+    ),
   );
   return (
     <div className="space-y-6">

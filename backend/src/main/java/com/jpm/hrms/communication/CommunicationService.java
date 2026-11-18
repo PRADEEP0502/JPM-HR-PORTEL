@@ -116,7 +116,10 @@ public class CommunicationService {
             TemplateRenderer.VENUE, "interview venue (Settings → Communication)",
             TemplateRenderer.LOCATION_LINK, "company location link (Settings → Communication)",
             TemplateRenderer.COMPANY_NAME, "company name (Settings → Communication)",
-            TemplateRenderer.HR_SIGNATURE, "HR signature (Settings → Communication)");
+            TemplateRenderer.HR_SIGNATURE, "HR signature (Settings → Communication)",
+            TemplateRenderer.JOINING_DATE, "joining date (set it on the candidate's profile, or with the status Selected / Joined)");
+
+    private static final DateTimeFormatter JOINING_DATE_FMT = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH);
 
     private final CommunicationSettingsRepository settingsRepo;
     private final MessageTemplateRepository templates;
@@ -174,13 +177,17 @@ public class CommunicationService {
                 templates.save(new MessageTemplate(p, TemplateChannel.EMAIL, 1, w.emailSubject(), w.body(), AuditService.SYSTEM_ACTOR));
             }
         }
-        upgradeUnchangedInvitation(TemplateChannel.WHATSAPP, PREVIOUS_WHATSAPP_BODY, DEFAULT_WHATSAPP_BODY);
-        upgradeUnchangedInvitation(TemplateChannel.EMAIL, PREVIOUS_EMAIL_BODY, DEFAULT_EMAIL_BODY);
+        TemplatePurpose invite = TemplatePurpose.INTERVIEW_INVITATION;
+        upgradeUnchanged(invite, TemplateChannel.WHATSAPP, PREVIOUS_WHATSAPP_BODY, DEFAULT_WHATSAPP_BODY, "adds the company location link");
+        upgradeUnchanged(invite, TemplateChannel.EMAIL, PREVIOUS_EMAIL_BODY, DEFAULT_EMAIL_BODY, "adds the company location link");
+        DefaultTemplates.Wording joining = DefaultTemplates.ALL.get(TemplatePurpose.JOINING);
+        String previousJoining = new DefaultTemplates.Wording(null, DefaultTemplates.PREVIOUS_JOINING_BODY).whatsappBody();
+        upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.WHATSAPP, previousJoining, joining.whatsappBody(), "adds the joining date");
+        upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.EMAIL, DefaultTemplates.PREVIOUS_JOINING_BODY, joining.body(), "adds the joining date");
     }
 
-    /** Moves an invitation still on the old default wording to the new default; wording an admin changed is kept. */
-    private void upgradeUnchangedInvitation(TemplateChannel channel, String previous, String next) {
-        TemplatePurpose p = TemplatePurpose.INTERVIEW_INVITATION;
+    /** Moves a template still on an old default wording to the new default; wording an admin changed is kept. */
+    private void upgradeUnchanged(TemplatePurpose p, TemplateChannel channel, String previous, String next, String what) {
         templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, channel)
                 .filter(t -> t.getBody().equals(previous))
                 .ifPresent(current -> {
@@ -189,7 +196,7 @@ public class CommunicationService {
                     MessageTemplate upgraded = templates.save(new MessageTemplate(p, channel, templates.maxVersion(p, channel) + 1,
                             current.getSubject(), next, AuditService.SYSTEM_ACTOR));
                     audit.recordAs(AuditService.SYSTEM_ACTOR, "TEMPLATE_UPDATED", "TEMPLATE", upgraded.getId(), p.label + " " + channel
-                            + " template version " + upgraded.getVersion() + " adds the company location link (replaces version "
+                            + " template version " + upgraded.getVersion() + " " + what + " (replaces version "
                             + current.getVersion() + ")");
                 });
     }
@@ -326,6 +333,7 @@ public class CommunicationService {
             values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(interview.getScheduledAt()));
             values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(interview.getScheduledAt()));
         }
+        if (c.getJoiningDate() != null) values.put(TemplateRenderer.JOINING_DATE, JOINING_DATE_FMT.format(c.getJoiningDate()));
         return new Context(c, interview, s, ContactValidator.checkPhone(c.getMobile(), s.getDefaultCountryCode()),
                 ContactValidator.checkEmail(c.getEmail()), problems, values);
     }

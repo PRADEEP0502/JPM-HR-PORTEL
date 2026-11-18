@@ -25,6 +25,7 @@ public final class TemplateRenderer {
     public static final String LOCATION_LINK = "LocationLink";
     public static final String COMPANY_NAME = "CompanyName";
     public static final String HR_SIGNATURE = "HRSignature";
+    public static final String JOINING_DATE = "JoiningDate";
 
     /** Placeholders a template may use, with a human description shown in the admin UI. */
     public static final Map<String, String> PLACEHOLDERS = new LinkedHashMap<>();
@@ -38,6 +39,7 @@ public final class TemplateRenderer {
         PLACEHOLDERS.put(LOCATION_LINK, "Configured Google Maps link to the company");
         PLACEHOLDERS.put(COMPANY_NAME, "Configured company name");
         PLACEHOLDERS.put(HR_SIGNATURE, "Configured HR signature");
+        PLACEHOLDERS.put(JOINING_DATE, "Joining date set on the candidate's profile, e.g. Monday, 1 December 2026 (joining instructions only)");
     }
 
     /** Placeholders that only exist when the message is about a specific interview. */
