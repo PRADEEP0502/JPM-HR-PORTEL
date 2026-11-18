@@ -197,12 +197,16 @@ public final class SheetRowMapper {
                 email == null ? "" : email,
                 mobile == null ? "" : mobile));
 
-        return new ParsedRow(rowNumber, rowKey, appliedAt, applicationDate, fullName, dob, mobile, email,
+        // candidates often type the whole address (town, PIN …) into the street question: move those parts out
+        AddressParts.Parts addr = AddressParts.tidy(
                 FieldParsers.truncate(text(row, cols, SheetField.ADDRESS), 1000),
                 FieldParsers.truncate(text(row, cols, SheetField.CITY), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.DISTRICT), 100),
                 FieldParsers.truncate(text(row, cols, SheetField.STATE), 100),
-                pincode(text(row, cols, SheetField.PINCODE), warnings),
+                pincode(text(row, cols, SheetField.PINCODE), warnings));
+
+        return new ParsedRow(rowNumber, rowKey, appliedAt, applicationDate, fullName, dob, mobile, email,
+                addr.address(), addr.city(), addr.district(), addr.state(), addr.pincode(),
                 FieldParsers.truncate(text(row, cols, SheetField.TRAVEL_MODE), 50),
                 FieldParsers.truncate(text(row, cols, SheetField.QUALIFICATION), 200),
                 FieldParsers.truncate(text(row, cols, SheetField.INSTITUTION), 200),

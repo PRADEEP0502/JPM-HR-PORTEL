@@ -93,7 +93,7 @@ function createJpmApplicationForm() {
           .setHelpText('Enter a valid email address')
           .build());
 
-  form.addParagraphTextItem().setTitle(ADDRESS_TITLE).setHelpText('House / door number, street and area').setRequired(true);
+  styleAddressQuestion_(form.addParagraphTextItem().setTitle(ADDRESS_TITLE).setRequired(true));
   setUpAddressQuestions_(form);
 
   // ---------------- Section 2: Education ----------------
@@ -237,6 +237,29 @@ function setUpSourceQuestion_(form) {
 }
 
 var ADDRESS_TITLE = 'Door No., Street and Area';
+var ADDRESS_HELP = 'Only the house / door number, street and area (e.g. 3/2120, Vel Nagar, Kalipalayam). ' +
+                   'Town, district, state and PIN code are asked in the next questions.';
+
+/** Help text plus a check that stops the PIN code (or a phone number) being typed into the street question. */
+function styleAddressQuestion_(item) {
+  item.setHelpText(ADDRESS_HELP).setValidation(FormApp.createParagraphTextValidation()
+      .requireTextDoesNotContainPattern('[0-9]{6}')
+      .setHelpText('Do not type the PIN code here - it is asked a few questions below.')
+      .build());
+  return item;
+}
+
+/**
+ * Run once on the live form: updates only the "Door No., Street and Area" question (clearer help text and the
+ * PIN code check) and makes sure the City / Town, District, State and PIN code questions follow it.
+ */
+function updateAddressQuestion() {
+  var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
+  if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
+  var form = FormApp.openByUrl(formUrl);
+  setUpAddressQuestions_(form);
+  Logger.log('Address questions updated. Check them here: ' + form.getEditUrl());
+}
 var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk'];
 
 /**
@@ -246,7 +269,7 @@ var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 
 function setUpAddressQuestions_(form) {
   var address = findItem_(form, ADDRESS_TITLE, FormApp.ItemType.PARAGRAPH_TEXT) || findItem_(form, 'Address', FormApp.ItemType.PARAGRAPH_TEXT);
   if (!address) throw new Error('The form needs an address question.');
-  address.setTitle(ADDRESS_TITLE).asParagraphTextItem().setHelpText('House / door number, street and area');
+  styleAddressQuestion_(address.setTitle(ADDRESS_TITLE).asParagraphTextItem());
   var after = address.getIndex();
   function place(item) {
     form.moveItem(item.getIndex(), ++after);
