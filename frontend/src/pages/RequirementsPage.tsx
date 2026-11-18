@@ -268,7 +268,7 @@ export default function RequirementsPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${filledRolesCount} filled`} />
         <Kpi icon={<Users size={16} />} tone="violet" label="People needed" value={totalNeeded} hint="across all roles" />
-        <Kpi icon={<UserCheck size={16} />} tone="good" label="Hired" value={totalHired} hint="selected / joined, towards the required count" />
+        <Kpi icon={<UserCheck size={16} />} tone="good" label="Filled" value={totalHired} hint="selected / joined, towards the required count" />
         <Kpi
           icon={<Sparkles size={16} />}
           tone="warn"
@@ -608,7 +608,7 @@ function RequirementListView({
               <th className="w-[110px] py-2.5 pl-5 pr-2 font-semibold">Priority</th>
               <th className="px-3 py-2.5 font-semibold">Role</th>
               <th className="px-3 py-2.5 font-semibold">Required</th>
-              <th className="px-3 py-2.5 text-center font-semibold">Hired</th>
+              <th className="px-3 py-2.5 text-center font-semibold">Filled</th>
               <th className="px-3 py-2.5 text-center font-semibold">Remaining</th>
               <th className="w-[210px] px-3 py-2.5 font-semibold">Fulfillment</th>
               <th className="px-3 py-2.5 font-semibold">Status</th>
@@ -745,7 +745,7 @@ function RequirementTableRow({
             to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
             className="text-[15px] font-bold tabular-nums text-good hover:underline"
             onClick={stop}
-            title="See the hired candidates"
+            title="See the candidates who filled this role (Selected / Joined)"
           >
             {r.hired}
           </Link>
