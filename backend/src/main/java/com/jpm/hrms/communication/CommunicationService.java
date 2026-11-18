@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Objects;
 
 @Service
@@ -196,7 +197,7 @@ public class CommunicationService {
      */
     private void upgradeUnchanged(TemplatePurpose p, TemplateChannel channel, String previous, String next, String nextSubject, String what) {
         templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, channel)
-                .filter(t -> t.getBody().equals(previous))
+                .filter(t -> normalized(t.getBody()).equals(normalized(previous)))
                 .ifPresent(current -> {
                     current.setActive(false);
                     templates.save(current);
@@ -207,6 +208,11 @@ public class CommunicationService {
                             + " template version " + upgraded.getVersion() + " " + what + " (replaces version "
                             + current.getVersion() + ")");
                 });
+    }
+
+    /** Wording compared without line-ending or trailing-space differences. */
+    private static String normalized(String text) {
+        return text == null ? "" : text.replace("\r\n", "\n").lines().map(String::stripTrailing).collect(Collectors.joining("\n")).strip();
     }
 
     CommunicationSettings settings() {
@@ -288,6 +294,7 @@ public class CommunicationService {
         values.put(TemplateRenderer.DEPARTMENT, "Engineering");
         values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(sampleTime));
         values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(sampleTime));
+        values.put(TemplateRenderer.JOINING_DATE, JOINING_DATE_FMT.format(nextMonday.plusWeeks(2)));
         String renderedSubject = null;
         String renderedBody = null;
         if (problems.isEmpty()) {
