@@ -282,11 +282,11 @@ export default function CandidatesPage() {
               ))}
             </ul>
             <div className={clsx('-mx-4 hidden overflow-x-auto transition-opacity md:block', query.isFetching && 'opacity-70')}>
-              <table className="w-full min-w-[1480px]">
+              <table className="table-fit w-full">
                 <thead>
                   <tr className="border-b border-line">
                     {COLUMNS.map((c) => (
-                      <th key={c.key} className="th first:pl-4" aria-sort={!c.sortable ? undefined : sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                      <th key={c.key} className={clsx('th first:pl-4', c.key === 'ratingRemark' && 'cell-fill')} aria-sort={!c.sortable ? undefined : sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                         {c.sortable ? (
                           <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => toggleSort(c.key)}>
                             {c.label}
@@ -333,7 +333,7 @@ export default function CandidatesPage() {
                           </button>
                         )}
                       </td>
-                      <td className="td max-w-[180px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</td>
+                      <td className="td"><div className="max-w-[160px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</div></td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
                       <td className="td tabular-nums">
                         {fmtDate(c.applicationDate)}
@@ -377,7 +377,7 @@ export default function CandidatesPage() {
                       </td>
                       <td className="td"><ApplicationPill status={c.applicationStatus} /></td>
                       <td className="td"><InterviewPill status={c.interviewStatus} /></td>
-                      <td className="td max-w-[220px] truncate text-ink-2" title={c.ratingRemark ?? undefined}>{c.ratingRemark ?? <span className="text-ink-3">—</span>}</td>
+                      <td className="td cell-fill text-ink-2"><div className="max-w-[260px] truncate" title={c.ratingRemark ?? undefined}>{c.ratingRemark ?? <span className="text-ink-3">—</span>}</div></td>
                       <td className="td pr-4">
                         {(() => {
                           const phoneIssue = phoneProblem(c.mobile);

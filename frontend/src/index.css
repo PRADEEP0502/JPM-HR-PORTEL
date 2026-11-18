@@ -56,6 +56,15 @@ body {
   .td {
     @apply px-3 py-3 text-sm text-ink-2 whitespace-nowrap;
   }
+  /* A table whose columns are only as wide as their data: every cell shrinks to fit its content, tighter
+     padding, and the one column marked .cell-fill takes whatever room is left over. */
+  .table-fit :where(th, td) {
+    width: 1px;
+    padding: 0.625rem 0.625rem;
+  }
+  .table-fit .cell-fill {
+    width: auto;
+  }
 }
 
 * {
