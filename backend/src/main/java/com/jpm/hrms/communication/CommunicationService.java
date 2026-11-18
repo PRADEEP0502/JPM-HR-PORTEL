@@ -112,6 +112,7 @@ public class CommunicationService {
     private static final Map<String, String> FRIENDLY = Map.of(
             TemplateRenderer.CANDIDATE_NAME, "candidate name",
             TemplateRenderer.DEPARTMENT, "department (assign one on the candidate's profile)",
+            TemplateRenderer.POSITION, "post (set the sub-work or department on the candidate's profile)",
             TemplateRenderer.INTERVIEW_DATE, "interview date",
             TemplateRenderer.INTERVIEW_TIME, "interview time",
             TemplateRenderer.VENUE, "interview venue (Settings → Communication)",
@@ -292,6 +293,7 @@ public class CommunicationService {
         Instant sampleTime = nextMonday.atTime(10, 30).atZone(zone).toInstant();
         values.put(TemplateRenderer.CANDIDATE_NAME, "Priya Sharma");
         values.put(TemplateRenderer.DEPARTMENT, "Engineering");
+        values.put(TemplateRenderer.POSITION, "Site Engineer");
         values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(sampleTime));
         values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(sampleTime));
         values.put(TemplateRenderer.JOINING_DATE, JOINING_DATE_FMT.format(nextMonday.plusWeeks(2)));
@@ -344,6 +346,7 @@ public class CommunicationService {
         Map<String, String> values = baseValues(s);
         values.put(TemplateRenderer.CANDIDATE_NAME, c.getFullName());
         values.put(TemplateRenderer.DEPARTMENT, departmentName(c));
+        values.put(TemplateRenderer.POSITION, StringUtils.hasText(c.getPosition()) ? c.getPosition().trim() : departmentName(c));
         if (interview != null) {
             values.put(TemplateRenderer.INTERVIEW_DATE, dateFmt.format(interview.getScheduledAt()));
             values.put(TemplateRenderer.INTERVIEW_TIME, timeFmt.format(interview.getScheduledAt()));

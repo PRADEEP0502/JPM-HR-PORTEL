@@ -26,6 +26,7 @@ public final class TemplateRenderer {
     public static final String COMPANY_NAME = "CompanyName";
     public static final String HR_SIGNATURE = "HRSignature";
     public static final String JOINING_DATE = "JoiningDate";
+    public static final String POSITION = "Position";
 
     /** Placeholders a template may use, with a human description shown in the admin UI. */
     public static final Map<String, String> PLACEHOLDERS = new LinkedHashMap<>();
@@ -33,6 +34,7 @@ public final class TemplateRenderer {
     static {
         PLACEHOLDERS.put(CANDIDATE_NAME, "Candidate's full name");
         PLACEHOLDERS.put(DEPARTMENT, "Department applied for");
+        PLACEHOLDERS.put(POSITION, "Post / sub-work, e.g. Machine Operator (the department name when no post is set)");
         PLACEHOLDERS.put(INTERVIEW_DATE, "Interview date, e.g. Monday, 27 October 2026");
         PLACEHOLDERS.put(INTERVIEW_TIME, "Interview time, e.g. 11:30 AM");
         PLACEHOLDERS.put(VENUE, "Configured interview venue");
