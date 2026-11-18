@@ -180,7 +180,23 @@ public class CandidateController {
     @PostMapping("/candidates/{id}/remarks")
     @ResponseStatus(HttpStatus.CREATED)
     public RemarkResponse addRemark(@PathVariable Long id, @Valid @RequestBody RemarkRequest req, Authentication auth) {
-        return service.addRemark(id, req.remark(), auth.getName());
+        return service.addRemark(id, req, auth.getName());
+    }
+
+    @PutMapping("/candidates/{id}/remarks/{remarkId}")
+    public RemarkResponse editRemark(@PathVariable Long id, @PathVariable Long remarkId, @Valid @RequestBody RemarkRequest req,
+                                     Authentication auth) {
+        return service.editRemark(id, remarkId, req, auth.getName(), isAdmin(auth));
+    }
+
+    @DeleteMapping("/candidates/{id}/remarks/{remarkId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteRemark(@PathVariable Long id, @PathVariable Long remarkId, Authentication auth) {
+        service.deleteRemark(id, remarkId, auth.getName(), isAdmin(auth));
+    }
+
+    private static boolean isAdmin(Authentication auth) {
+        return auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     @PostMapping(value = "/candidates/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

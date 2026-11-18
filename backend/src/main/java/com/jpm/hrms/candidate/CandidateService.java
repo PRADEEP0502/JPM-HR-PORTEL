@@ -9,6 +9,7 @@ import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
 import com.jpm.hrms.candidate.CandidateDtos.DocumentResponse;
 import com.jpm.hrms.candidate.CandidateDtos.RatingChangeResponse;
 import com.jpm.hrms.candidate.CandidateDtos.RatingRequest;
+import com.jpm.hrms.candidate.CandidateDtos.RemarkRequest;
 import com.jpm.hrms.candidate.CandidateDtos.RemarkResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusChangeResponse;
 import com.jpm.hrms.candidate.CandidateDtos.StatusUpdateRequest;
@@ -367,11 +368,54 @@ public class CandidateService {
         return "Excellent Match";
     }
 
-    public RemarkResponse addRemark(Long id, String text, String actor) {
+    public RemarkResponse addRemark(Long id, RemarkRequest req, String actor) {
         Candidate c = get(id);
-        HrRemark r = remarks.save(new HrRemark(c, actor, text.trim()));
-        audit.record("REMARK_ADDED", "CANDIDATE", c.getId(), "HR remark added");
+        HrRemark.NoteType type = req.type() == null ? HrRemark.NoteType.GENERAL : req.type();
+        String ref = noteReference(type, req.referenceNo());
+        HrRemark r = remarks.save(new HrRemark(c, actor, req.remark().trim(), type, ref));
+        audit.record("REMARK_ADDED", "CANDIDATE", c.getId(), noteLabel(type) + " note added" + (ref == null ? "" : " (ref " + ref + ")"));
         return RemarkResponse.from(r);
+    }
+
+    /** Only the note's author or an administrator may change or delete it. */
+    public RemarkResponse editRemark(Long id, Long remarkId, RemarkRequest req, String actor, boolean admin) {
+        HrRemark r = ownNote(id, remarkId, actor, admin);
+        HrRemark.NoteType type = req.type() == null ? r.getType() : req.type();
+        String ref = noteReference(type, req.referenceNo());
+        r.edit(req.remark().trim(), type, ref, actor);
+        remarks.save(r);
+        audit.record("REMARK_EDITED", "CANDIDATE", id, noteLabel(type) + " note edited");
+        return RemarkResponse.from(r);
+    }
+
+    public void deleteRemark(Long id, Long remarkId, String actor, boolean admin) {
+        HrRemark r = ownNote(id, remarkId, actor, admin);
+        remarks.delete(r);
+        audit.record("REMARK_DELETED", "CANDIDATE", id, noteLabel(r.getType()) + " note by " + r.getAuthor() + " deleted");
+    }
+
+    private HrRemark ownNote(Long candidateId, Long remarkId, String actor, boolean admin) {
+        HrRemark r = remarks.findById(remarkId).filter(x -> candidateId.equals(x.getCandidateId()))
+                .orElseThrow(() -> ApiException.notFound("Note"));
+        if (!admin && !actor.equals(r.getAuthor())) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "Only the person who wrote this note (or an administrator) can change it");
+        }
+        return r;
+    }
+
+    private static String noteReference(HrRemark.NoteType type, String referenceNo) {
+        String ref = StringUtils.hasText(referenceNo) ? referenceNo.trim() : null;
+        if (type == HrRemark.NoteType.REFERENCE && ref == null) throw ApiException.badRequest("Enter the reference number");
+        return ref;
+    }
+
+    private static String noteLabel(HrRemark.NoteType type) {
+        return switch (type) {
+            case GENERAL -> "General";
+            case CALL -> "Phone call";
+            case INTERVIEW -> "Interview";
+            case REFERENCE -> "Reference";
+        };
     }
 
     /**

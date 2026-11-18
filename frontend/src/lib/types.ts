@@ -118,11 +118,18 @@ export interface Interview {
   feedbackAt: string | null;
 }
 
+export type NoteType = 'GENERAL' | 'CALL' | 'INTERVIEW' | 'REFERENCE';
+
+/** An HR note on a candidate (older servers send no type / reference / edit details). */
 export interface Remark {
   id: number;
   author: string;
   remark: string;
+  type?: NoteType;
+  referenceNo?: string | null;
   createdAt: string;
+  editedAt?: string | null;
+  editedBy?: string | null;
 }
 
 export interface Activity {

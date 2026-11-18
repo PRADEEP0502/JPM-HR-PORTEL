@@ -22,7 +22,6 @@ import {
   Phone,
   IdCard,
   Lock,
-  MessageSquarePlus,
   PenSquare,
   Star,
   Trash2,
@@ -37,12 +36,13 @@ import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtEx
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
-import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
+import { ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
 import { ArchiveModal, EditCandidateModal, JoiningDateModal, RatingModal, StatusModal, useInvalidateCandidates, type JoiningDateTarget, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
 import { InterviewStatusModal, ScheduleInterviewModal } from '../components/modals/InterviewModals';
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
+import { NotesPanel } from '../components/candidate/NotesPanel';
 
 type Row = [string, ReactNode | null | undefined];
 
@@ -133,21 +133,10 @@ export default function CandidateProfilePage() {
   const [interviewEdit, setInterviewEdit] = useState<Interview | null>(null);
   const [contact, setContact] = useState<Tab | null>(null);
   const call = useCallAction();
-  const [remark, setRemark] = useState('');
   const [downloading, setDownloading] = useState<number | null>(null);
   const [docType, setDocType] = useState<DocType>('RESUME');
   const [consent, setConsent] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-
-  const addRemark = useMutation({
-    mutationFn: () => api.post(`/candidates/${candidateId}/remarks`, { remark: remark.trim() }),
-    onSuccess: () => {
-      setRemark('');
-      toast('success', 'Remark added');
-      invalidate();
-    },
-    onError: (e) => toast('error', e.message),
-  });
 
   const upload = useMutation({
     mutationFn: (file: File) => {
@@ -546,34 +535,7 @@ export default function CandidateProfilePage() {
             <p className="mt-2 text-xs text-ink-3">PDF, Word, JPG or PNG up to 10 MB (Aadhaar: PDF or photo only). Files are checked and kept in private storage; uploads, views, downloads and deletions are logged.</p>
           </section>
 
-          <section id="remarks" className="panel scroll-mt-6 p-5">
-            <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><MessageSquarePlus size={16} className="text-ink-3" /> HR Remarks</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (remark.trim()) addRemark.mutate();
-              }}
-            >
-              <textarea className="input min-h-[80px]" maxLength={2000} placeholder="Add a remark visible to the HR team…" value={remark} onChange={(e) => setRemark(e.target.value)} />
-              <div className="mt-2 flex justify-end">
-                <button className="btn-primary" disabled={!remark.trim() || addRemark.isPending}>
-                  {addRemark.isPending && <Spinner size={14} />} Add remark
-                </button>
-              </div>
-            </form>
-            {c.remarks.length === 0 ? (
-              <EmptyState title="No remarks yet" />
-            ) : (
-              <ul className="mt-4 space-y-3">
-                {c.remarks.map((r) => (
-                  <li key={r.id} className="rounded-xl bg-card px-3 py-2.5">
-                    <p className="whitespace-pre-wrap text-sm">{r.remark}</p>
-                    <p className="mt-1 text-[11px] text-ink-3">{r.author} · {fmtDateTime(r.createdAt)}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <NotesPanel candidateId={c.id} notes={c.remarks} onChanged={invalidate} />
 
           <section id="status-history" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><UserCheck size={16} className="text-ink-3" /> Status history</h2>

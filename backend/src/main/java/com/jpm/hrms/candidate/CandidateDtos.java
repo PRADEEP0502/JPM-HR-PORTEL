@@ -54,9 +54,11 @@ public final class CandidateDtos {
         }
     }
 
-    public record RemarkResponse(Long id, String author, String remark, Instant createdAt) {
+    public record RemarkResponse(Long id, String author, String remark, HrRemark.NoteType type, String referenceNo,
+                                 Instant createdAt, Instant editedAt, String editedBy) {
         public static RemarkResponse from(HrRemark r) {
-            return new RemarkResponse(r.getId(), r.getAuthor(), r.getRemark(), r.getCreatedAt());
+            return new RemarkResponse(r.getId(), r.getAuthor(), r.getRemark(), r.getType(), r.getReferenceNo(),
+                    r.getCreatedAt(), r.getEditedAt(), r.getEditedBy());
         }
     }
 
@@ -158,6 +160,7 @@ public final class CandidateDtos {
                                 @Size(max = 2000) String remark) {
     }
 
-    public record RemarkRequest(@NotBlank @Size(max = 2000) String remark) {
+    /** type defaults to GENERAL; referenceNo is optional except for REFERENCE notes. */
+    public record RemarkRequest(@NotBlank @Size(max = 2000) String remark, HrRemark.NoteType type, @Size(max = 100) String referenceNo) {
     }
 }
