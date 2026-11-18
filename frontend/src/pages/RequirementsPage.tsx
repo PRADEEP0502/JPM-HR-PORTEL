@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
@@ -1105,10 +1105,23 @@ function CandidateMiniProfileCard({
   onStatusChange: (target: StatusTarget) => void;
   onRatingChange: (target: RatingTarget) => void;
 }) {
+  const navigate = useNavigate();
+  const profile = `/candidates/${c.id}`;
+  // the whole card opens the full profile (Ctrl / ⌘-click opens it in a new tab); the Rate and Status buttons keep their own action
+  const open = (e: React.MouseEvent | React.KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) window.open(profile, '_blank', 'noopener');
+    else navigate(profile);
+  };
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
     <div
+      role="link"
+      tabIndex={0}
+      title={`Open ${c.fullName}'s full details`}
+      onClick={open}
+      onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && open(e)}
       className={clsx(
-        'relative rounded-xl border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card',
+        'relative cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50',
         suggested ? 'border-warn/50 ring-1 ring-warn/20' : 'border-line/70 hover:border-line'
       )}
     >
@@ -1122,7 +1135,8 @@ function CandidateMiniProfileCard({
           <Avatar name={c.fullName} size="sm" />
           <div>
             <Link
-              to={`/candidates/${c.id}`}
+              to={profile}
+              onClick={stop}
               className="font-bold text-xs text-ink hover:text-info hover:underline line-clamp-1"
               title={c.fullName}
             >
@@ -1171,7 +1185,7 @@ function CandidateMiniProfileCard({
       <div className="mt-2.5 flex items-center justify-between border-t border-line/50 pt-2 text-[11px]">
         <ApplicationPill status={c.applicationStatus} />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onClick={stop} onKeyDown={stop}>
           <button
             onClick={() =>
               onRatingChange({
