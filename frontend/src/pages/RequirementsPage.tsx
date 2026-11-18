@@ -215,7 +215,7 @@ export default function RequirementsPage() {
 
   const totalRoles = reqList.length;
   const totalNeeded = reqList.reduce((acc, r) => acc + r.needed, 0);
-  // only hires that count towards a target (extra hires beyond the number needed do not inflate the rate)
+  // only hires that count towards the required number (extra hires beyond the number needed do not inflate the rate)
   const totalHired = reqList.reduce((acc, r) => acc + Math.min(r.hired, r.needed), 0);
   const openRolesCount = reqList.filter((r) => stillNeedOf(r) > 0).length;
   const filledRolesCount = reqList.length - openRolesCount;
@@ -268,7 +268,7 @@ export default function RequirementsPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${filledRolesCount} filled`} />
         <Kpi icon={<Users size={16} />} tone="violet" label="People needed" value={totalNeeded} hint="across all roles" />
-        <Kpi icon={<UserCheck size={16} />} tone="good" label="Hired" value={totalHired} hint="selected / joined, towards targets" />
+        <Kpi icon={<UserCheck size={16} />} tone="good" label="Hired" value={totalHired} hint="selected / joined, towards the required count" />
         <Kpi
           icon={<Sparkles size={16} />}
           tone="warn"
@@ -453,7 +453,7 @@ export default function RequirementsPage() {
           <EmptyState
             icon={<Briefcase size={22} />}
             title="No hiring requirements configured"
-            hint="Click '+ Add New Requirement' above to define roles and hiring targets for each department."
+            hint="Click '+ Add New Requirement' above to define roles and how many people each department requires."
           />
         </div>
       ) : filteredList.length === 0 ? (
@@ -607,7 +607,7 @@ function RequirementListView({
             <tr className="bg-raised/40 text-[10px] font-semibold uppercase tracking-wider text-ink-3">
               <th className="w-[110px] py-2.5 pl-5 pr-2 font-semibold">Priority</th>
               <th className="px-3 py-2.5 font-semibold">Role</th>
-              <th className="px-3 py-2.5 font-semibold">Target</th>
+              <th className="px-3 py-2.5 font-semibold">Required</th>
               <th className="px-3 py-2.5 text-center font-semibold">Hired</th>
               <th className="px-3 py-2.5 text-center font-semibold">Remaining</th>
               <th className="w-[210px] px-3 py-2.5 font-semibold">Fulfillment</th>
@@ -734,7 +734,7 @@ function RequirementTableRow({
         <td className="px-3 py-3.5">
           <span
             className="inline-flex w-12 justify-center rounded-lg border border-line/70 bg-raised px-1.5 py-1 text-[13px] font-bold tabular-nums text-ink"
-            title="Change the target with Edit"
+            title="Change the required count with Edit"
           >
             {r.needed}
           </span>
@@ -799,7 +799,7 @@ function RequirementTableRow({
           <div className="inline-flex items-center gap-1">
             <button
               className="inline-flex items-center gap-1 rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[11px] font-semibold text-ink-2 transition hover:border-info/50 hover:text-info"
-              title="Edit priority and target"
+              title="Edit priority and required count"
               onClick={onEdit}
             >
               <Pencil size={12} /> Edit
@@ -909,7 +909,7 @@ function CandidateGroup({
 }
 
 // -------------------------------------------------------------------------------------------------
-// EDIT REQUIREMENT (PRIORITY + TARGET)
+// EDIT REQUIREMENT (PRIORITY + REQUIRED)
 // -------------------------------------------------------------------------------------------------
 
 function EditRequirementModal({ target: r, total, onClose }: { target: Requirement | null; total: number; onClose: () => void }) {
@@ -943,7 +943,7 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
   const changed = priority !== r.priority || Number(needed) !== r.needed;
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validNumber(needed)) return toast('error', `Target must be 1 to ${MAX_NEEDED}`);
+    if (!validNumber(needed)) return toast('error', `Required must be 1 to ${MAX_NEEDED}`);
     if (!changed) return onClose();
     save.mutate({
       ...(Number(needed) !== r.needed && { needed: Number(needed) }),
@@ -1000,7 +1000,7 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
           )}
         </div>
 
-        <Field label="Target — people needed *">
+        <Field label="Required — people needed *">
           <input
             className="input"
             inputMode="numeric"
