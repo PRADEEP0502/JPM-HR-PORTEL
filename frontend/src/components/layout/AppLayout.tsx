@@ -15,6 +15,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   Users,
@@ -55,11 +57,11 @@ const TITLES: Record<string, string> = {
   settings: 'Settings',
 };
 
-export function Logo() {
+export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <img src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 rounded-full bg-white object-contain" />
-      <div className="leading-tight">
+      <img src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-full bg-white object-contain" />
+      <div className={clsx('leading-tight', compact && 'lg:hidden')}>
         <div className="text-[15px] font-bold tracking-wide">JPM HR Portal</div>
         <div className="text-[11px] text-ink-3">Recruitment</div>
       </div>
@@ -67,21 +69,47 @@ export function Logo() {
   );
 }
 
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+const COLLAPSED_KEY = 'hrms.sidebarCollapsed';
+
+/** Desktop only: whether the sidebar is folded down to icons. Remembered in this browser. */
+function useCollapsed() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(COLLAPSED_KEY, c ? '0' : '1');
+      } catch {
+        /* storage unavailable: still toggles for this visit */
+      }
+      return !c;
+    });
+  return [collapsed, toggle] as const;
+}
+
+function Sidebar({ open, collapsed, onClose }: { open: boolean; collapsed: boolean; onClose: () => void }) {
   const { user, logout, isInterviewer } = useAuth();
   const [menu, setMenu] = useState(false);
   const nav = isInterviewer ? INTERVIEWER_NAV : NAV;
+  // Collapsing only applies on large screens; the phone drawer always shows the full menu.
+  const small = collapsed ? 'lg:hidden' : undefined;
   return (
     <>
       <div className={clsx('fixed inset-0 z-30 bg-black/60 lg:hidden', open ? 'block' : 'hidden')} onClick={onClose} />
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line/60 bg-canvas px-4 py-5 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-line/60 bg-canvas px-4 py-5 transition-[transform,width] lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
+          collapsed && 'lg:w-[76px] lg:px-3',
         )}
       >
-        <div className="flex items-center justify-between px-2">
-          <Logo />
+        <div className={clsx('flex items-center justify-between px-2', collapsed && 'lg:justify-center lg:px-0')}>
+          <Logo compact={collapsed} />
           <button className="icon-btn h-8 w-8 lg:hidden" onClick={onClose} aria-label="Close menu">
             <X size={16} />
           </button>
@@ -93,21 +121,24 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
               to={to}
               end={end}
               onClick={onClose}
+              title={collapsed ? label : undefined}
+              aria-label={collapsed ? label : undefined}
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
+                  collapsed && 'lg:justify-center lg:px-0',
                   isActive ? 'bg-ink text-canvas shadow' : 'text-ink-2 hover:bg-raised hover:text-ink',
                 )
               }
             >
-              <Icon size={18} strokeWidth={1.9} />
-              {label}
+              <Icon size={18} strokeWidth={1.9} className="shrink-0" />
+              <span className={clsx('truncate', small)}>{label}</span>
             </NavLink>
           ))}
         </nav>
         <div className="relative">
           {menu && (
-            <div className="absolute bottom-full mb-2 w-full rounded-xl border border-line bg-raised p-1 shadow-card">
+            <div className={clsx('absolute bottom-full left-0 z-10 mb-2 w-full rounded-xl border border-line bg-raised p-1 shadow-card', collapsed && 'lg:w-56')}>
               <div className="px-3 py-2 text-xs text-ink-3">
                 Signed in as <span className="text-ink-2">{user?.username}</span>
               </div>
@@ -121,15 +152,16 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           )}
           <button
             onClick={() => setMenu((m) => !m)}
-            className="flex w-full items-center gap-3 rounded-xl bg-ink px-2.5 py-2 text-canvas"
+            className={clsx('flex w-full items-center gap-3 rounded-xl bg-ink px-2.5 py-2 text-canvas', collapsed && 'lg:justify-center lg:px-0')}
             aria-expanded={menu}
+            title={collapsed ? user?.fullName : undefined}
           >
             <Avatar name={user?.fullName ?? '?'} size="sm" />
-            <span className="min-w-0 flex-1 text-left">
+            <span className={clsx('min-w-0 flex-1 text-left', small)}>
               <span className="block truncate text-sm font-semibold">{user?.fullName}</span>
               <span className="block text-[11px] text-canvas/60">{labelOf(ROLES, user?.role)}</span>
             </span>
-            <ChevronDown size={16} className={clsx('transition', menu && 'rotate-180')} />
+            <ChevronDown size={16} className={clsx('transition', menu && 'rotate-180', small)} />
           </button>
         </div>
       </aside>
@@ -198,7 +230,7 @@ function NotificationsMenu() {
   );
 }
 
-function Header({ onMenu }: { onMenu: () => void }) {
+function Header({ onMenu, collapsed, onToggleSidebar }: { onMenu: () => void; collapsed: boolean; onToggleSidebar: () => void }) {
   const { user, logout, isInterviewer } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -216,6 +248,14 @@ function Header({ onMenu }: { onMenu: () => void }) {
     <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 bg-canvas/85 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
       <button className="icon-btn lg:hidden" onClick={onMenu} aria-label="Open menu">
         <Menu size={18} />
+      </button>
+      <button
+        className="icon-btn hidden lg:inline-flex"
+        onClick={onToggleSidebar}
+        aria-label={collapsed ? 'Open sidebar' : 'Close sidebar'}
+        title={collapsed ? 'Open sidebar' : 'Close sidebar'}
+      >
+        {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
       </button>
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-xl font-semibold sm:text-2xl">
@@ -259,12 +299,13 @@ function DemoBanner() {
 
 export function AppLayout() {
   const [open, setOpen] = useState(false);
+  const [collapsed, toggleCollapsed] = useCollapsed();
   const { isInterviewer } = useAuth();
   return (
     <div className="flex min-h-full">
-      <Sidebar open={open} onClose={() => setOpen(false)} />
+      <Sidebar open={open} collapsed={collapsed} onClose={() => setOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenu={() => setOpen(true)} />
+        <Header onMenu={() => setOpen(true)} collapsed={collapsed} onToggleSidebar={toggleCollapsed} />
         {!isInterviewer && <DemoBanner />}
         <main className="flex-1 px-4 pb-10 pt-2 sm:px-6 lg:px-8">
           <Outlet />
