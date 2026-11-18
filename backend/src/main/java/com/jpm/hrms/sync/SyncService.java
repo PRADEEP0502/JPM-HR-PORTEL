@@ -432,6 +432,10 @@ public class SyncService {
         for (FormFile f : files) {
             try {
                 DocType type = DocType.valueOf(f.field().trim().toUpperCase(Locale.ROOT));
+                if (type == DocType.JPM_RESUME) {
+                    fileProblems.add("file \"" + f.name() + "\" ignored - the JPM resume is uploaded by HR only");
+                    continue;
+                }
                 // the form's declaration covers the Aadhaar consent
                 documentService.store(c.getId(), type, f.name(), Base64.getMimeDecoder().decode(f.data()), true, FORM_ACTOR);
             } catch (IllegalArgumentException e) {

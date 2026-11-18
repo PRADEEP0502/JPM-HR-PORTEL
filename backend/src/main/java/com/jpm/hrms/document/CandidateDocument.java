@@ -12,7 +12,8 @@ import java.time.Instant;
 public class CandidateDocument implements SequencedEntity {
 
     /** AADHAAR is a copy of the identity card only (no number is stored or verified); always stored encrypted. */
-    public enum DocType { RESUME, AADHAAR, CERTIFICATE, OTHER }
+    /** JPM_RESUME is the company's own resume format: uploaded by HR only, never accepted from the application form. */
+    public enum DocType { RESUME, AADHAAR, CERTIFICATE, OTHER, JPM_RESUME }
 
     /**
      * Where the file lives: LOCAL = private folder on the server (UPLOAD_DIR); GRIDFS = MongoDB GridFS;

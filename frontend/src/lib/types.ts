@@ -17,7 +17,8 @@ export type VerificationStatus = 'PENDING' | 'VERIFIED';
 export type CandidateSource = 'GOOGLE_SHEETS' | 'MANUAL' | 'DEMO';
 export type ExperienceBucket = 'FRESHER' | 'Y0_2' | 'Y2_5' | 'Y5_10' | 'Y10_PLUS' | 'UNKNOWN';
 export type InterviewMode = 'IN_PERSON' | 'VIDEO' | 'PHONE';
-export type DocType = 'RESUME' | 'AADHAAR' | 'CERTIFICATE' | 'OTHER';
+/** JPM_RESUME: the company's own resume format, uploaded by HR only (not part of the Google Form). */
+export type DocType = 'RESUME' | 'AADHAAR' | 'CERTIFICATE' | 'OTHER' | 'JPM_RESUME';
 
 export interface User {
   id: number;

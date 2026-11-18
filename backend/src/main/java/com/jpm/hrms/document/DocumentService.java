@@ -247,6 +247,7 @@ public class DocumentService {
             case AADHAAR -> "Aadhaar copy";
             case CERTIFICATE -> "Certificate";
             case OTHER -> "Document";
+            case JPM_RESUME -> "JPM resume";
         };
     }
 

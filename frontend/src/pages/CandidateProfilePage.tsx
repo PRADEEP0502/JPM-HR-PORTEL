@@ -91,8 +91,14 @@ function ReferenceCard({ title, icon, rows }: { title: string; icon: ReactNode; 
   );
 }
 
-const DOC_LABEL: Record<DocType, string> = { RESUME: 'Resume', AADHAAR: 'Aadhaar', CERTIFICATE: 'Educational certificate', OTHER: 'Other document' };
-const DOC_ORDER: DocType[] = ['RESUME', 'AADHAAR', 'CERTIFICATE', 'OTHER'];
+const DOC_LABEL: Record<DocType, string> = {
+  JPM_RESUME: 'JPM resume',
+  RESUME: 'Resume',
+  AADHAAR: 'Aadhaar',
+  CERTIFICATE: 'Educational certificate',
+  OTHER: 'Other document',
+};
+const DOC_ORDER: DocType[] = ['JPM_RESUME', 'RESUME', 'AADHAAR', 'CERTIFICATE', 'OTHER'];
 
 export default function CandidateProfilePage() {
   const { id } = useParams();
@@ -454,7 +460,7 @@ export default function CandidateProfilePage() {
                             </div>
                             <button
                               className="btn-ghost p-2"
-                              onClick={() => setViewing({ title: `${c.fullName} - ${d.docType === 'RESUME' ? 'Resume' : 'Document'}`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'document' })}
+                              onClick={() => setViewing({ title: `${c.fullName} - ${d.docType === 'RESUME' || d.docType === 'JPM_RESUME' ? DOC_LABEL[d.docType] : 'Document'}`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'document' })}
                               aria-label={`View ${d.fileName ?? 'document'}`}
                               title="View"
                             >
