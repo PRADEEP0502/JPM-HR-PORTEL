@@ -160,17 +160,6 @@ export default function RequirementsPage() {
   return (
     <PriorityReady.Provider value={priorityReady}>
     <div className="space-y-6">
-      {!priorityReady && raw.length > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-xs text-warn">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" />
-          <div>
-            <div className="font-semibold">Priority editing is waiting for the server update</div>
-            <div className="mt-0.5 text-ink-2">
-              The list is shown in the order the requirements were added. Once the new backend is deployed (Render), you can set 1st, 2nd, 3rd… here.
-            </div>
-          </div>
-        </div>
-      )}
       {/* Dashboard Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
