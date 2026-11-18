@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Award, Briefcase, Building2, Download, FilterX, Megaphone, Search, Sparkles, Target, Users } from 'lucide-react';
@@ -46,6 +47,7 @@ type Analytics = {
 };
 
 export default function SourceAnalyticsPage() {
+  const openCard = useOpenOnClick();
   const toast = useToast();
   const navigate = useNavigate();
   const { data: departments } = useDepartments();
@@ -324,7 +326,7 @@ export default function SourceAnalyticsPage() {
                     </thead>
                     <tbody>
                       {[...a.sources].sort((x, y) => y.applications - x.applications).map((s) => (
-                        <tr key={s.source} className={clsx('border-b border-line/40 last:border-0 hover:bg-white/[0.02]', s.source === a.topSource && 'bg-white/[0.03]')}>
+                        <tr key={s.source} {...openCard(candidatesLink(s.source))} className={clsx('cursor-pointer border-b border-line/40 last:border-0 hover:bg-white/[0.02]', s.source === a.topSource && 'bg-white/[0.03]')}>
                           <td className="td pl-5">
                             <Link to={candidatesLink(s.source)} className="inline-flex items-center gap-2 font-medium hover:underline">
                               <span className="h-2.5 w-2.5 rounded-full" style={{ background: sourceColor(s.source) }} />
@@ -533,7 +535,7 @@ export default function SourceAnalyticsPage() {
                       </thead>
                       <tbody>
                         {a.requirements.map((r) => (
-                          <tr key={r.requirementId} className="border-b border-line/40 last:border-0">
+                          <tr key={r.requirementId} {...openCard('/requirements')} className="cursor-pointer border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                             <td className="td pl-5">
                               <span className="font-medium">{r.department}</span>
                               {r.position && <span className="text-ink-3"> · {r.position}</span>}

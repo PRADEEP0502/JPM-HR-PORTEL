@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { ArrowRightLeft, RefreshCcw } from 'lucide-react';
@@ -22,6 +23,7 @@ const LIMIT = 25;
 
 /** Recruitment pipeline: active candidates per status. Moving a card uses the normal, audited status update. */
 export default function PipelinePage() {
+  const openCard = useOpenOnClick();
   const { data: departments } = useDepartments();
   const [departmentId, setDepartmentId] = useState('');
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
@@ -65,7 +67,7 @@ export default function PipelinePage() {
                 <ul className="max-h-[65vh] flex-1 space-y-2 overflow-y-auto p-2">
                   {col.candidates.length === 0 && <li className="px-2 py-6 text-center text-xs text-ink-3">No candidates</li>}
                   {col.candidates.map((c) => (
-                    <li key={c.id} className="rounded-xl border border-line/70 bg-card p-2.5">
+                    <li key={c.id} {...openCard(`/candidates/${c.id}`)} className="cursor-pointer rounded-xl border border-line/70 bg-card p-2.5 transition hover:border-line">
                       <Link to={`/candidates/${c.id}`} className="block font-medium text-ink hover:underline">{c.fullName}</Link>
                       <p className="text-[11px] text-ink-3">
                         <span className="font-mono">{c.candidateCode}</span> · {c.departmentName ?? 'Unassigned'}

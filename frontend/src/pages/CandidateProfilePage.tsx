@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { clickable } from '../lib/clickable';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -444,8 +445,10 @@ export default function CandidateProfilePage() {
                     <ul className="space-y-2">
                       {c.documents.filter((d) => d.docType === t).map((d) => {
                         const Icon = d.docType === 'AADHAAR' ? IdCard : FileText;
+                        const view = () =>
+                          setViewing({ title: `${c.fullName} - ${d.docType === 'RESUME' || d.docType === 'JPM_RESUME' ? DOC_LABEL[d.docType] : 'Document'}`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'document' });
                         return (
-                          <li key={d.id} className="flex items-center gap-3 rounded-xl border border-line/70 bg-card px-3 py-2.5">
+                          <li key={d.id} {...clickable(view)} title="View" className="flex cursor-pointer items-center gap-3 rounded-xl border border-line/70 bg-card px-3 py-2.5 transition hover:border-line">
                             <Icon size={18} className={d.docType === 'AADHAAR' ? 'shrink-0 text-warn' : 'shrink-0 text-ink-3'} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm" title={d.fileName ?? undefined}>{d.fileName ?? DOC_LABEL[d.docType]}</p>
@@ -460,7 +463,7 @@ export default function CandidateProfilePage() {
                             </div>
                             <button
                               className="btn-ghost p-2"
-                              onClick={() => setViewing({ title: `${c.fullName} - ${d.docType === 'RESUME' || d.docType === 'JPM_RESUME' ? DOC_LABEL[d.docType] : 'Document'}`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'document' })}
+                              onClick={view}
                               aria-label={`View ${d.fileName ?? 'document'}`}
                               title="View"
                             >

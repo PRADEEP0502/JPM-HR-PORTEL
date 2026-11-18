@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
@@ -608,6 +609,7 @@ function BackupsTab() {
 }
 
 function AuditTab() {
+  const openCard = useOpenOnClick();
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   const [action, setAction] = useState('');
@@ -641,7 +643,7 @@ function AuditTab() {
               <thead><tr className="border-b border-line"><th className="th pl-5">When</th><th className="th">User</th><th className="th">Action</th><th className="th pr-5">Details</th></tr></thead>
               <tbody>
                 {logs.data.content.map((a) => (
-                  <tr key={a.id} className="border-b border-line/40 last:border-0 align-top">
+                  <tr key={a.id} {...openCard(a.entityType === 'CANDIDATE' && a.entityId ? `/candidates/${a.entityId}` : null)} className={clsx('border-b border-line/40 last:border-0 align-top', a.entityType === 'CANDIDATE' && a.entityId && 'cursor-pointer hover:bg-white/[0.02]')}>
                     <td className="td pl-5 tabular-nums">{fmtDateTime(a.occurredAt)}</td>
                     <td className="td">{a.actor}</td>
                     <td className="td"><span className={clsx('font-mono text-xs', a.action === 'LOGIN_FAILED' ? 'text-bad' : 'text-ink')}>{a.action}</span></td>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { Link, useNavigate } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -80,6 +82,7 @@ function DepartmentModal({ dept, open, onClose }: { dept: Department | null; ope
 }
 
 export default function DepartmentsPage() {
+  const openCard = useOpenOnClick();
   const { isAdmin } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -140,7 +143,7 @@ export default function DepartmentsPage() {
                     const id = r.department === 'Unassigned' ? 0 : idByName.get(String(r.department));
                     const link = (extra = '') => `/candidates?departmentId=${id}${extra}`;
                     return (
-                      <tr key={String(r.department)} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
+                      <tr key={String(r.department)} {...openCard(id !== undefined ? link() : null)} className={clsx('border-b border-line/40 last:border-0 hover:bg-white/[0.02]', id !== undefined && 'cursor-pointer')}>
                         <td className="td truncate pl-5 font-medium text-ink" title={String(r.department)}>{id !== undefined ? <Link className="hover:underline" to={link()}>{r.department}</Link> : r.department}</td>
                         <td className="td text-center tabular-nums">
                           {id ? (
@@ -187,7 +190,7 @@ export default function DepartmentsPage() {
         ) : (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {depts.data?.map((d, i) => (
-              <li key={d.id} className="flex items-start gap-3 rounded-xl border border-line/70 bg-card p-4">
+              <li key={d.id} {...openCard(`/candidates?departmentId=${d.id}`)} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/70 bg-card p-4 transition hover:border-line">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: CATEGORICAL[i % CATEGORICAL.length] }}>
                   <Building2 size={17} />
                 </span>

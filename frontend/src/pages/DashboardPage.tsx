@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import clsx from 'clsx';
 import {
   ArrowUpRight,
@@ -216,6 +217,7 @@ function panelLink(name: string) {
 // ------------------------------------------------------------------ interviews
 
 function InterviewTable({ d }: { d: Dashboard }) {
+  const openCard = useOpenOnClick();
   const [range, setRange] = useState<'today' | 'upcoming'>('today');
   const rows = range === 'today' ? d.todaysInterviews : d.upcomingInterviews;
   return (
@@ -254,7 +256,7 @@ function InterviewTable({ d }: { d: Dashboard }) {
             </thead>
             <tbody>
               {rows.map((i) => (
-                <tr key={i.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
+                <tr key={i.id} {...openCard(`/candidates/${i.candidateId}`)} className="cursor-pointer border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                   <td className="td">
                     <Link to={`/candidates/${i.candidateId}`} className="flex items-center gap-3 text-ink hover:underline">
                       <Avatar name={i.candidateName} size="sm" /> {i.candidateName}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Calendar, Download, Eye, FileDown, FileText, FilterX, Mail, MessageCircle, MoreVertical, PenSquare, Phone, RefreshCcw, Search, Star, UserCheck, UserPlus, Users, X } from 'lucide-react';
@@ -54,6 +55,7 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
 ];
 
 export default function CandidatesPage() {
+  const openCard = useOpenOnClick();
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const { data: departments } = useDepartments();
@@ -242,7 +244,7 @@ export default function CandidatesPage() {
             {/* Phones: one card per candidate. Tablets and up: the sortable table below. */}
             <ul className={clsx('space-y-3 md:hidden', query.isFetching && 'opacity-70')} aria-label="Candidates">
               {data.content.map((c) => (
-                <li key={c.id} className="rounded-xl border border-line/70 bg-card p-3.5">
+                <li key={c.id} {...openCard(`/candidates/${c.id}`)} className="cursor-pointer rounded-xl border border-line/70 bg-card p-3.5 transition hover:border-line">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <Link to={`/candidates/${c.id}`} className="block truncate font-medium text-ink hover:underline">{c.fullName}</Link>
@@ -300,7 +302,7 @@ export default function CandidatesPage() {
                 </thead>
                 <tbody>
                   {data.content.map((c) => (
-                    <tr key={c.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
+                    <tr key={c.id} {...openCard(`/candidates/${c.id}`)} className="cursor-pointer border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                       <td className="td pl-4 font-mono text-xs text-ink">
                         <span className="flex items-center gap-1.5">
                           {c.candidateCode}

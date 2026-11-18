@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useOpenOnClick } from '../lib/clickable';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { AlertTriangle, CalendarClock, CalendarPlus, Search, Send, Users } from 'lucide-react';
@@ -22,6 +23,7 @@ const TABS: { value: Scope; label: string }[] = [
 ];
 
 export default function InterviewsPage() {
+  const openCard = useOpenOnClick();
   // links from the dashboard open this page already filtered (?q=interviewer&from=&to=)
   const [params] = useSearchParams();
   const linked = !!(params.get('q') || params.get('from') || params.get('to'));
@@ -126,7 +128,7 @@ export default function InterviewsPage() {
                     const active = i.status === 'SCHEDULED' || i.status === 'RESCHEDULED';
                     const overdue = active && new Date(i.scheduledAt).getTime() < Date.now();
                     return (
-                      <tr key={i.id} className="border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
+                      <tr key={i.id} {...openCard(`/candidates/${i.candidateId}`)} className="cursor-pointer border-b border-line/40 last:border-0 hover:bg-white/[0.02]">
                         <td className="td pl-4">
                           <Link to={`/candidates/${i.candidateId}`} className="flex items-center gap-3 hover:underline">
                             <Avatar name={i.candidateName} size="sm" />
