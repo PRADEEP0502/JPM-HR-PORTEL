@@ -7,20 +7,36 @@ import {
   ArrowUpRight,
   Check,
   Briefcase,
+  Building2,
+  Calculator,
   CheckCircle2,
+  ClipboardCheck,
   ChevronDown,
   ChevronUp,
+  Factory,
+  FlaskConical,
   GraduationCap,
+  HardHat,
+  HeartPulse,
+  Monitor,
+  Package,
   Pencil,
   Phone,
   Plus,
   Search,
+  ShieldCheck,
   Sparkles,
+  Sprout,
   Star,
   Trash2,
   TrendingUp,
+  Truck,
   UserCheck,
   Users,
+  Utensils,
+  Warehouse,
+  Wrench,
+  Zap,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
@@ -557,6 +573,55 @@ function Kpi({ icon, tone, label, value, hint }: { icon: React.ReactNode; tone: 
 }
 
 // -------------------------------------------------------------------------------------------------
+// DEPARTMENT ICON
+// -------------------------------------------------------------------------------------------------
+
+type IconTone = 'info' | 'violet' | 'good' | 'warn' | 'bad';
+
+const ICON_TONE: Record<IconTone, string> = {
+  info: 'bg-info/15 text-info ring-info/30',
+  violet: 'bg-violet/15 text-violet ring-violet/30',
+  good: 'bg-good/15 text-good ring-good/30',
+  warn: 'bg-warn/15 text-warn ring-warn/30',
+  bad: 'bg-bad/15 text-bad ring-bad/30',
+};
+
+/** First match wins; the department name is checked before the sub-work so every row of a department looks the same. */
+const DEPARTMENT_ICONS: { match: RegExp; icon: typeof Briefcase; tone: IconTone }[] = [
+  { match: /secu|guard|watch/, icon: ShieldCheck, tone: 'bad' },
+  { match: /(qa|qc|qad)|quality|inspect/, icon: ClipboardCheck, tone: 'good' },
+  { match: /chemi|lab/, icon: FlaskConical, tone: 'good' },
+  { match: /electric/, icon: Zap, tone: 'warn' },
+  { match: /maint|mechan|fitter|weld|repair/, icon: Wrench, tone: 'warn' },
+  { match: /driv|transport|vehicle|logist|fleet/, icon: Truck, tone: 'info' },
+  { match: /lot|pack|dispatch|despatch/, icon: Package, tone: 'violet' },
+  { match: /store|warehouse|inventor|purchase/, icon: Warehouse, tone: 'warn' },
+  { match: /account|financ|payroll|billing/, icon: Calculator, tone: 'good' },
+  { match: /canteen|kitchen|cook|mess/, icon: Utensils, tone: 'warn' },
+  { match: /it|computer|software|system|data/, icon: Monitor, tone: 'info' },
+  { match: /civil|construct|site/, icon: HardHat, tone: 'warn' },
+  { match: /medic|nurse|health|first aid/, icon: HeartPulse, tone: 'bad' },
+  { match: /garden|farm|horti/, icon: Sprout, tone: 'good' },
+  { match: /housekeep|clean|sanit/, icon: Sparkles, tone: 'violet' },
+  { match: /produc|process|mill|machine|operat|spin|plant/, icon: Factory, tone: 'info' },
+  { match: /office|admin|hr|human|clerk|reception/, icon: Building2, tone: 'violet' },
+];
+
+function DepartmentIcon({ department, position }: { department: string | null; position: string | null }) {
+  const find = (text: string | null) => (text ? DEPARTMENT_ICONS.find((d) => d.match.test(text.toLowerCase())) : undefined);
+  const hit = find(department) ?? find(position);
+  const Icon = hit?.icon ?? Briefcase;
+  return (
+    <span
+      className={clsx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1', ICON_TONE[hit?.tone ?? 'info'])}
+      title={department ?? 'Unassigned'}
+    >
+      <Icon size={17} strokeWidth={2.1} />
+    </span>
+  );
+}
+
+// -------------------------------------------------------------------------------------------------
 // LIST VIEW
 // -------------------------------------------------------------------------------------------------
 
@@ -719,9 +784,7 @@ function RequirementTableRow({
 
         <td className="px-3 py-3.5">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-info/25 to-violet/20 text-sm font-bold text-ink ring-1 ring-line/60">
-              {deptName.charAt(0).toUpperCase()}
-            </span>
+            <DepartmentIcon department={r.departmentName} position={r.position} />
             <div className="min-w-0">
               <div className="truncate text-[13px] font-semibold text-ink" title={requirementTitle(r)}>{deptName}</div>
               <span className="mt-0.5 inline-flex max-w-[220px] items-center gap-1 truncate rounded-md bg-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
