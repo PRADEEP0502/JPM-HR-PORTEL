@@ -82,7 +82,7 @@ export function NotesPanel({ candidateId, notes, onChanged }: { candidateId: num
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">
           <MessageSquarePlus size={16} className="text-ink-3" /> Notes
         </h2>
-        <span className="text-[11px] text-ink-3">Calls, interviews, reference numbers · visible to the HR team</span>
+        <span className="text-[11px] text-ink-3">HR team only</span>
       </div>
 
       <NoteForm
