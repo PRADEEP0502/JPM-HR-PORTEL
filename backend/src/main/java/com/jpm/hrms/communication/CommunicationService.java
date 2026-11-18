@@ -178,23 +178,31 @@ public class CommunicationService {
             }
         }
         TemplatePurpose invite = TemplatePurpose.INTERVIEW_INVITATION;
-        upgradeUnchanged(invite, TemplateChannel.WHATSAPP, PREVIOUS_WHATSAPP_BODY, DEFAULT_WHATSAPP_BODY, "adds the company location link");
-        upgradeUnchanged(invite, TemplateChannel.EMAIL, PREVIOUS_EMAIL_BODY, DEFAULT_EMAIL_BODY, "adds the company location link");
+        upgradeUnchanged(invite, TemplateChannel.WHATSAPP, PREVIOUS_WHATSAPP_BODY, DEFAULT_WHATSAPP_BODY, null, "adds the company location link");
+        upgradeUnchanged(invite, TemplateChannel.EMAIL, PREVIOUS_EMAIL_BODY, DEFAULT_EMAIL_BODY, null, "adds the company location link");
         DefaultTemplates.Wording joining = DefaultTemplates.ALL.get(TemplatePurpose.JOINING);
-        String previousJoining = new DefaultTemplates.Wording(null, DefaultTemplates.PREVIOUS_JOINING_BODY).whatsappBody();
-        upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.WHATSAPP, previousJoining, joining.whatsappBody(), "adds the joining date");
-        upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.EMAIL, DefaultTemplates.PREVIOUS_JOINING_BODY, joining.body(), "adds the joining date");
+        for (String previous : DefaultTemplates.PREVIOUS_JOINING_BODIES) {
+            String previousWhatsapp = new DefaultTemplates.Wording(null, previous).whatsappBody();
+            upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.WHATSAPP, previousWhatsapp, joining.whatsappBody(), null,
+                    "adds the joining date in a more formal wording");
+            upgradeUnchanged(TemplatePurpose.JOINING, TemplateChannel.EMAIL, previous, joining.body(), joining.emailSubject(),
+                    "adds the joining date in a more formal wording");
+        }
     }
 
-    /** Moves a template still on an old default wording to the new default; wording an admin changed is kept. */
-    private void upgradeUnchanged(TemplatePurpose p, TemplateChannel channel, String previous, String next, String what) {
+    /**
+     * Moves a template still on an old default wording to the new default; wording an admin changed is kept.
+     * {@code nextSubject} replaces the subject only when it is still the original default one (null keeps the subject).
+     */
+    private void upgradeUnchanged(TemplatePurpose p, TemplateChannel channel, String previous, String next, String nextSubject, String what) {
         templates.findFirstByPurposeAndChannelAndActiveTrueOrderByVersionDesc(p, channel)
                 .filter(t -> t.getBody().equals(previous))
                 .ifPresent(current -> {
                     current.setActive(false);
                     templates.save(current);
                     MessageTemplate upgraded = templates.save(new MessageTemplate(p, channel, templates.maxVersion(p, channel) + 1,
-                            current.getSubject(), next, AuditService.SYSTEM_ACTOR));
+                            nextSubject != null && DefaultTemplates.PREVIOUS_JOINING_SUBJECT.equals(current.getSubject()) ? nextSubject : current.getSubject(),
+                            next, AuditService.SYSTEM_ACTOR));
                     audit.recordAs(AuditService.SYSTEM_ACTOR, "TEMPLATE_UPDATED", "TEMPLATE", upgraded.getId(), p.label + " " + channel
                             + " template version " + upgraded.getVersion() + " " + what + " (replaces version "
                             + current.getVersion() + ")");

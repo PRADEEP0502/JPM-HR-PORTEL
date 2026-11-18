@@ -1,5 +1,6 @@
 package com.jpm.hrms.communication;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -69,24 +70,31 @@ final class DefaultTemplates {
 
                     Best regards,
                     {{HRSignature}}"""),
-            TemplatePurpose.JOINING, new Wording("Joining Instructions – JPM", """
+            TemplatePurpose.JOINING, new Wording("Welcome to JPM – Joining Instructions", """
                     Dear {{CandidateName}},
 
-                    Welcome to {{CompanyName}}!
+                    Congratulations, and welcome to {{CompanyName}}! We are delighted to have you join our {{Department}} team.
 
                     Reporting Details
 
+                    Date of joining: {{JoiningDate}}
                     Department: {{Department}}
-                    Joining date: {{JoiningDate}}
                     Reporting location: {{Venue}}
 
-                    Please report on your joining date. Our HR team will confirm the reporting time and the documents to bring. Please reply to this message if you have any questions.
+                    Kindly report to the HR department on your date of joining. Our HR team will share your reporting time and the list of documents to bring before that day.
 
-                    Best regards,
+                    Should you have any questions in the meantime, please reply to this message and we will be glad to assist you.
+
+                    We look forward to working with you.
+
+                    Warm regards,
                     {{HRSignature}}"""));
 
-    /** The joining wording before it had the joining date; templates still on it are moved to the wording above. */
-    static final String PREVIOUS_JOINING_BODY = """
+    /** The original joining email subject; replaced by the one above when the wording is upgraded. */
+    static final String PREVIOUS_JOINING_SUBJECT = "Joining Instructions – JPM";
+
+    /** Earlier default joining wordings; templates still on one of them are moved to the wording above. */
+    static final List<String> PREVIOUS_JOINING_BODIES = List.of("""
             Dear {{CandidateName}},
 
             Welcome to {{CompanyName}}!
@@ -99,5 +107,19 @@ final class DefaultTemplates {
             Our HR team will confirm your joining date, reporting time and the documents to bring. Please reply to this message if you have any questions.
 
             Best regards,
-            {{HRSignature}}""";
+            {{HRSignature}}""", """
+            Dear {{CandidateName}},
+
+            Welcome to {{CompanyName}}!
+
+            Reporting Details
+
+            Department: {{Department}}
+            Joining date: {{JoiningDate}}
+            Reporting location: {{Venue}}
+
+            Please report on your joining date. Our HR team will confirm the reporting time and the documents to bring. Please reply to this message if you have any questions.
+
+            Best regards,
+            {{HRSignature}}""");
 }
