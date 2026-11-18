@@ -587,10 +587,6 @@ function RequirementTableRow({
 }) {
   const toast = useToast();
   const qc = useQueryClient();
-  const [draft, setDraft] = useState(String(r.needed));
-
-  useEffect(() => setDraft(String(r.needed)), [r.needed]);
-
   const scope = { departmentId: r.departmentId, position: r.position || undefined };
   const scopeLink = `departmentId=${r.departmentId}${r.position ? `&position=${encodeURIComponent(r.position)}` : ''}`;
 
@@ -621,15 +617,6 @@ function RequirementTableRow({
       }),
   });
 
-  const update = useMutation({
-    mutationFn: () => api.put<Requirement>(`/requirements/${r.id}`, { needed: Number(draft) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['requirements'] });
-      toast('success', 'Target updated');
-    },
-    onError: (e) => toast('error', e.message),
-  });
-
   const remove = useMutation({
     mutationFn: () => api.del(`/requirements/${r.id}`),
     onSuccess: () => {
@@ -646,14 +633,18 @@ function RequirementTableRow({
   const ratedList = ranked.data?.content ?? [];
   const unratedList = unrated.data?.content ?? [];
   const waiting = ratedList.length + unratedList.length;
-  const dirty = draft !== String(r.needed);
-  const saveTarget = () => (validNumber(draft) ? update.mutate() : toast('error', `Target must be 1 to ${MAX_NEEDED}`));
+  // clicks on the row's own controls (priority, hired link, candidates button, edit, delete) must not also toggle the row
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const deptName = r.departmentName ?? 'Unassigned';
 
   return (
     <>
-      <tr className={clsx('group transition-colors hover:bg-raised/40', isExpanded && 'bg-raised/30')}>
-        <td className="relative py-3.5 pl-5 pr-2">
+      <tr
+        className={clsx('group cursor-pointer transition-colors hover:bg-raised/40', isExpanded && 'bg-raised/30')}
+        onClick={onToggleExpand}
+        title={isExpanded ? 'Hide candidates' : 'Show candidates'}
+      >
+        <td className="relative py-3.5 pl-5 pr-2" onClick={stop}>
           <span className={clsx('absolute inset-y-3 left-0 w-1 rounded-r-full', meta.accent)} />
           <PriorityControl requirement={r} total={total} />
         </td>
@@ -673,36 +664,19 @@ function RequirementTableRow({
         </td>
 
         <td className="px-3 py-3.5">
-          <form
-            className="flex items-center gap-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (dirty) saveTarget();
-            }}
+          <span
+            className="inline-flex w-12 justify-center rounded-lg border border-line/70 bg-raised px-1.5 py-1 text-[13px] font-bold tabular-nums text-ink"
+            title="Change the target with Edit"
           >
-            <input
-              className="w-12 rounded-lg border border-line/70 bg-raised px-1.5 py-1 text-center text-[13px] font-bold tabular-nums text-ink outline-none transition focus:border-info focus:ring-2 focus:ring-info/25"
-              inputMode="numeric"
-              aria-label="People needed"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
-            />
-            {dirty && (
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-info text-white shadow-sm transition hover:bg-info/85"
-                title="Save target"
-                disabled={update.isPending}
-              >
-                {update.isPending ? <Spinner size={12} /> : <Check size={14} />}
-              </button>
-            )}
-          </form>
+            {r.needed}
+          </span>
         </td>
 
         <td className="px-3 py-3.5 text-center">
           <Link
             to={`/candidates?applicationStatus=SELECTED,JOINED&${scopeLink}`}
             className="text-[15px] font-bold tabular-nums text-good hover:underline"
+            onClick={stop}
             title="See the hired candidates"
           >
             {r.hired}
@@ -738,7 +712,10 @@ function RequirementTableRow({
 
         <td className="px-3 py-3.5">
           <button
-            onClick={onToggleExpand}
+            onClick={(e) => {
+              stop(e);
+              onToggleExpand();
+            }}
             className={clsx(
               'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition',
               isExpanded ? 'border-info/40 bg-info/15 text-info' : 'border-line bg-raised text-ink-2 hover:border-info/40 hover:text-ink'
@@ -750,7 +727,7 @@ function RequirementTableRow({
           </button>
         </td>
 
-        <td className="py-3.5 pl-3 pr-5 text-right">
+        <td className="py-3.5 pl-3 pr-5 text-right" onClick={stop}>
           <div className="inline-flex items-center gap-1">
             <button
               className="inline-flex items-center gap-1 rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[11px] font-semibold text-ink-2 transition hover:border-info/50 hover:text-info"
