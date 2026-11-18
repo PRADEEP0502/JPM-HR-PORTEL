@@ -44,7 +44,7 @@ public class ReportService {
         INTERVIEW_STATUS("Interview Status Report"),
         APPLICATIONS_BY_DATE("Applications by Date"),
         STATUS("Candidates by Recruitment Status"),
-        RATING_DISTRIBUTION("Profile Match Rating Distribution"),
+        RATING_DISTRIBUTION("Rating Scale Distribution"),
         SELECTED_JOINED("Selected and Joined Candidates"),
         ACTIVITY("Recruitment Activity History");
 
@@ -336,7 +336,7 @@ public class ReportService {
         rows.add(unrated);
         chart.add(new ChartPoint("Not Rated", counts[0]));
         return new Report(ReportType.RATING_DISTRIBUTION, ReportType.RATING_DISTRIBUTION.title, from, to, clock.instant(),
-                List.of(new Column("rating", "Profile Match Rating"), new Column("band", "Guideline"),
+                List.of(new Column("rating", "Rating Scale"), new Column("band", "Guideline"),
                         new Column("candidates", "Candidates")), rows, chart);
     }
 

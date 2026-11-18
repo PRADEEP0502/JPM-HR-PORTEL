@@ -330,7 +330,7 @@ public class CandidateService {
             throw ApiException.badRequest("The candidate already has this rating");
         }
         Integer old = c.getProfileRating();
-        audit.record("RATING_UPDATED", "CANDIDATE", c.getId(), "Profile match rating: "
+        audit.record("RATING_UPDATED", "CANDIDATE", c.getId(), "Rating scale: "
                 + (old == null ? "Not rated" : old + "/10") + " → " + rating + "/10 (" + ratingLabel(rating) + ")");
         c.setProfileRating(rating);
         c.setRatingRemark(remark);
@@ -338,7 +338,7 @@ public class CandidateService {
         c.setRatedAt(Instant.now());
         repo.save(c);
         ratingHistory.save(new RatingChange(c.getId(), old, rating, remark, actor));
-        if (remark != null) remarks.save(new HrRemark(c, actor, "Profile match rating " + rating + "/10: " + remark));
+        if (remark != null) remarks.save(new HrRemark(c, actor, "Rating scale " + rating + "/10: " + remark));
         return detail(id);
     }
 

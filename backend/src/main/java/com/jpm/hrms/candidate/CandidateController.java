@@ -108,7 +108,7 @@ public class CandidateController {
         }
         var response = TableExporter.export(format, "Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Sub-work", "Source", "Qualification", "Experience (yrs)",
-                        "Application Date", "Joining Date", "Profile Match Rating", "Application Status", "Interview Status", "Verification",
+                        "Application Date", "Joining Date", "Rating Scale", "Application Status", "Interview Status", "Verification",
                         "Address", "City / Town", "District", "State", "PIN code", "Mode of travel"),
                 rows, "candidates");
         audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to " + format.toUpperCase());

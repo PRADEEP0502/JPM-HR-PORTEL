@@ -66,7 +66,7 @@ class ProfileRatingApiTest {
 
         // Remark goes to HR remarks history; candidate row and code untouched
         assertThat(remarks.findByCandidateIdOrderByCreatedAtDesc(high.getId()))
-                .anyMatch(r -> r.getRemark().equals("Profile match rating 9/10: Strong Java skills"));
+                .anyMatch(r -> r.getRemark().equals("Rating scale 9/10: Strong Java skills"));
         Candidate reloaded = candidates.findById(high.getId()).orElseThrow();
         assertThat(reloaded.getCandidateCode()).isEqualTo(high.getCandidateCode());
         assertThat(reloaded.getFullName()).isEqualTo("Rating Test High");

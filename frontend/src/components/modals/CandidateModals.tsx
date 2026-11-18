@@ -466,7 +466,7 @@ export function RatingModal({ target, onClose }: { target: RatingTarget | null; 
   const save = useMutation({
     mutationFn: () => api.patch(`/candidates/${target!.id}/rating`, { rating, remark: remark.trim() || null }),
     onSuccess: () => {
-      toast('success', `Profile match rating ${rating}/10 saved for ${target!.name}`);
+      toast('success', `Rating scale ${rating}/10 saved for ${target!.name}`);
       invalidate();
       onClose();
     },
@@ -478,7 +478,7 @@ export function RatingModal({ target, onClose }: { target: RatingTarget | null; 
     <Modal
       open={!!target}
       onClose={onClose}
-      title={target?.rating == null ? 'Rate profile match' : 'Update profile match rating'}
+      title={target?.rating == null ? 'Set rating scale' : 'Update rating scale'}
       description={target ? `${target.name} · ${target.code}` : undefined}
       footer={
         <>
@@ -491,8 +491,8 @@ export function RatingModal({ target, onClose }: { target: RatingTarget | null; 
     >
       <div className="space-y-4">
         <div>
-          <span className="label">Profile Match Rating (1–10)</span>
-          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="radiogroup" aria-label="Profile match rating">
+          <span className="label">Rating Scale (1–10)</span>
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="radiogroup" aria-label="Rating scale">
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
               <button
                 key={n}

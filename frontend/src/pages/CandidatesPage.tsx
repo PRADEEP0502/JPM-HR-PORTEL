@@ -48,7 +48,7 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
   { key: 'experience', label: 'Experience', sortable: true },
   { key: 'applicationDate', label: 'Application Date', sortable: true },
   { key: 'joiningDate', label: 'Joining Date', sortable: true },
-  { key: 'rating', label: 'Profile Match', sortable: true },
+  { key: 'rating', label: 'Rating Scale', sortable: true },
   { key: 'applicationStatus', label: 'Application Status', sortable: true },
   { key: 'interviewStatus', label: 'Interview Status', sortable: true },
   { key: 'ratingRemark', label: 'HR Remarks' },
@@ -182,7 +182,7 @@ export default function CandidatesPage() {
             <option value="">Any verification</option>
             {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
-          <select className="input" aria-label="Profile match rating" value={filters.rating} onChange={(e) => update({ rating: e.target.value })}>
+          <select className="input" aria-label="Rating scale" value={filters.rating} onChange={(e) => update({ rating: e.target.value })}>
             <option value="">Any rating</option>
             {RATING_FILTERS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>

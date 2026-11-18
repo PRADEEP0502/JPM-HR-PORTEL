@@ -17,7 +17,7 @@ const REPORTS: { type: ReportType; label: string; desc: string }[] = [
   { type: 'MONTHLY', label: 'Monthly applications', desc: 'Applications received per month' },
   { type: 'APPLICATIONS_BY_DATE', label: 'Applications by date', desc: 'Applications received per day (default: last 30 days)' },
   { type: 'STATUS', label: 'Recruitment status', desc: 'Candidates in each recruitment status' },
-  { type: 'RATING_DISTRIBUTION', label: 'Profile Match Rating', desc: 'How many candidates have each rating (internal)' },
+  { type: 'RATING_DISTRIBUTION', label: 'Rating Scale', desc: 'How many candidates have each rating (internal)' },
   { type: 'SELECTED', label: 'Selected', desc: 'Candidates with status Selected' },
   { type: 'SELECTED_JOINED', label: 'Selected & joined', desc: 'Candidates who were selected or have joined' },
   { type: 'REJECTED', label: 'Rejected', desc: 'Candidates with status Rejected' },
