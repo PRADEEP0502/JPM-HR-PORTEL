@@ -47,9 +47,37 @@ const ordinal = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-/** False while the server is an older version that does not store priorities yet (reordering is then switched off). */
-const PriorityReady = createContext(true);
-const SERVER_OLD_MSG = 'The server is still running the old version, so priority cannot be saved yet. Redeploy the backend and try again.';
+/**
+ * Moves a requirement to a priority (1 = top). With the current server the order is saved there for everyone; while the server is
+ * still an older version that has no priorities, the order is kept in this browser and sent to the server once it is updated.
+ */
+type PriorityMover = { move: (r: Requirement, to: number) => Promise<number>; movingId: number | null };
+const PriorityContext = createContext<PriorityMover>({ move: async () => 0, movingId: null });
+
+const LOCAL_ORDER_KEY = 'hrms.requirementOrder';
+const readLocalOrder = (): number[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOCAL_ORDER_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'number') : [];
+  } catch {
+    return [];
+  }
+};
+const writeLocalOrder = (ids: number[]) => {
+  try {
+    if (ids.length) localStorage.setItem(LOCAL_ORDER_KEY, JSON.stringify(ids));
+    else localStorage.removeItem(LOCAL_ORDER_KEY);
+  } catch {
+    /* storage blocked: the order still applies until the page is reloaded */
+  }
+};
+
+/** ids with `id` taken out and put back at 1-based position `to` (clamped). */
+const placeAt = (ids: number[], id: number, to: number) => {
+  const rest = ids.filter((x) => x !== id);
+  rest.splice(Math.min(Math.max(to, 1), rest.length + 1) - 1, 0, id);
+  return rest;
+};
 
 const requirementTitle = (r: Requirement) => `${r.departmentName ?? 'Unassigned'}${r.position ? ` – ${r.position}` : ''}`;
 
@@ -91,7 +119,9 @@ export default function RequirementsPage() {
         needed: Number(needed),
         priority: priority ? Number(priority) : null,
       }),
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      // an older server ignores the chosen priority: keep it in the local order instead
+      if (!serverPriorities && priority) saveLocalOrder(placeAt(reqList.map((r) => r.id), saved.id, Number(priority)));
       qc.invalidateQueries({ queryKey: ['requirements'] });
       setPosition('');
       setNeeded('');
@@ -111,8 +141,13 @@ export default function RequirementsPage() {
 
   // the server sends them in priority order (1st first); sorting again keeps that true after any local change
   const raw = requirements.data ?? [];
-  // an older server sends neither priority nor hired: count hires per requirement here instead and number them in saved order
-  const priorityReady = raw.every((r) => typeof r.priority === 'number' && r.priority > 0);
+  // an older server sends neither priority nor hired: count hires per requirement here, and keep the order in this browser
+  const serverPriorities = raw.every((r) => typeof r.priority === 'number' && r.priority > 0);
+  const [localOrder, setLocalOrder] = useState<number[]>(readLocalOrder);
+  const saveLocalOrder = (ids: number[]) => {
+    setLocalOrder(ids);
+    writeLocalOrder(ids);
+  };
   const hiredFallback = useQueries({
     queries: raw.map((r) => ({
       queryKey: ['candidates', 'requirement-filled', r.departmentId, r.position],
@@ -126,10 +161,54 @@ export default function RequirementsPage() {
       enabled: typeof r.hired !== 'number',
     })),
   });
+  const rankOf = (r: Requirement) => {
+    if (serverPriorities) return r.priority;
+    const i = localOrder.indexOf(r.id);
+    return i < 0 ? Infinity : i;
+  };
   const reqList: Requirement[] = raw
     .map((r, i) => ({ ...r, hired: typeof r.hired === 'number' ? r.hired : (hiredFallback[i]?.data?.totalElements ?? 0) }))
-    .sort((a, b) => (a.priority || Infinity) - (b.priority || Infinity) || a.id - b.id)
-    .map((r, i) => (r.priority > 0 ? r : { ...r, priority: i + 1 }));
+    .sort((a, b) => rankOf(a) - rankOf(b) || a.id - b.id)
+    .map((r, i) => ({ ...r, priority: i + 1 }));
+
+  // the server got updated while an order was kept in this browser: save that order on the server once, then forget it
+  const [migrating, setMigrating] = useState(false);
+  useEffect(() => {
+    if (!requirements.data?.length || !serverPriorities || localOrder.length === 0 || migrating) return;
+    const ids = localOrder.filter((id) => requirements.data!.some((r) => r.id === id));
+    setMigrating(true);
+    (async () => {
+      for (let i = 0; i < ids.length; i++) await api.put<Requirement>(`/requirements/${ids[i]}`, { priority: i + 1 });
+    })()
+      .then(() => saveLocalOrder([]))
+      .catch(() => undefined)
+      .finally(() => {
+        setMigrating(false);
+        qc.invalidateQueries({ queryKey: ['requirements'] });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requirements.data, serverPriorities]);
+
+  const [movingId, setMovingId] = useState<number | null>(null);
+  const mover: PriorityMover = {
+    movingId,
+    move: async (r, to) => {
+      setMovingId(r.id);
+      try {
+        if (serverPriorities) {
+          const saved = await api.put<Requirement>(`/requirements/${r.id}`, { priority: to });
+          await qc.invalidateQueries({ queryKey: ['requirements'] });
+          if (saved.priority > 0) return saved.priority;
+        }
+        // older server (or it did not keep it): keep the order in this browser
+        const ids = placeAt(reqList.map((x) => x.id), r.id, to);
+        saveLocalOrder(ids);
+        return ids.indexOf(r.id) + 1;
+      } finally {
+        setMovingId(null);
+      }
+    },
+  };
 
   // hired counts come from the server for each requirement (same department + sub-work match as the candidate list)
   const stillNeedOf = (r: Requirement) => Math.max(0, r.needed - r.hired);
@@ -158,7 +237,7 @@ export default function RequirementsPage() {
   }, [reqList, search, filterDepartment, filterStatus]);
 
   return (
-    <PriorityReady.Provider value={priorityReady}>
+    <PriorityContext.Provider value={mover}>
     <div className="space-y-6">
       {/* Dashboard Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -446,7 +525,7 @@ export default function RequirementsPage() {
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} />
       <EditRequirementModal target={editTarget} total={reqList.length} onClose={() => setEditTarget(null)} />
     </div>
-    </PriorityReady.Provider>
+    </PriorityContext.Provider>
   );
 }
 
@@ -834,7 +913,7 @@ function CandidateGroup({
 // -------------------------------------------------------------------------------------------------
 
 function EditRequirementModal({ target: r, total, onClose }: { target: Requirement | null; total: number; onClose: () => void }) {
-  const ready = useContext(PriorityReady);
+  const { move } = useContext(PriorityContext);
   const toast = useToast();
   const qc = useQueryClient();
   const [priority, setPriority] = useState(1);
@@ -848,14 +927,13 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
   }, [r, total]);
 
   const save = useMutation({
-    mutationFn: (body: { priority?: number; needed?: number }) => api.put<Requirement>(`/requirements/${r!.id}`, body),
-    onSuccess: (saved, body) => {
+    mutationFn: async ({ needed: n, priority: p }: { needed?: number; priority?: number }) => {
+      if (n !== undefined) await api.put<Requirement>(`/requirements/${r!.id}`, { needed: n });
+      return p !== undefined ? move(r!, p) : r!.priority;
+    },
+    onSuccess: (p) => {
       qc.invalidateQueries({ queryKey: ['requirements'] });
-      if (body.priority && !saved.priority) return toast('error', SERVER_OLD_MSG);
-      toast(
-        'success',
-        saved.priority === 1 ? `${requirementTitle(saved)} is now 1st priority (top of the list)` : `Saved — ${ordinal(saved.priority)} priority`
-      );
+      toast('success', p === 1 ? `${requirementTitle(r!)} is now 1st priority (top of the list)` : `Saved — ${ordinal(p)} priority`);
       onClose();
     },
     onError: (e) => toast('error', e.message),
@@ -865,11 +943,11 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
   const changed = priority !== r.priority || Number(needed) !== r.needed;
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validNumber(needed)) return toast('error', `People needed must be 1 to ${MAX_NEEDED}`);
+    if (!validNumber(needed)) return toast('error', `Target must be 1 to ${MAX_NEEDED}`);
     if (!changed) return onClose();
     save.mutate({
-      ...(ready && priority !== r.priority && { priority }),
       ...(Number(needed) !== r.needed && { needed: Number(needed) }),
+      ...(priority !== r.priority && { priority }),
     });
   };
 
@@ -896,13 +974,11 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
             <span className="text-xs font-semibold text-ink-2">Priority</span>
             <span className="text-[11px] text-ink-3">1st = top of the list, filled first</span>
           </div>
-          {!ready && <p className="mb-2 rounded-lg bg-warn/10 px-3 py-2 text-[11px] text-warn">{SERVER_OLD_MSG}</p>}
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: Math.max(total, 1) }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
                 type="button"
-                disabled={!ready}
                 onClick={() => setPriority(p)}
                 className={clsx(
                   'min-w-[56px] disabled:cursor-not-allowed disabled:opacity-50 rounded-xl px-3 py-2 text-xs font-bold ring-1 transition',
@@ -924,10 +1000,11 @@ function EditRequirementModal({ target: r, total, onClose }: { target: Requireme
           )}
         </div>
 
-        <Field label="People needed *">
+        <Field label="Target — people needed *">
           <input
             className="input"
             inputMode="numeric"
+            required
             value={needed}
             onChange={(e) => setNeeded(e.target.value.replace(/\D/g, '').slice(0, 3))}
           />
@@ -949,19 +1026,15 @@ const PRIORITY_STYLE = [
 
 /** A rank chip ("1st", "2nd" …); click it to jump to a number, or nudge with the arrows. The others shift to make room. */
 function PriorityControl({ requirement: r, total }: { requirement: Requirement; total: number }) {
-  const ready = useContext(PriorityReady);
+  const { move, movingId } = useContext(PriorityContext);
   const toast = useToast();
-  const qc = useQueryClient();
-  const move = useMutation({
-    mutationFn: (priority: number) => api.put<Requirement>(`/requirements/${r.id}`, { priority }),
-    onSuccess: (saved) => {
-      qc.invalidateQueries({ queryKey: ['requirements'] });
-      if (!saved.priority) return toast('error', SERVER_OLD_MSG);
-      toast('success', `${requirementTitle(r)} is now ${ordinal(saved.priority)} priority`);
-    },
-    onError: (e) => toast('error', e.message),
-  });
-  const to = (p: number) => ready && p !== r.priority && p >= 1 && p <= total && move.mutate(p);
+  const busy = movingId !== null;
+  const to = (p: number) => {
+    if (busy || p === r.priority || p < 1 || p > total) return;
+    move(r, p)
+      .then((saved) => toast('success', `${requirementTitle(r)} is now ${ordinal(saved)} priority`))
+      .catch((e: Error) => toast('error', e.message));
+  };
   const style = PRIORITY_STYLE[r.priority - 1] ?? 'bg-raised text-ink-2 ring-line';
   const suffix = ordinal(r.priority).slice(String(r.priority).length);
 
@@ -971,7 +1044,7 @@ function PriorityControl({ requirement: r, total }: { requirement: Requirement; 
         className={clsx('relative flex h-11 w-11 cursor-pointer flex-col items-center justify-center rounded-xl ring-1 transition hover:scale-105', style)}
         title="Change priority"
       >
-        {move.isPending ? (
+        {movingId === r.id ? (
           <Spinner size={14} />
         ) : (
           <>
@@ -983,7 +1056,7 @@ function PriorityControl({ requirement: r, total }: { requirement: Requirement; 
           className="absolute inset-0 cursor-pointer opacity-0"
           aria-label="Priority"
           value={r.priority}
-          disabled={move.isPending || !ready}
+          disabled={busy}
           onChange={(e) => to(Number(e.target.value))}
         >
           {Array.from({ length: Math.max(total, r.priority) }, (_, i) => (
@@ -998,7 +1071,7 @@ function PriorityControl({ requirement: r, total }: { requirement: Requirement; 
           type="button"
           className="rounded p-0.5 text-ink-3 transition hover:bg-raised hover:text-ink disabled:opacity-25"
           title="Move up (more urgent)"
-          disabled={move.isPending || !ready || r.priority <= 1}
+          disabled={busy || r.priority <= 1}
           onClick={() => to(r.priority - 1)}
         >
           <ChevronUp size={14} />
@@ -1007,7 +1080,7 @@ function PriorityControl({ requirement: r, total }: { requirement: Requirement; 
           type="button"
           className="rounded p-0.5 text-ink-3 transition hover:bg-raised hover:text-ink disabled:opacity-25"
           title="Move down (less urgent)"
-          disabled={move.isPending || !ready || r.priority >= total}
+          disabled={busy || r.priority >= total}
           onClick={() => to(r.priority + 1)}
         >
           <ChevronDown size={14} />
