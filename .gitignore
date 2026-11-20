@@ -24,4 +24,5 @@ Thumbs.db
 
 # misc
 hs_err_pid*.log
+replay_pid*.log
 *.tsbuildinfo
