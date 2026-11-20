@@ -16,6 +16,7 @@ import {
   VERIFICATION_STATUSES,
   fmtDate,
   fmtExperience,
+  fmtKm,
 } from '../lib/format';
 import type { CandidateListItem, Page } from '../lib/types';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../components/ui/Pill';
@@ -47,6 +48,7 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
   { key: 'department', label: 'Department', sortable: true },
   { key: 'qualification', label: 'Qualification', sortable: true },
   { key: 'experience', label: 'Experience', sortable: true },
+  { key: 'distance', label: 'Distance', sortable: true },
   { key: 'applicationDate', label: 'Application Date', sortable: true },
   { key: 'joiningDate', label: 'Joining Date', sortable: true },
   { key: 'rating', label: 'Rating Scale', sortable: true },
@@ -340,6 +342,9 @@ export default function CandidatesPage() {
                       </td>
                       <td className="td"><div className="max-w-[160px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</div></td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
+                      <td className="td tabular-nums" title={c.homeDistanceKm === null ? 'No home location yet' : 'Straight-line distance from home to the company'}>
+                        {fmtKm(c.homeDistanceKm)}
+                      </td>
                       <td className="td tabular-nums">
                         {fmtDate(c.applicationDate)}
                         {c.hiringSource && (

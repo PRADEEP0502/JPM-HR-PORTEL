@@ -43,7 +43,7 @@ public final class SheetRowMapper {
 
     public record ParsedRow(int rowNumber, String rowKey, Instant appliedAt, LocalDate applicationDate,
                             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
-                            String city, String district, String state, String pincode, String travelMode, String currentLocation,
+                            String city, String district, String state, String pincode, String travelMode, String currentLocation, String homeMapLink,
                             String qualification, String institution, Integer passingYear, String previousCompany,
                             BigDecimal experienceYears, String previousDesignation, String skills, String expectedSalary,
                             String department, String position, String hiringSource, String referenceName, String referenceRelation, String referenceContact,
@@ -205,10 +205,18 @@ public final class SheetRowMapper {
                 FieldParsers.truncate(text(row, cols, SheetField.STATE), 100),
                 pincode(text(row, cols, SheetField.PINCODE), warnings));
 
+        // A map link typed into "Current location" is used as the home pin when the home question is empty
+        String currentLocation = FieldParsers.truncate(text(row, cols, SheetField.CURRENT_LOCATION), 200);
+        String homeMapLink = FieldParsers.truncate(text(row, cols, SheetField.HOME_MAP_LINK), 500);
+        if (homeMapLink == null && currentLocation != null && currentLocation.matches("(?is).*https?://.*")) {
+            homeMapLink = currentLocation;
+            currentLocation = null;
+        }
+
         return new ParsedRow(rowNumber, rowKey, appliedAt, applicationDate, fullName, dob, mobile, email,
                 addr.address(), addr.city(), addr.district(), addr.state(), addr.pincode(),
                 FieldParsers.truncate(text(row, cols, SheetField.TRAVEL_MODE), 50),
-                FieldParsers.truncate(text(row, cols, SheetField.CURRENT_LOCATION), 200),
+                currentLocation, homeMapLink,
                 FieldParsers.truncate(text(row, cols, SheetField.QUALIFICATION), 200),
                 FieldParsers.truncate(text(row, cols, SheetField.INSTITUTION), 200),
                 passingYear,

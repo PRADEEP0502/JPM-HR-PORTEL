@@ -21,6 +21,9 @@ import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateSpecifications.Filter;
 import com.jpm.hrms.common.ApiException;
 import com.jpm.hrms.common.PageResponse;
+import com.jpm.hrms.geo.GeoPoint;
+import com.jpm.hrms.geo.HomeDistanceService;
+import com.jpm.hrms.geo.MapLinkResolver;
 import com.jpm.hrms.department.Department;
 import com.jpm.hrms.department.DepartmentDirectory;
 import com.jpm.hrms.department.DepartmentRepository;
@@ -67,6 +70,7 @@ public class CandidateService {
             "interviewStatus", "interviewStatus");
 
     private final CandidateRepository repo;
+    private final HomeDistanceService homes;
     private final DepartmentRepository departments;
     private final DepartmentDirectory depts;
     private final CandidateDocumentRepository documents;
@@ -82,7 +86,8 @@ public class CandidateService {
     public CandidateService(CandidateRepository repo, DepartmentRepository departments, DepartmentDirectory depts,
                             CandidateDocumentRepository documents, InterviewRepository interviews, HrRemarkRepository remarks,
                             StatusChangeRepository statusHistory, RatingChangeRepository ratingHistory,
-                            AuditLogRepository auditLogs, AuditService audit, Clock clock, ZoneId businessZone) {
+                            AuditLogRepository auditLogs, AuditService audit, HomeDistanceService homes, Clock clock, ZoneId businessZone) {
+        this.homes = homes;
         this.clock = clock;
         this.zone = businessZone;
         this.statusHistory = statusHistory;
@@ -130,6 +135,12 @@ public class CandidateService {
                     Sort.by(Sort.Order.asc("sortGroup"), asc ? Sort.Order.asc("profileRating") : Sort.Order.desc("profileRating"),
                             Sort.Order.desc("_id"))));
         }
+        if ("distance".equals(sort)) {
+            var unknown = ConditionalOperators.when(ComparisonOperators.valueOf("homeDistanceKm").greaterThanEqualToValue(0)).then(0).otherwise(1);
+            return Optional.of(new ComputedOrder(Aggregation.addFields().addField("sortGroup").withValue(unknown).build(),
+                    Sort.by(Sort.Order.asc("sortGroup"), asc ? Sort.Order.asc("homeDistanceKm") : Sort.Order.desc("homeDistanceKm"),
+                            Sort.Order.desc("_id"))));
+        }
         if ("department".equals(sort)) {
             List<Long> idsByName = departments.findAllByOrderByNameAsc().stream().map(Department::getId).toList();
             var position = ConditionalOperators.when(Criteria.where("departmentId").in(idsByName))
@@ -171,6 +182,7 @@ public class CandidateService {
         return new CandidateDetail(c.getId(), c.getCandidateCode(),
                 c.getFullName(), c.getDateOfBirth(), c.getMobile(), c.getEmail(), c.getAddress(),
                 c.getCity(), c.getDistrict(), c.getState(), c.getPincode(), c.getTravelMode(), c.getCurrentLocation(),
+                c.getHomeMapLink(), c.getHomeLat() != null, c.getHomeDistanceKm(), homes.directionsUrl(c).orElse(null),
                 c.getQualification(), c.getInstitution(), c.getPassingYear(),
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
                 d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(), c.getHiringSource(),
@@ -248,6 +260,17 @@ public class CandidateService {
         set(changed, "PIN code", c.getPincode(), trim(req.pincode()), c::setPincode);
         set(changed, "Mode of travel", c.getTravelMode(), trim(req.travelMode()), c::setTravelMode);
         set(changed, "Current location", c.getCurrentLocation(), trim(req.currentLocation()), c::setCurrentLocation);
+        String homeLink = trim(req.homeMapLink());
+        if (!Objects.equals(homeLink, c.getHomeMapLink())) {
+            GeoPoint home = null;
+            if (homeLink != null) {
+                MapLinkResolver.Result r = homes.resolve(homeLink);
+                if (!r.found()) throw ApiException.badRequest("Home location: " + r.problem());
+                home = r.point();
+            }
+            homes.setHome(c, homeLink, home);
+            changed.add("Home location");
+        }
         set(changed, "Qualification", c.getQualification(), trim(req.qualification()), c::setQualification);
         set(changed, "Institution", c.getInstitution(), trim(req.institution()), c::setInstitution);
         set(changed, "Passing year", c.getPassingYear(), req.passingYear(), c::setPassingYear);

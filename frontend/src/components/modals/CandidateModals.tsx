@@ -31,6 +31,7 @@ const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; m
   { key: 'state', label: 'State', max: 100, list: 'states' },
   { key: 'pincode', label: 'PIN code', max: 6 },
   { key: 'currentLocation', label: 'Current location (where they live now)', max: 200, span: true, hint: 'Area and town, e.g. Anupparpalayam, Tiruppur' },
+  { key: 'homeMapLink', label: 'Home location (Google Maps link)', max: 500, span: true, hint: 'Paste the Google Maps link of their home, or coordinates like 11.0423, 77.3194. The distance to the company is worked out from it.' },
   { key: 'travelMode', label: 'Mode of travel to office', options: TRAVEL_MODES },
   { key: 'qualification', label: 'Qualification', max: 200, heading: 'Education and work' },
   { key: 'institution', label: 'Institution', max: 200 },

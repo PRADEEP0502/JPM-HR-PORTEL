@@ -18,10 +18,11 @@ public final class CommunicationDtos {
     }
 
     public record SettingsResponse(String companyName, String defaultVenue, String locationLink, String hrSignature,
-                                   String defaultCountryCode, String updatedBy, Instant updatedAt) {
+                                   String defaultCountryCode, String updatedBy, Instant updatedAt,
+                                   Double companyLat, Double companyLng) {
         static SettingsResponse from(CommunicationSettings s) {
             return new SettingsResponse(s.getCompanyName(), s.getDefaultVenue(), s.getLocationLink(), s.getHrSignature(),
-                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt());
+                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt(), s.getCompanyLat(), s.getCompanyLng());
         }
     }
 

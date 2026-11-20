@@ -21,6 +21,11 @@ public class CommunicationSettings implements SequencedEntity {
     private String hrSignature = "HR Department\n" + DEFAULT_COMPANY;
     /** Google Maps link to the company, sent in interview invitations. */
     private String locationLink = DEFAULT_LOCATION_LINK;
+    /** The company's map pin read from locationLink; candidates' home distances are measured from here. */
+    private Double companyLat;
+    private Double companyLng;
+    /** The link the pin was read from, so it is read again only when the link changes. */
+    private String companyPinSource;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
     private String defaultCountryCode = "91";
     private String updatedBy;
@@ -49,6 +54,14 @@ public class CommunicationSettings implements SequencedEntity {
     public void setDefaultVenue(String defaultVenue) { this.defaultVenue = defaultVenue; }
     public String getLocationLink() { return locationLink; }
     public void setLocationLink(String locationLink) { this.locationLink = locationLink; }
+    public Double getCompanyLat() { return companyLat; }
+    public Double getCompanyLng() { return companyLng; }
+    public String getCompanyPinSource() { return companyPinSource; }
+    public void setCompanyPin(Double lat, Double lng, String source) {
+        this.companyLat = lat;
+        this.companyLng = lng;
+        this.companyPinSource = source;
+    }
     public String getHrSignature() { return hrSignature; }
     public void setHrSignature(String hrSignature) { this.hrSignature = hrSignature; }
     public String getDefaultCountryCode() { return defaultCountryCode; }

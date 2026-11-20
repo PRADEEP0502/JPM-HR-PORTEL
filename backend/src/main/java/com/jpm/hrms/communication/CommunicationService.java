@@ -29,6 +29,7 @@ import com.jpm.hrms.communication.ContactValidator.EmailCheck;
 import com.jpm.hrms.communication.ContactValidator.PhoneCheck;
 import com.jpm.hrms.communication.MessageTemplate.TemplateChannel;
 import com.jpm.hrms.communication.TemplateRenderer.MissingValuesException;
+import com.jpm.hrms.geo.HomeDistanceService;
 import com.jpm.hrms.interview.Interview;
 import com.jpm.hrms.interview.InterviewRepository;
 import org.springframework.data.mongodb.core.MongoOperations;
@@ -130,6 +131,7 @@ public class CommunicationService {
     private final DepartmentDirectory depts;
     private final InterviewRepository interviews;
     private final EmailSender email;
+    private final HomeDistanceService homes;
     private final AuditService audit;
     private final MongoOperations mongo;
     private final Clock clock;
@@ -140,7 +142,7 @@ public class CommunicationService {
     public CommunicationService(CommunicationSettingsRepository settingsRepo, MessageTemplateRepository templates,
                                 CommunicationRepository communications, CandidateRepository candidates,
                                 DepartmentDirectory depts, InterviewRepository interviews, EmailSender email,
-                                AuditService audit, MongoOperations mongo, Clock clock, ZoneId businessZone) {
+                                HomeDistanceService homes, AuditService audit, MongoOperations mongo, Clock clock, ZoneId businessZone) {
         this.mongo = mongo;
         this.settingsRepo = settingsRepo;
         this.templates = templates;
@@ -149,6 +151,7 @@ public class CommunicationService {
         this.depts = depts;
         this.interviews = interviews;
         this.email = email;
+        this.homes = homes;
         this.audit = audit;
         this.clock = clock;
         this.zone = businessZone;
@@ -240,6 +243,8 @@ public class CommunicationService {
         s.setDefaultCountryCode(req.defaultCountryCode().trim());
         s.setUpdatedBy(actor);
         settingsRepo.save(s);
+        // a new location link moves the company pin, so every candidate's distance is worked out again
+        if (!Objects.equals(s.getCompanyPinSource(), s.getLocationLink())) homes.refreshCompanyPin(s);
         audit.record("COMM_SETTINGS_UPDATED", "SETTINGS", s.getId(),
                 "Company \"" + s.getCompanyName() + "\", venue \"" + s.getDefaultVenue() + "\", country code +" + s.getDefaultCountryCode());
         return SettingsResponse.from(s);

@@ -277,10 +277,28 @@ function addCurrentLocationQuestion() {
   Logger.log('"Current location" question is in the form. Check it here: ' + form.getEditUrl());
 }
 
+var HOME_LOCATION_TITLE = 'Home location (Google Maps link)';
+var HOME_LOCATION_HELP = 'Your home on Google Maps, so we know how far you live from the company. On your phone, open Google Maps, ' +
+                         'long-press your house to drop a red pin (or tap the blue dot when you are at home), tap Share → Copy link, ' +
+                         'and paste the link here.';
+
+/**
+ * Run once on the live form: adds the optional "Home location (Google Maps link)" question after "Current location".
+ * Nothing else changes and no answers are touched; running it again does not add a second copy.
+ */
+function addHomeLocationQuestion() {
+  var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
+  if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
+  var form = FormApp.openByUrl(formUrl);
+  setUpAddressQuestions_(form);
+  Logger.log('"' + HOME_LOCATION_TITLE + '" question is in the form. Check it here: ' + form.getEditUrl());
+}
+
 var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk'];
 
 /**
- * Full address in parts (City / Town, District, State, PIN code), "Current location" and "Mode of travel to office", right after the
+ * Full address in parts (City / Town, District, State, PIN code), "Current location", "Home location (Google Maps link)"
+ * and "Mode of travel to office", right after the
  * address question. An older single "Address" question is renamed; questions that already exist are left alone.
  */
 function setUpAddressQuestions_(form) {
@@ -302,6 +320,10 @@ function setUpAddressQuestions_(form) {
       .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{6}$').setHelpText('Enter the 6-digit PIN code').build()));
   var current = findItem_(form, CURRENT_LOCATION_TITLE, FormApp.ItemType.TEXT);
   place(current || form.addTextItem().setTitle(CURRENT_LOCATION_TITLE).setHelpText(CURRENT_LOCATION_HELP).setRequired(true));
+  var home = findItem_(form, HOME_LOCATION_TITLE, FormApp.ItemType.TEXT);
+  place(home || form.addTextItem().setTitle(HOME_LOCATION_TITLE).setHelpText(HOME_LOCATION_HELP).setRequired(false)
+      .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('.*(goo\\.gl|google|maps|[0-9]+\\.[0-9]+).*')
+          .setHelpText('Paste the link copied from Google Maps').build()));
   var travel = findItem_(form, 'Mode of travel to office', FormApp.ItemType.MULTIPLE_CHOICE);
   if (!travel) {
     travel = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
@@ -396,6 +418,7 @@ function addDemoCandidates() {
       'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Gandhipuram', 'Door No., Street and Area': (i + 1) + ', Main Road, Gandhipuram',
       'City / Town': 'Coimbatore', 'District': 'Coimbatore', 'State': 'Tamil Nadu', 'PIN code': '641012',
       'Current location': 'Gandhipuram, Coimbatore',
+      'Home location (Google Maps link)': '11.0168, 76.9675',
       'Mode of travel to office': TRAVEL_MODES[i % TRAVEL_MODES.length],
       'Highest Qualification': d.qual, 'Institution': d.inst, 'Year of Passing': d.year,
       'Total Experience (in years)': d.exp, 'Previous Company': d.company, 'Previous Designation': d.designation,

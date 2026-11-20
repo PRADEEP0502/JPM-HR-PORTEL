@@ -22,6 +22,7 @@ import {
   Phone,
   IdCard,
   MapPin,
+  Navigation,
   Lock,
   PenSquare,
   Star,
@@ -33,7 +34,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtAge, fmtAmounts, fmtExperience, fmtRelative, labelOf } from '../lib/format';
+import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtAge, fmtAmounts, fmtExperience, fmtKm, fmtRelative, labelOf } from '../lib/format';
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
@@ -315,6 +316,7 @@ export default function CandidateProfilePage() {
                   </a>
                 </span>
               )],
+              ['Home location', c.homeMapLink && <HomeLocation c={c} />],
               ['Mode of travel to office', c.travelMode],
             ]}
           />
@@ -627,5 +629,40 @@ export default function CandidateProfilePage() {
       />
       {call.modal}
     </div>
+  );
+}
+
+/** Home pin: distance to the company, the pin on Google Maps, and directions for the road distance. */
+function HomeLocation({ c }: { c: CandidateDetail }) {
+  const link = c.homeMapLink ?? '';
+  // Only open web links; anything else (e.g. coordinates) is searched on Google Maps.
+  const mapHref = /^https:\/\//i.test(link) ? link : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(link)}`;
+  if (!c.homeLocated) {
+    return (
+      <span className="text-[#f3c08a]">
+        The map link could not be read.{' '}
+        <a className="text-info hover:underline" href={mapHref} target="_blank" rel="noopener noreferrer">Open it</a> and paste a pin link (Edit details).
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+        {c.homeDistanceKm !== null && <strong className="tabular-nums">{fmtKm(c.homeDistanceKm)} from the company</strong>}
+        <a className="inline-flex items-center gap-1 text-xs text-info hover:underline" href={mapHref} target="_blank" rel="noopener noreferrer">
+          <MapPin size={12} /> Home on map
+        </a>
+        {c.homeDirectionsUrl && (
+          <a className="inline-flex items-center gap-1 text-xs text-info hover:underline" href={c.homeDirectionsUrl} target="_blank" rel="noopener noreferrer">
+            <Navigation size={12} /> Directions
+          </a>
+        )}
+      </span>
+      <span className="text-xs text-ink-3">
+        {c.homeDistanceKm !== null
+          ? 'Straight-line distance; the road is usually a little longer (open Directions for road km and travel time).'
+          : 'Set the company location link in Settings → Communication to see the distance.'}
+      </span>
+    </span>
   );
 }

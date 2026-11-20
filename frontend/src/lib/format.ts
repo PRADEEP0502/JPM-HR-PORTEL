@@ -173,6 +173,12 @@ export function fmtAmounts(text: string): string {
     .replace(/(?<!\d\.?)\d{4,}(?!\d)/g, (digits) => fmtNumber(Number(digits)));
 }
 
+/** "8.4 km" (whole km from 10 km up); "—" when unknown. */
+export function fmtKm(km: number | null | undefined) {
+  if (km === null || km === undefined) return '—';
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
+}
+
 export function fmtBytes(n: number | null | undefined) {
   if (!n) return '';
   if (n < 1024) return `${n} B`;

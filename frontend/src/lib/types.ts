@@ -82,6 +82,8 @@ export interface CandidateListItem {
   ratingRemark: string | null;
   archived: boolean;
   aadhaarResult: AadhaarResult | null;
+  /** Straight-line km from home to the company; null when the home or company pin is unknown. */
+  homeDistanceKm: number | null;
 }
 
 export type AadhaarResult = 'VERIFIED' | 'MISMATCH';
@@ -168,6 +170,13 @@ export interface CandidateDetail {
   pincode: string | null;
   travelMode: string | null;
   currentLocation: string | null;
+  /** Google Maps link (or coordinates) of the candidate's home. */
+  homeMapLink: string | null;
+  /** Whether a map position could be read from homeMapLink. */
+  homeLocated: boolean;
+  homeDistanceKm: number | null;
+  /** Google Maps directions from home to the company (road distance and travel time). */
+  homeDirectionsUrl: string | null;
   qualification: string | null;
   institution: string | null;
   passingYear: number | null;
@@ -476,6 +485,9 @@ export interface CommSettings {
   defaultCountryCode: string;
   updatedBy: string | null;
   updatedAt: string | null;
+  /** Company map pin read from locationLink; candidates' distances are measured from here. */
+  companyLat: number | null;
+  companyLng: number | null;
 }
 
 export interface MessageTemplateInfo {

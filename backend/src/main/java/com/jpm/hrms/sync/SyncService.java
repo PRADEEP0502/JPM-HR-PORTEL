@@ -10,6 +10,8 @@ import com.jpm.hrms.candidate.CandidateService;
 import com.jpm.hrms.common.ApiException;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.department.Department;
+import com.jpm.hrms.geo.HomeDistanceService;
+import com.jpm.hrms.geo.MapLinkResolver;
 import com.jpm.hrms.department.DepartmentRepository;
 import com.jpm.hrms.document.CandidateDocument;
 import com.jpm.hrms.document.CandidateDocument.DocType;
@@ -118,6 +120,7 @@ public class SyncService {
     private final DocumentService documentService;
     private final DepartmentRepository departments;
     private final AuditService audit;
+    private final HomeDistanceService homes;
     private final AppProperties props;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -127,7 +130,7 @@ public class SyncService {
     public SyncService(GoogleApiClient google, IntegrationSettingsRepository settingsRepo, SyncRunRepository runs,
                        IgnoredRowRepository ignored, CandidateRepository candidates, CandidateDocumentRepository documents,
                        DocumentService documentService,
-                       DepartmentRepository departments, AuditService audit, AppProperties props, ObjectMapper mapper,
+                       DepartmentRepository departments, AuditService audit, HomeDistanceService homes, AppProperties props, ObjectMapper mapper,
                        Clock clock, ZoneId businessZone) {
         this.google = google;
         this.settingsRepo = settingsRepo;
@@ -138,6 +141,7 @@ public class SyncService {
         this.documentService = documentService;
         this.departments = departments;
         this.audit = audit;
+        this.homes = homes;
         this.props = props;
         this.mapper = mapper;
         this.clock = clock;
@@ -465,6 +469,11 @@ public class SyncService {
         c.setPincode(p.pincode());
         c.setTravelMode(p.travelMode());
         c.setCurrentLocation(p.currentLocation());
+        if (p.homeMapLink() != null) {
+            MapLinkResolver.Result home = homes.resolve(p.homeMapLink());
+            homes.setHome(c, p.homeMapLink(), home.point());
+            if (!home.found()) rowWarnings.add("home location link could not be read (" + home.problem() + ")");
+        }
         c.setQualification(p.qualification());
         c.setInstitution(p.institution());
         c.setPassingYear(p.passingYear());

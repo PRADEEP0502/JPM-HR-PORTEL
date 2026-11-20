@@ -78,7 +78,16 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Company name *"><input className="input" maxLength={150} value={f.companyName} onChange={(e) => setF({ ...f, companyName: e.target.value })} /></Field>
         <Field label="Default interview venue *"><input className="input" maxLength={300} value={f.defaultVenue} onChange={(e) => setF({ ...f, defaultVenue: e.target.value })} /></Field>
-        <Field label="Company location (Google Maps link)" hint="Sent in interview invitations, e.g. https://maps.app.goo.gl/…">
+        <Field
+          label="Company location (Google Maps link)"
+          hint={
+            !settings.locationLink
+              ? 'Sent in interview invitations, and used to work out how far each candidate lives, e.g. https://maps.app.goo.gl/…'
+              : settings.companyLat !== null && settings.companyLng !== null
+                ? `Sent in interview invitations. Map pin found (${settings.companyLat.toFixed(5)}, ${settings.companyLng.toFixed(5)}): candidates' distances are measured from here.`
+                : 'Sent in interview invitations. The map pin could not be read from this link, so distances are not shown: paste a link of a dropped pin instead.'
+          }
+        >
           <input className="input" type="url" maxLength={500} placeholder="https://maps.app.goo.gl/…" value={f.locationLink ?? ''} onChange={(e) => setF({ ...f, locationLink: e.target.value })} />
         </Field>
         <Field label="HR signature *" hint="Shown after “Best regards,”. Use separate lines for department and company.">

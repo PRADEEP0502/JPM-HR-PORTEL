@@ -36,6 +36,12 @@ public class Candidate implements SequencedEntity {
     private String travelMode;
     /** Where the candidate lives now (area / town), which can differ from the address on record. */
     private String currentLocation;
+    /** Google Maps link (or coordinates) of the candidate's home, and the point read from it. */
+    private String homeMapLink;
+    private Double homeLat;
+    private Double homeLng;
+    /** Straight-line distance from home to the company pin, in km; null while either point is unknown. */
+    private Double homeDistanceKm;
 
     private String qualification;
     private String institution;
@@ -135,6 +141,14 @@ public class Candidate implements SequencedEntity {
     public String getTravelMode() { return travelMode; }
     public String getCurrentLocation() { return currentLocation; }
     public void setCurrentLocation(String currentLocation) { this.currentLocation = currentLocation; }
+    public String getHomeMapLink() { return homeMapLink; }
+    public void setHomeMapLink(String homeMapLink) { this.homeMapLink = homeMapLink; }
+    public Double getHomeLat() { return homeLat; }
+    public void setHomeLat(Double homeLat) { this.homeLat = homeLat; }
+    public Double getHomeLng() { return homeLng; }
+    public void setHomeLng(Double homeLng) { this.homeLng = homeLng; }
+    public Double getHomeDistanceKm() { return homeDistanceKm; }
+    public void setHomeDistanceKm(Double homeDistanceKm) { this.homeDistanceKm = homeDistanceKm; }
     public void setTravelMode(String travelMode) { this.travelMode = travelMode; }
     public String getQualification() { return qualification; }
     public void setQualification(String qualification) { this.qualification = qualification; }
