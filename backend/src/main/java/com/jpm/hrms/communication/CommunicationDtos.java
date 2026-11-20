@@ -19,10 +19,10 @@ public final class CommunicationDtos {
 
     public record SettingsResponse(String companyName, String defaultVenue, String locationLink, String hrSignature,
                                    String defaultCountryCode, String updatedBy, Instant updatedAt,
-                                   Double companyLat, Double companyLng) {
+                                   Double companyLat, Double companyLng, String companyPinLink) {
         static SettingsResponse from(CommunicationSettings s) {
             return new SettingsResponse(s.getCompanyName(), s.getDefaultVenue(), s.getLocationLink(), s.getHrSignature(),
-                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt(), s.getCompanyLat(), s.getCompanyLng());
+                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt(), s.getCompanyLat(), s.getCompanyLng(), s.getCompanyPinLink());
         }
     }
 
@@ -31,7 +31,8 @@ public final class CommunicationDtos {
                                   @Size(max = 500) @Pattern(regexp = "^(https?://\\S+)?$", message = "must be a link starting with https://")
                                   String locationLink,
                                   @NotBlank @Size(max = 500) String hrSignature,
-                                  @NotBlank @Pattern(regexp = "^\\d{1,3}$", message = "must be 1-3 digits, e.g. 91") String defaultCountryCode) {
+                                  @NotBlank @Pattern(regexp = "^\\d{1,3}$", message = "must be 1-3 digits, e.g. 91") String defaultCountryCode,
+                                  @Size(max = 2000) String companyPinLink) {
     }
 
     public record TemplateResponse(Long id, TemplateChannel channel, int version, String subject, String body, boolean active,

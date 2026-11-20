@@ -60,23 +60,23 @@ public class HomeDistanceService {
     public Optional<GeoPoint> companyPoint() {
         CommunicationSettings s = settingsRepo.findById(CommunicationSettings.SINGLETON_ID).orElse(null);
         if (s == null) return Optional.empty();
-        if (!Objects.equals(s.getCompanyPinSource(), s.getLocationLink())) refreshCompanyPin(s);
+        if (!Objects.equals(s.getCompanyPinSource(), s.pinSource())) refreshCompanyPin(s);
         return s.getCompanyLat() == null ? Optional.empty() : Optional.of(new GeoPoint(s.getCompanyLat(), s.getCompanyLng()));
     }
 
     /**
-     * Reads the company pin from the settings' location link (the caller's object is updated and saved) and
+     * Reads the company pin from the exact pin link, or else the location link (the caller's object is updated and saved), and
      * recalculates every candidate's distance. Returns the problem when the link cannot be read.
      */
     public String refreshCompanyPin(CommunicationSettings s) {
         String problem = null;
         GeoPoint pin = null;
-        if (StringUtils.hasText(s.getLocationLink())) {
-            MapLinkResolver.Result r = resolver.resolve(s.getLocationLink());
+        if (StringUtils.hasText(s.pinSource())) {
+            MapLinkResolver.Result r = resolver.resolve(s.pinSource());
             pin = r.point();
             problem = r.problem();
         }
-        s.setCompanyPin(pin == null ? null : pin.lat(), pin == null ? null : pin.lng(), s.getLocationLink());
+        s.setCompanyPin(pin == null ? null : pin.lat(), pin == null ? null : pin.lng(), s.pinSource());
         settingsRepo.save(s);
         recalculateAll(pin);
         return problem;

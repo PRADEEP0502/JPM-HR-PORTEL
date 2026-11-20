@@ -26,6 +26,8 @@ public class CommunicationSettings implements SequencedEntity {
     private Double companyLng;
     /** The link the pin was read from, so it is read again only when the link changes. */
     private String companyPinSource;
+    /** Optional exact map pin (link or coordinates) for distances; when empty the pin is read from locationLink. */
+    private String companyPinLink;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
     private String defaultCountryCode = "91";
     private String updatedBy;
@@ -57,6 +59,12 @@ public class CommunicationSettings implements SequencedEntity {
     public Double getCompanyLat() { return companyLat; }
     public Double getCompanyLng() { return companyLng; }
     public String getCompanyPinSource() { return companyPinSource; }
+    public String getCompanyPinLink() { return companyPinLink; }
+    public void setCompanyPinLink(String companyPinLink) { this.companyPinLink = companyPinLink; }
+    /** Where the company pin comes from: the exact pin link when set, otherwise the location link. */
+    public String pinSource() {
+        return companyPinLink != null && !companyPinLink.isBlank() ? companyPinLink : locationLink;
+    }
     public void setCompanyPin(Double lat, Double lng, String source) {
         this.companyLat = lat;
         this.companyLng = lng;

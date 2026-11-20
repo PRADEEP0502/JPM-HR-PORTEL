@@ -58,10 +58,12 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
   const [f, setF] = useState(settings);
   useEffect(() => setF(settings), [settings]);
   const dirty = f.companyName !== settings.companyName || f.defaultVenue !== settings.defaultVenue || (f.locationLink ?? '') !== (settings.locationLink ?? '')
-    || f.hrSignature !== settings.hrSignature || f.defaultCountryCode !== settings.defaultCountryCode;
+    || f.hrSignature !== settings.hrSignature || f.defaultCountryCode !== settings.defaultCountryCode
+    || (f.companyPinLink ?? '') !== (settings.companyPinLink ?? '');
   const save = useMutation({
     mutationFn: () => api.put<CommSettings>('/communication/settings', {
       companyName: f.companyName, defaultVenue: f.defaultVenue, locationLink: f.locationLink ?? '', hrSignature: f.hrSignature, defaultCountryCode: f.defaultCountryCode,
+      companyPinLink: f.companyPinLink?.trim() || null,
     }),
     onSuccess: () => {
       toast('success', 'Company details saved');
@@ -80,15 +82,19 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
         <Field label="Default interview venue *"><input className="input" maxLength={300} value={f.defaultVenue} onChange={(e) => setF({ ...f, defaultVenue: e.target.value })} /></Field>
         <Field
           label="Company location (Google Maps link)"
-          hint={
-            !settings.locationLink
-              ? 'Sent in interview invitations, and used to work out how far each candidate lives, e.g. https://maps.app.goo.gl/…'
-              : settings.companyLat !== null && settings.companyLng !== null
-                ? `Sent in interview invitations. Map pin found (${settings.companyLat.toFixed(5)}, ${settings.companyLng.toFixed(5)}): candidates' distances are measured from here.`
-                : 'Sent in interview invitations. The map pin could not be read from this link, so distances are not shown: paste a link of a dropped pin instead.'
-          }
+          hint="Sent in interview invitations, e.g. https://maps.app.goo.gl/…"
         >
           <input className="input" type="url" maxLength={500} placeholder="https://maps.app.goo.gl/…" value={f.locationLink ?? ''} onChange={(e) => setF({ ...f, locationLink: e.target.value })} />
+        </Field>
+        <Field
+          label="Map pin for distances (optional)"
+          hint={
+            settings.companyLat !== null && settings.companyLng !== null
+              ? `Candidates' distances are measured from ${settings.companyLat.toFixed(5)}, ${settings.companyLng.toFixed(5)}${settings.companyPinLink ? '' : ' (read from the company location link)'}. Paste the exact Google Maps link of the company here to measure from its pin; leave empty to use the link above.`
+              : 'No map pin yet, so distances are not shown. Paste the Google Maps link of the company (or coordinates like 11.0415, 77.3206).'
+          }
+        >
+          <input className="input" maxLength={2000} placeholder="https://www.google.com/maps/place/…" value={f.companyPinLink ?? ''} onChange={(e) => setF({ ...f, companyPinLink: e.target.value })} />
         </Field>
         <Field label="HR signature *" hint="Shown after “Best regards,”. Use separate lines for department and company.">
           <textarea className="input min-h-[72px]" maxLength={500} value={f.hrSignature} onChange={(e) => setF({ ...f, hrSignature: e.target.value })} />

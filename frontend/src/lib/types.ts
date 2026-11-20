@@ -488,6 +488,8 @@ export interface CommSettings {
   /** Company map pin read from locationLink; candidates' distances are measured from here. */
   companyLat: number | null;
   companyLng: number | null;
+  /** Optional exact company pin (link or coordinates) used for distances instead of locationLink. */
+  companyPinLink: string | null;
 }
 
 export interface MessageTemplateInfo {

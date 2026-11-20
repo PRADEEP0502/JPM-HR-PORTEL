@@ -239,12 +239,18 @@ public class CommunicationService {
         s.setCompanyName(req.companyName().trim());
         s.setDefaultVenue(req.defaultVenue().trim());
         s.setLocationLink(req.locationLink() == null || req.locationLink().isBlank() ? null : req.locationLink().trim());
+        String pinLink = trimToNull(req.companyPinLink());
+        if (pinLink != null && !pinLink.equals(s.getCompanyPinLink())) {
+            var pin = homes.resolve(pinLink);
+            if (!pin.found()) throw ApiException.badRequest("Map pin for distances: " + pin.problem());
+        }
+        s.setCompanyPinLink(pinLink);
         s.setHrSignature(req.hrSignature().trim().replace("\r\n", "\n"));
         s.setDefaultCountryCode(req.defaultCountryCode().trim());
         s.setUpdatedBy(actor);
         settingsRepo.save(s);
         // a new location link moves the company pin, so every candidate's distance is worked out again
-        if (!Objects.equals(s.getCompanyPinSource(), s.getLocationLink())) homes.refreshCompanyPin(s);
+        if (!Objects.equals(s.getCompanyPinSource(), s.pinSource())) homes.refreshCompanyPin(s);
         audit.record("COMM_SETTINGS_UPDATED", "SETTINGS", s.getId(),
                 "Company \"" + s.getCompanyName() + "\", venue \"" + s.getDefaultVenue() + "\", country code +" + s.getDefaultCountryCode());
         return SettingsResponse.from(s);
