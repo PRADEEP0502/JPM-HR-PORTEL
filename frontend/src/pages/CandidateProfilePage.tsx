@@ -406,7 +406,7 @@ export default function CandidateProfilePage() {
                 ]}
               />
               <ReferenceCard
-                title="Family reference"
+                title="Friends and family"
                 icon={<Users size={14} />}
                 rows={[
                   ['Name', c.familyRefName],

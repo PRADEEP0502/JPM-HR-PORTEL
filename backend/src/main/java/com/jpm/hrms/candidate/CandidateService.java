@@ -269,9 +269,9 @@ public class CandidateService {
         set(changed, "Reference name", c.getReferenceName(), trim(req.referenceName()), c::setReferenceName);
         set(changed, "Reference relation", c.getReferenceRelation(), trim(req.referenceRelation()), c::setReferenceRelation);
         set(changed, "Reference contact", c.getReferenceContact(), trim(req.referenceContact()), c::setReferenceContact);
-        set(changed, "Family reference name", c.getFamilyRefName(), trim(req.familyRefName()), c::setFamilyRefName);
-        set(changed, "Family reference relationship", c.getFamilyRefRelation(), trim(req.familyRefRelation()), c::setFamilyRefRelation);
-        set(changed, "Family reference contact", c.getFamilyRefContact(), trim(req.familyRefContact()), c::setFamilyRefContact);
+        set(changed, "Friends and family name", c.getFamilyRefName(), trim(req.familyRefName()), c::setFamilyRefName);
+        set(changed, "Friends and family relationship", c.getFamilyRefRelation(), trim(req.familyRefRelation()), c::setFamilyRefRelation);
+        set(changed, "Friends and family contact", c.getFamilyRefContact(), trim(req.familyRefContact()), c::setFamilyRefContact);
         return changed;
     }
 

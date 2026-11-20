@@ -43,9 +43,9 @@ const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; m
   { key: 'referenceName', label: 'Reference name', max: 150, heading: 'Professional reference' },
   { key: 'referenceRelation', label: 'Reference relationship / designation', max: 150 },
   { key: 'referenceContact', label: 'Reference contact', max: 200 },
-  { key: 'familyRefName', label: 'Family member name', max: 150, heading: 'Family reference' },
+  { key: 'familyRefName', label: 'Name', max: 150, heading: 'Friends and family' },
   { key: 'familyRefRelation', label: 'Relationship', max: 100, list: 'family-relations' },
-  { key: 'familyRefContact', label: 'Family member contact number', type: 'tel', max: 20 },
+  { key: 'familyRefContact', label: 'Contact number', type: 'tel', max: 20 },
 ];
 
 /** Edits a candidate, or adds one by hand when candidateId is 'new'. */
@@ -160,7 +160,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
       {(isNew || detail.data) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <datalist id="family-relations">
-            {['Father', 'Mother', 'Spouse', 'Brother', 'Sister', 'Son', 'Daughter', 'Guardian'].map((r) => <option key={r} value={r} />)}
+            {['Father', 'Mother', 'Spouse', 'Brother', 'Sister', 'Son', 'Daughter', 'Guardian', 'Relative', 'Friend'].map((r) => <option key={r} value={r} />)}
           </datalist>
           <datalist id="states">
             {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Puducherry', 'Odisha', 'Bihar', 'West Bengal', 'Uttar Pradesh', 'Jharkhand', 'Assam'].map((s) => <option key={s} value={s} />)}
