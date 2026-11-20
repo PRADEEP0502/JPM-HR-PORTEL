@@ -9,7 +9,8 @@ interface Props {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'md' | 'lg' | 'xl';
+  /** full: fills the screen (used for viewing documents). */
+  size?: 'md' | 'lg' | 'xl' | 'full';
 }
 
 export function Modal({ open, title, description, onClose, children, footer, size = 'md' }: Props) {
@@ -31,12 +32,13 @@ export function Modal({ open, title, description, onClose, children, footer, siz
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
+    <div className={clsx('fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0', size === 'full' ? 'sm:p-3' : 'sm:p-4')} role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
         ref={panel}
         className={clsx(
-          'relative animate-fade-up w-full max-h-[92vh] flex flex-col panel bg-card rounded-b-none sm:rounded-2xl',
+          'relative animate-fade-up w-full flex flex-col panel bg-card sm:rounded-2xl',
+          size === 'full' ? 'h-[100dvh] rounded-none sm:h-full' : 'max-h-[92vh] rounded-b-none',
           size === 'md' && 'sm:max-w-lg',
           size === 'lg' && 'sm:max-w-2xl',
           size === 'xl' && 'sm:max-w-4xl',
@@ -51,7 +53,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
             <X size={16} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
+        <div className={clsx('overflow-y-auto', size === 'full' ? 'flex min-h-0 flex-1 flex-col p-3' : 'px-5 py-4')}>{children}</div>
         {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
     </div>

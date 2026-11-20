@@ -62,7 +62,7 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
     <Modal
       open={!!target}
       onClose={onClose}
-      size="lg"
+      size="full"
       title={target?.title ?? ''}
       description={target?.fileName}
       footer={
@@ -92,9 +92,11 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
       ) : !url ? (
         <LoadingBlock label="Opening document…" />
       ) : isPdf ? (
-        <iframe title={target?.fileName ?? 'Document'} src={url} className="h-[70vh] w-full rounded-lg border border-line bg-white" />
+        <iframe title={target?.fileName ?? 'Document'} src={url} className="min-h-[60vh] w-full flex-1 rounded-lg border border-line bg-white" />
       ) : isImage ? (
-        <img src={url} alt={target?.fileName ?? 'Document'} className="mx-auto max-h-[70vh] rounded-lg border border-line" />
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <img src={url} alt={target?.fileName ?? 'Document'} className="max-h-full max-w-full rounded-lg border border-line object-contain" />
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-ink-2">
           <FileWarning size={28} className="text-ink-3" />
