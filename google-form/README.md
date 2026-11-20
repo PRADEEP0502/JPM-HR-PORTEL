@@ -43,7 +43,7 @@ profile in the dashboard instead.
 
 | Page | Questions |
 |---|---|
-| Personal Details | Full Name\*, Date of Birth\*, Mobile Number\* (validated 10-digit Indian mobile), Email\* (validated), Address\* |
+| Personal Details | Full Name\*, Date of Birth\*, Mobile Number\* (validated 10-digit Indian mobile), Email\* (validated), Door No., Street and Area\*, City / Town\*, District\*, State\*, PIN code\*, Current location\*, Mode of travel to office\* |
 | Educational Details | Highest Qualification\*, Institution\*, Year of Passing\* (validated year) |
 | Employment Details | Total Experience (in years)\*, Previous Company, Previous Designation, Key Skills\*, Expected Salary |
 | Application | Source\* (dropdown: where they heard about the job), Department\* (dropdown) |

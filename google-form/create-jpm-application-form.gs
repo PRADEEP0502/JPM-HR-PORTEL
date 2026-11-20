@@ -260,10 +260,27 @@ function updateAddressQuestion() {
   setUpAddressQuestions_(form);
   Logger.log('Address questions updated. Check them here: ' + form.getEditUrl());
 }
+
+var CURRENT_LOCATION_TITLE = 'Current location';
+var CURRENT_LOCATION_HELP = 'Where do you live now? Area and town, e.g. Anupparpalayam, Tiruppur. ' +
+                            'If it is the same as the address above, write your town.';
+
+/**
+ * Run once on the live form: adds the "Current location" question after the PIN code (before "Mode of travel to
+ * office"). Nothing else changes and no answers are touched; running it again does not add a second copy.
+ */
+function addCurrentLocationQuestion() {
+  var formUrl = SpreadsheetApp.openById(RESPONSE_SPREADSHEET_ID).getFormUrl();
+  if (!formUrl) throw new Error('This spreadsheet is not linked to a form. Check RESPONSE_SPREADSHEET_ID.');
+  var form = FormApp.openByUrl(formUrl);
+  setUpAddressQuestions_(form);
+  Logger.log('"Current location" question is in the form. Check it here: ' + form.getEditUrl());
+}
+
 var TRAVEL_MODES = ['Own vehicle (bike / scooter)', 'Own vehicle (car)', 'Bus', 'Cycle', 'Walk'];
 
 /**
- * Full address in parts (City / Town, District, State, PIN code) plus "Mode of travel to office", right after the
+ * Full address in parts (City / Town, District, State, PIN code), "Current location" and "Mode of travel to office", right after the
  * address question. An older single "Address" question is renamed; questions that already exist are left alone.
  */
 function setUpAddressQuestions_(form) {
@@ -283,6 +300,8 @@ function setUpAddressQuestions_(form) {
   var pin = findItem_(form, 'PIN code', FormApp.ItemType.TEXT);
   place(pin || form.addTextItem().setTitle('PIN code').setRequired(true)
       .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{6}$').setHelpText('Enter the 6-digit PIN code').build()));
+  var current = findItem_(form, CURRENT_LOCATION_TITLE, FormApp.ItemType.TEXT);
+  place(current || form.addTextItem().setTitle(CURRENT_LOCATION_TITLE).setHelpText(CURRENT_LOCATION_HELP).setRequired(true));
   var travel = findItem_(form, 'Mode of travel to office', FormApp.ItemType.MULTIPLE_CHOICE);
   if (!travel) {
     travel = form.addMultipleChoiceItem().setTitle('Mode of travel to office').setHelpText('How will you come to the office every day?').setRequired(true);
@@ -376,6 +395,7 @@ function addDemoCandidates() {
       'Full Name': d.name, 'Date of Birth': new Date(d.dob + 'T00:00:00'), 'Mobile Number': d.mobile,
       'Email': 'demo.candidate' + (i + 1) + '@example.com', 'Address': (i + 1) + ', Main Road, Gandhipuram', 'Door No., Street and Area': (i + 1) + ', Main Road, Gandhipuram',
       'City / Town': 'Coimbatore', 'District': 'Coimbatore', 'State': 'Tamil Nadu', 'PIN code': '641012',
+      'Current location': 'Gandhipuram, Coimbatore',
       'Mode of travel to office': TRAVEL_MODES[i % TRAVEL_MODES.length],
       'Highest Qualification': d.qual, 'Institution': d.inst, 'Year of Passing': d.year,
       'Total Experience (in years)': d.exp, 'Previous Company': d.company, 'Previous Designation': d.designation,
