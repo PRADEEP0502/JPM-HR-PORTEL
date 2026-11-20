@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtExperience, fmtRelative, labelOf } from '../lib/format';
+import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtAmounts, fmtExperience, fmtRelative, labelOf } from '../lib/format';
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
@@ -317,7 +317,7 @@ export default function CandidateProfilePage() {
               ['Previous company', c.previousCompany],
               ['Total experience', c.experienceYears !== null ? fmtExperience(c.experienceYears) : null],
               ['Previous designation', c.previousDesignation],
-              ['Expected salary', c.expectedSalary],
+              ['Expected salary', c.expectedSalary && fmtAmounts(c.expectedSalary)],
               ['Skills', c.skills && (
                 <span className="flex flex-wrap gap-1.5">
                   {c.skills.split(/[,;]+/).map((s) => s.trim()).filter(Boolean).map((s) => (

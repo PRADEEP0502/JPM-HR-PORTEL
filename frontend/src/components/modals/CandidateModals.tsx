@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, ratingBand } from '../../lib/format';
+import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, fmtAmounts, ratingBand } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -187,6 +187,7 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
                   max={type === 'date' ? new Date().toISOString().slice(0, 10) : undefined}
                   value={form[key] ?? ''}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  onBlur={key === 'expectedSalary' ? (e) => setForm({ ...form, [key]: fmtAmounts(e.target.value) }) : undefined}
                 />
               )}
             </Field>

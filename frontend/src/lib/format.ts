@@ -146,6 +146,17 @@ export function initials(name: string | null | undefined) {
 
 export const fmtNumber = (n: number) => new Intl.NumberFormat('en-IN').format(n);
 
+/**
+ * Adds thousand separators (Indian style: 40,000 and 1,50,000) to every whole number of four or more digits in
+ * free text such as "40000", "Rs 35000 - 40000 per month" or "25000.50". Existing commas between digits are
+ * redone, so it is safe to run on text that is already formatted.
+ */
+export function fmtAmounts(text: string): string {
+  return text
+    .replace(/(\d),(?=\d)/g, '$1')
+    .replace(/(?<!\d\.?)\d{4,}(?!\d)/g, (digits) => fmtNumber(Number(digits)));
+}
+
 export function fmtBytes(n: number | null | undefined) {
   if (!n) return '';
   if (n < 1024) return `${n} B`;
