@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, fmtAmounts, ratingBand } from '../../lib/format';
+import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, fmtAge, fmtAmounts, ratingBand } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -168,7 +168,12 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
           {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list, options }) => (
             <Fragment key={key}>
             {heading && <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">{heading}</h3>}
-            <Field label={label} error={errors[key]} className={span ? 'sm:col-span-2' : undefined}>
+            <Field
+              label={label}
+              error={errors[key]}
+              hint={key === 'dateOfBirth' && fmtAge(form.dateOfBirth) ? `Age: ${fmtAge(form.dateOfBirth)}` : undefined}
+              className={span ? 'sm:col-span-2' : undefined}
+            >
               {options ? (
                 <select className="input" value={form[key] ?? ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
                   <option value="">Not given</option>

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtAmounts, fmtExperience, fmtRelative, labelOf } from '../lib/format';
+import { INTERVIEW_MODES, RECOMMENDATIONS, fmtBytes, fmtDate, fmtDateTime, fmtAge, fmtAmounts, fmtExperience, fmtRelative, labelOf } from '../lib/format';
 import type { CandidateDetail, DocType, DocumentInfo, Interview } from '../lib/types';
 import { Avatar } from '../components/ui/Misc';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill, VerificationPill } from '../components/ui/Pill';
@@ -43,6 +43,7 @@ import { InterviewStatusModal, ScheduleInterviewModal } from '../components/moda
 import { CommunicationDialog, CommunicationHistory, useCallAction, type Tab } from '../components/communication/Communication';
 import { emailProblem, phoneProblem } from '../lib/contact';
 import { NotesPanel } from '../components/candidate/NotesPanel';
+import { AadhaarBadge, AadhaarPanel } from '../components/candidate/AadhaarPanel';
 
 type Row = [string, ReactNode | null | undefined];
 
@@ -197,6 +198,7 @@ export default function CandidateProfilePage() {
                 <ApplicationPill status={c.applicationStatus} />
                 <InterviewPill status={c.interviewStatus} />
                 <VerificationPill status={c.verificationStatus} />
+                <AadhaarBadge result={c.aadhaar?.result} />
                 <RatingPill rating={c.profileRating} />
                 {c.joiningDate && (
                   <button
@@ -291,6 +293,7 @@ export default function CandidateProfilePage() {
             rows={[
               ['Full name', c.fullName],
               ['Date of birth', c.dateOfBirth && fmtDate(c.dateOfBirth)],
+              ['Age', fmtAge(c.dateOfBirth)],
               ['Mobile number', c.mobile && <a className="hover:underline" href={`tel:${c.mobile}`}>{c.mobile}</a>],
               ['Email', c.email && <a className="hover:underline" href={`mailto:${c.email}`}>{c.email}</a>],
               ['Door no, street and area', c.address],
@@ -422,6 +425,11 @@ export default function CandidateProfilePage() {
         </div>
 
         <div className="space-y-6">
+          <AadhaarPanel
+            candidate={c}
+            onChanged={invalidate}
+            onViewCopy={(d) => setViewing({ title: `${c.fullName} - Aadhaar`, path: `/documents/${d.id}/download`, fileName: d.fileName ?? 'aadhaar' })}
+          />
           <section id="documents" className="panel scroll-mt-6 p-5">
             <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold"><FileText size={16} className="text-ink-3" /> F. Documents</h2>
             {c.documents.length === 0 ? (

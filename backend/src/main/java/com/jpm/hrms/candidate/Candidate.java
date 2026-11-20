@@ -75,6 +75,9 @@ public class Candidate implements SequencedEntity {
     /** Profile Match Rating (1-10) set by HR after reviewing the application; null = not rated yet. */
     private Integer profileRating;
     private String ratingRemark;
+
+    /** HR's manual Aadhaar check; null until someone records it. */
+    private AadhaarVerification aadhaarVerification;
     private String ratedBy;
     private Instant ratedAt;
 
@@ -182,6 +185,8 @@ public class Candidate implements SequencedEntity {
     public Integer getProfileRating() { return profileRating; }
     public void setProfileRating(Integer profileRating) { this.profileRating = profileRating; }
     public String getRatingRemark() { return ratingRemark; }
+    public AadhaarVerification getAadhaarVerification() { return aadhaarVerification; }
+    public void setAadhaarVerification(AadhaarVerification aadhaarVerification) { this.aadhaarVerification = aadhaarVerification; }
     public void setRatingRemark(String ratingRemark) { this.ratingRemark = ratingRemark; }
     public String getRatedBy() { return ratedBy; }
     public void setRatedBy(String ratedBy) { this.ratedBy = ratedBy; }

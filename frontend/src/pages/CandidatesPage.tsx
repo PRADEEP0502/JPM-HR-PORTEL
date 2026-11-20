@@ -19,6 +19,7 @@ import {
 } from '../lib/format';
 import type { CandidateListItem, Page } from '../lib/types';
 import { ApplicationPill, DemoTag, InterviewPill, RatingPill } from '../components/ui/Pill';
+import { AadhaarBadge } from '../components/candidate/AadhaarPanel';
 import { Pagination } from '../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
@@ -250,6 +251,7 @@ export default function CandidatesPage() {
                       <Link to={`/candidates/${c.id}`} className="block truncate font-medium text-ink hover:underline">{c.fullName}</Link>
                       <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
                         <span className="font-mono">{c.candidateCode}</span>
+                        <AadhaarBadge result={c.aadhaarResult} compact />
                         {c.source === 'DEMO' && <DemoTag />}
                         {c.archived && <span className="rounded border border-line px-1 text-[10px] font-semibold uppercase">Archived</span>}
                         · {c.departmentName ?? 'Unassigned'}{c.position ? ` – ${c.position}` : ''}
@@ -311,7 +313,10 @@ export default function CandidatesPage() {
                         </span>
                       </td>
                       <td className="td">
-                        <Link to={`/candidates/${c.id}`} className="font-medium text-ink hover:underline">{c.fullName}</Link>
+                        <span className="flex items-center gap-1.5">
+                          <Link to={`/candidates/${c.id}`} className="font-medium text-ink hover:underline">{c.fullName}</Link>
+                          <AadhaarBadge result={c.aadhaarResult} compact />
+                        </span>
                         {c.verificationStatus === 'PENDING' && <span className="block text-[11px] text-warn">Verification pending</span>}
                       </td>
                       <td className="td tabular-nums">{c.mobile ?? '—'}</td>

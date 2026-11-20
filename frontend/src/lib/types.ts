@@ -81,6 +81,21 @@ export interface CandidateListItem {
   profileRating: number | null;
   ratingRemark: string | null;
   archived: boolean;
+  aadhaarResult: AadhaarResult | null;
+}
+
+export type AadhaarResult = 'VERIFIED' | 'MISMATCH';
+export type AadhaarMethod = 'ORIGINAL_SEEN' | 'COPY_CHECKED' | 'DIGILOCKER' | 'QR_SCANNED';
+
+/** HR's manual Aadhaar check. */
+export interface AadhaarCheck {
+  result: AadhaarResult;
+  method: AadhaarMethod;
+  methodLabel: string;
+  last4: string | null;
+  note: string | null;
+  verifiedBy: string;
+  verifiedAt: string;
 }
 
 export interface DocumentInfo {
@@ -195,6 +210,7 @@ export interface CandidateDetail {
   activity: Activity[];
   statusHistory: StatusChange[];
   ratingHistory: RatingChange[];
+  aadhaar: AadhaarCheck | null;
 }
 
 export interface StatusChange {

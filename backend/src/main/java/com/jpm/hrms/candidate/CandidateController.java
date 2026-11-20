@@ -2,6 +2,7 @@ package com.jpm.hrms.candidate;
 
 import com.jpm.hrms.audit.AuditService;
 import com.jpm.hrms.common.ApiException;
+import com.jpm.hrms.candidate.CandidateDtos.AadhaarVerifyRequest;
 import com.jpm.hrms.candidate.CandidateDtos.ArchiveRequest;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateListItem;
@@ -98,6 +99,7 @@ public class CandidateController {
             r.add(c.getApplicationStatus().label);
             r.add(c.getInterviewStatus().label);
             r.add(c.getVerificationStatus().label);
+            r.add(c.getAadhaarVerification() == null ? "Not checked" : c.getAadhaarVerification().getResult().label);
             r.add(c.getAddress());
             r.add(c.getCity());
             r.add(c.getDistrict());
@@ -108,7 +110,7 @@ public class CandidateController {
         }
         var response = TableExporter.export(format, "Candidates", "JPM HR Portal - Candidate List (" + all.size() + ")",
                 List.of("Candidate ID", "Name", "Mobile", "Email", "Department", "Sub-work", "Source", "Qualification", "Experience (yrs)",
-                        "Application Date", "Joining Date", "Rating Scale", "Application Status", "Interview Status", "Verification",
+                        "Application Date", "Joining Date", "Rating Scale", "Application Status", "Interview Status", "Verification", "Aadhaar",
                         "Address", "City / Town", "District", "State", "PIN code", "Mode of travel"),
                 rows, "candidates");
         audit.record("EXPORT", "CANDIDATE", null, "Exported " + all.size() + " candidates to " + format.toUpperCase());
@@ -175,6 +177,17 @@ public class CandidateController {
     @PatchMapping("/candidates/{id}/rating")
     public CandidateDetail rate(@PathVariable Long id, @Valid @RequestBody RatingRequest req, Authentication auth) {
         return service.rate(id, req, auth.getName());
+    }
+
+    /** HR records that they checked the candidate's Aadhaar by hand, and what they found. */
+    @PutMapping("/candidates/{id}/aadhaar-verification")
+    public CandidateDetail verifyAadhaar(@PathVariable Long id, @Valid @RequestBody AadhaarVerifyRequest req, Authentication auth) {
+        return service.verifyAadhaar(id, req, auth.getName());
+    }
+
+    @DeleteMapping("/candidates/{id}/aadhaar-verification")
+    public CandidateDetail clearAadhaarVerification(@PathVariable Long id, Authentication auth) {
+        return service.clearAadhaarVerification(id, auth.getName());
     }
 
     @PostMapping("/candidates/{id}/remarks")

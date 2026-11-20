@@ -151,6 +151,22 @@ export const fmtNumber = (n: number) => new Intl.NumberFormat('en-IN').format(n)
  * free text such as "40000", "Rs 35000 - 40000 per month" or "25000.50". Existing commas between digits are
  * redone, so it is safe to run on text that is already formatted.
  */
+/** Age in completed years on `today` for a YYYY-MM-DD date of birth; null when missing, invalid or in the future. */
+export function ageOf(dateOfBirth: string | null | undefined, today = new Date()): number | null {
+  const m = dateOfBirth?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d)) age--;
+  return age >= 0 && age < 120 ? age : null;
+}
+
+/** "28 years" for a date of birth, or null. */
+export function fmtAge(dateOfBirth: string | null | undefined): string | null {
+  const age = ageOf(dateOfBirth);
+  return age === null ? null : `${age} ${age === 1 ? 'year' : 'years'}`;
+}
+
 export function fmtAmounts(text: string): string {
   return text
     .replace(/(\d),(?=\d)/g, '$1')

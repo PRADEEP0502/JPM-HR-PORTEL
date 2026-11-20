@@ -34,14 +34,16 @@ public final class CandidateDtos {
                                     BigDecimal experienceYears, LocalDate applicationDate, LocalDate joiningDate,
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
                                     VerificationStatus verificationStatus, CandidateSource source,
-                                    Integer profileRating, String ratingRemark, boolean archived) {
+                                    Integer profileRating, String ratingRemark, boolean archived,
+                                    AadhaarVerification.Result aadhaarResult) {
         public static CandidateListItem from(Candidate c, DepartmentDirectory.Names depts) {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
                     depts.name(c) == null ? null : c.getDepartmentId(),
                     depts.nameOrRaw(c), c.getPosition(), c.getHiringSource(),
                     c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getJoiningDate(), c.getApplicationStatus(),
                     c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
-                    c.getProfileRating(), c.getRatingRemark(), c.isArchived());
+                    c.getProfileRating(), c.getRatingRemark(), c.isArchived(),
+                    c.getAadhaarVerification() == null ? null : c.getAadhaarVerification().getResult());
         }
     }
 
@@ -93,7 +95,23 @@ public final class CandidateDtos {
             CandidateSource source, String dataIssues, long version, Instant updatedAt,
             List<DocumentResponse> documents, List<InterviewResponse> interviews,
             List<RemarkResponse> remarks, List<ActivityResponse> activity,
-            List<StatusChangeResponse> statusHistory, List<RatingChangeResponse> ratingHistory) {
+            List<StatusChangeResponse> statusHistory, List<RatingChangeResponse> ratingHistory,
+            AadhaarCheck aadhaar) {
+    }
+
+    /** HR's manual Aadhaar check as shown on the profile; null when nobody has checked it yet. */
+    public record AadhaarCheck(AadhaarVerification.Result result, AadhaarVerification.Method method, String methodLabel,
+                               String last4, String note, String verifiedBy, Instant verifiedAt) {
+        public static AadhaarCheck from(AadhaarVerification v) {
+            return v == null ? null : new AadhaarCheck(v.getResult(), v.getMethod(), v.getMethod().label, v.getLast4(),
+                    v.getNote(), v.getVerifiedBy(), v.getVerifiedAt());
+        }
+    }
+
+    public record AadhaarVerifyRequest(@NotNull AadhaarVerification.Result result,
+                                       @NotNull AadhaarVerification.Method method,
+                                       @Pattern(regexp = "^[0-9]{4}$", message = "must be exactly the last 4 digits") String last4,
+                                       @Size(max = 500) String note) {
     }
 
     public record StatusChangeResponse(ApplicationStatus fromStatus, ApplicationStatus toStatus, String changedBy,

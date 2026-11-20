@@ -2,6 +2,8 @@ package com.jpm.hrms.candidate;
 
 import com.jpm.hrms.audit.AuditLogRepository;
 import com.jpm.hrms.audit.AuditService;
+import com.jpm.hrms.candidate.CandidateDtos.AadhaarCheck;
+import com.jpm.hrms.candidate.CandidateDtos.AadhaarVerifyRequest;
 import com.jpm.hrms.candidate.CandidateDtos.ArchiveRequest;
 import com.jpm.hrms.candidate.CandidateDtos.ActivityResponse;
 import com.jpm.hrms.candidate.CandidateDtos.CandidateDetail;
@@ -187,7 +189,8 @@ public class CandidateService {
                         .filter(a -> !"DOCUMENT_DOWNLOADED".equals(a.getAction()) && !"DOCUMENT_VIEWED".equals(a.getAction()))
                         .limit(50).map(ActivityResponse::from).toList(),
                 statusHistory.findByCandidateIdOrderByChangedAtDesc(id).stream().map(StatusChangeResponse::from).toList(),
-                ratingHistory.findByCandidateIdOrderByRatedAtDesc(id).stream().map(RatingChangeResponse::from).toList());
+                ratingHistory.findByCandidateIdOrderByRatedAtDesc(id).stream().map(RatingChangeResponse::from).toList(),
+                AadhaarCheck.from(c.getAadhaarVerification()));
     }
 
     /** Adds an applicant HR received outside the Google Form (walk-in, phone, referral). */
@@ -339,6 +342,37 @@ public class CandidateService {
         repo.save(c);
         ratingHistory.save(new RatingChange(c.getId(), old, rating, remark, actor));
         if (remark != null) remarks.save(new HrRemark(c, actor, "Rating scale " + rating + "/10: " + remark));
+        return detail(id);
+    }
+
+    /**
+     * Records that HR checked the candidate's Aadhaar by hand (original card, uploaded copy, DigiLocker or QR code)
+     * and what they found. Recording again replaces the earlier check; every change is in the activity log.
+     */
+    public CandidateDetail verifyAadhaar(Long id, AadhaarVerifyRequest req, String actor) {
+        Candidate c = get(id);
+        String last4 = trim(req.last4());
+        String note = trim(req.note());
+        if (req.result() == AadhaarVerification.Result.MISMATCH && note == null) {
+            throw ApiException.badRequest("Write what did not match");
+        }
+        boolean again = c.getAadhaarVerification() != null;
+        c.setAadhaarVerification(new AadhaarVerification(req.result(), req.method(), last4, note, actor, Instant.now()));
+        repo.save(c);
+        audit.record(req.result() == AadhaarVerification.Result.VERIFIED ? "AADHAAR_VERIFIED" : "AADHAAR_MISMATCH", "CANDIDATE", c.getId(),
+                (again ? "Aadhaar check updated: " : "Aadhaar check: ") + req.result().label.toLowerCase()
+                        + " (" + req.method().label + (last4 == null ? "" : ", ending " + last4) + ")"
+                        + (note == null ? "" : " - " + note));
+        return detail(id);
+    }
+
+    /** Removes a recorded Aadhaar check (e.g. recorded on the wrong candidate). */
+    public CandidateDetail clearAadhaarVerification(Long id, String actor) {
+        Candidate c = get(id);
+        if (c.getAadhaarVerification() == null) throw ApiException.badRequest("Aadhaar has not been checked yet");
+        c.setAadhaarVerification(null);
+        repo.save(c);
+        audit.record("AADHAAR_CHECK_REMOVED", "CANDIDATE", c.getId(), "Aadhaar check removed; it is not verified any more");
         return detail(id);
     }
 
