@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -49,8 +48,7 @@ import { Avatar, Field } from '../components/ui/Misc';
 import { EmptyState, ErrorState, LoadingBlock, Spinner } from '../components/ui/States';
 import { Modal } from '../components/ui/Modal';
 import { RatingModal, StatusModal, type RatingTarget, type StatusTarget } from '../components/modals/CandidateModals';
-import { DocumentViewer, type ViewTarget } from '../components/modals/DocumentViewer';
-import { clickable } from '../lib/clickable';
+import { useOpenOnClick } from '../lib/clickable';
 
 const MAX_NEEDED = 100;
 
@@ -1172,19 +1170,14 @@ function CandidateMiniProfileCard({
   onRatingChange: (target: RatingTarget) => void;
 }) {
   const profile = `/candidates/${c.id}`;
-  const [viewing, setViewing] = useState<ViewTarget | null>(null);
-  // the whole card opens the resume (JPM resume first, else the candidate's own); Ctrl / ⌘-click opens the full profile
-  // in a new tab. The name opens the profile; Rate and Status keep their own action.
-  const card = clickable((newTab) =>
-    newTab
-      ? window.open(profile, '_blank', 'noopener')
-      : setViewing({ title: `${c.fullName} – Resume`, path: `/candidates/${c.id}/resume`, fileName: `${c.candidateCode}-resume`, profileLink: profile })
-  );
+  // the whole card opens the candidate's profile (the resume is one click away there); Ctrl / ⌘-click opens it in a
+  // new tab. Rate and Status keep their own action.
+  const openCard = useOpenOnClick();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
     <div
-      {...card}
-      title={`Open ${c.fullName}'s resume`}
+      {...openCard(profile)}
+      title={`Open ${c.fullName}'s profile`}
       className={clsx(
         'relative cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50',
         suggested ? 'border-warn/50 ring-1 ring-warn/20' : 'border-line/70 hover:border-line'
@@ -1283,8 +1276,6 @@ function CandidateMiniProfileCard({
           </button>
         </div>
       </div>
-      {/* rendered at page level: the card's hover lift would otherwise trap the full-screen viewer inside the card */}
-      {viewing && createPortal(<DocumentViewer target={viewing} onClose={() => setViewing(null)} />, document.body)}
     </div>
   );
 }
