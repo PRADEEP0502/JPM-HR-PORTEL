@@ -464,6 +464,7 @@ public class SyncService {
         c.setState(p.state());
         c.setPincode(p.pincode());
         c.setTravelMode(p.travelMode());
+        c.setCurrentLocation(p.currentLocation());
         c.setQualification(p.qualification());
         c.setInstitution(p.institution());
         c.setPassingYear(p.passingYear());

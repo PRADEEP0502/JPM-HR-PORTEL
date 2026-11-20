@@ -20,7 +20,7 @@ export function useInvalidateCandidates() {
 type Form = Record<string, string>;
 type UploadType = 'RESUME' | 'AADHAAR';
 const UPLOADS: Record<UploadType, string> = { RESUME: 'Resume', AADHAAR: 'Aadhaar card' };
-const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string; options?: string[] }[] = [
+const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; max?: number; span?: boolean; heading?: string; list?: string; options?: string[]; hint?: string }[] = [
   { key: 'fullName', label: 'Full name *', max: 150 },
   { key: 'dateOfBirth', label: 'Date of birth', type: 'date' },
   { key: 'mobile', label: 'Mobile number', type: 'tel', max: 20 },
@@ -30,6 +30,7 @@ const TEXT_FIELDS: { key: keyof CandidateDetail; label: string; type?: string; m
   { key: 'district', label: 'District', max: 100 },
   { key: 'state', label: 'State', max: 100, list: 'states' },
   { key: 'pincode', label: 'PIN code', max: 6 },
+  { key: 'currentLocation', label: 'Current location (where they live now)', max: 200, span: true, hint: 'Area and town, e.g. Anupparpalayam, Tiruppur' },
   { key: 'travelMode', label: 'Mode of travel to office', options: TRAVEL_MODES },
   { key: 'qualification', label: 'Qualification', max: 200, heading: 'Education and work' },
   { key: 'institution', label: 'Institution', max: 200 },
@@ -165,13 +166,13 @@ export function EditCandidateModal({ candidateId, onClose }: { candidateId: numb
           <datalist id="states">
             {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Puducherry', 'Odisha', 'Bihar', 'West Bengal', 'Uttar Pradesh', 'Jharkhand', 'Assam'].map((s) => <option key={s} value={s} />)}
           </datalist>
-          {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list, options }) => (
+          {TEXT_FIELDS.map(({ key, label, type, max, span, heading, list, options, hint }) => (
             <Fragment key={key}>
             {heading && <h3 className="mt-2 border-t border-line pt-4 text-sm font-semibold text-ink sm:col-span-2">{heading}</h3>}
             <Field
               label={label}
               error={errors[key]}
-              hint={key === 'dateOfBirth' && fmtAge(form.dateOfBirth) ? `Age: ${fmtAge(form.dateOfBirth)}` : undefined}
+              hint={key === 'dateOfBirth' && fmtAge(form.dateOfBirth) ? `Age: ${fmtAge(form.dateOfBirth)}` : hint}
               className={span ? 'sm:col-span-2' : undefined}
             >
               {options ? (

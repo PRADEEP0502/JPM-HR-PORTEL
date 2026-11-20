@@ -19,6 +19,8 @@ public enum SheetField {
     DISTRICT("District", false, "district"),
     STATE("State", false, "state"),
     PINCODE("PIN code", false, "pin code", "pincode", "postal code", "zip code"),
+    CURRENT_LOCATION("Current location", false, "current location", "current residential location", "present location",
+            "residential location", "current living location", "where do you live now", "where are you currently staying"),
     TRAVEL_MODE("Mode of travel to office", false, "mode of travel to office", "mode of travel", "travel mode", "how will you travel to office", "mode of transport"),
     QUALIFICATION("Qualification", false, "qualification", "highest qualification", "educational qualification", "degree"),
     INSTITUTION("Institution", false, "institution", "institution name", "college", "university", "college/university"),

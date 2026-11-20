@@ -34,6 +34,8 @@ public class Candidate implements SequencedEntity {
     private String pincode;
     /** How the candidate will come to the office: Own vehicle, Bus, Cycle, Walk, Other. */
     private String travelMode;
+    /** Where the candidate lives now (area / town), which can differ from the address on record. */
+    private String currentLocation;
 
     private String qualification;
     private String institution;
@@ -131,6 +133,8 @@ public class Candidate implements SequencedEntity {
     public String getPincode() { return pincode; }
     public void setPincode(String pincode) { this.pincode = pincode; }
     public String getTravelMode() { return travelMode; }
+    public String getCurrentLocation() { return currentLocation; }
+    public void setCurrentLocation(String currentLocation) { this.currentLocation = currentLocation; }
     public void setTravelMode(String travelMode) { this.travelMode = travelMode; }
     public String getQualification() { return qualification; }
     public void setQualification(String qualification) { this.qualification = qualification; }

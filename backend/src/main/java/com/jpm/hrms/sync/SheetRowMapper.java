@@ -43,7 +43,7 @@ public final class SheetRowMapper {
 
     public record ParsedRow(int rowNumber, String rowKey, Instant appliedAt, LocalDate applicationDate,
                             String fullName, LocalDate dateOfBirth, String mobile, String email, String address,
-                            String city, String district, String state, String pincode, String travelMode,
+                            String city, String district, String state, String pincode, String travelMode, String currentLocation,
                             String qualification, String institution, Integer passingYear, String previousCompany,
                             BigDecimal experienceYears, String previousDesignation, String skills, String expectedSalary,
                             String department, String position, String hiringSource, String referenceName, String referenceRelation, String referenceContact,
@@ -208,6 +208,7 @@ public final class SheetRowMapper {
         return new ParsedRow(rowNumber, rowKey, appliedAt, applicationDate, fullName, dob, mobile, email,
                 addr.address(), addr.city(), addr.district(), addr.state(), addr.pincode(),
                 FieldParsers.truncate(text(row, cols, SheetField.TRAVEL_MODE), 50),
+                FieldParsers.truncate(text(row, cols, SheetField.CURRENT_LOCATION), 200),
                 FieldParsers.truncate(text(row, cols, SheetField.QUALIFICATION), 200),
                 FieldParsers.truncate(text(row, cols, SheetField.INSTITUTION), 200),
                 passingYear,

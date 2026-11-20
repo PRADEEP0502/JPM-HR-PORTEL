@@ -21,6 +21,7 @@ import {
   MessagesSquare,
   Phone,
   IdCard,
+  MapPin,
   Lock,
   PenSquare,
   Star,
@@ -301,6 +302,19 @@ export default function CandidateProfilePage() {
               ['District', c.district],
               ['State', c.state],
               ['PIN code', c.pincode],
+              ['Current location', c.currentLocation && (
+                <span className="inline-flex flex-wrap items-center gap-x-2">
+                  {c.currentLocation}
+                  <a
+                    className="inline-flex items-center gap-1 text-xs text-info hover:underline"
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.currentLocation)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MapPin size={12} /> Map
+                  </a>
+                </span>
+              )],
               ['Mode of travel to office', c.travelMode],
             ]}
           />

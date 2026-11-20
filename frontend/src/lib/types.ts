@@ -167,6 +167,7 @@ export interface CandidateDetail {
   state: string | null;
   pincode: string | null;
   travelMode: string | null;
+  currentLocation: string | null;
   qualification: string | null;
   institution: string | null;
   passingYear: number | null;
