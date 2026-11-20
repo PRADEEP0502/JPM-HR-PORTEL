@@ -61,36 +61,6 @@ development and testing, then move each piece to a paid service by changing conf
 5. **Backups:** schedule `scripts/backup-db.sh` daily from a machine you control (it only needs network access to
    Atlas) and `verify-restore.sh` weekly. On Atlas Free these are your only backups.
 
-## Automatic WhatsApp greeting (optional)
-
-When a candidate submits the Google Form, the backend can send them a WhatsApp greeting by itself, through the
-official WhatsApp Business Platform (Meta Cloud API). Each attempt appears in the candidate's communication history,
-and a failed one can be retried from there.
-
-1. In [Meta for Developers](https://developers.facebook.com/), create an app of type **Business** and add the
-   **WhatsApp** product. Add a business phone number. It must not already be in use on the WhatsApp phone app.
-2. In **WhatsApp Manager → Message templates**, create a template in the **Utility** category and wait for Meta to
-   approve it. For example, a template named `application_received`, language English:
-   > Hello {{1}}, thank you for applying to {{2}}. We have received your application. Our HR team will review it
-   > and contact you if your profile matches our requirements.
-3. Create a **permanent access token**: Business settings → System users → add a system user → generate a token
-   with the `whatsapp_business_messaging` permission. Temporary tokens expire in 24 hours.
-4. Set these on the backend (Render → Environment) and redeploy:
-   ```
-   WHATSAPP_ACCESS_TOKEN=<permanent token>             # secret - never in code or chat
-   WHATSAPP_PHONE_NUMBER_ID=<Phone number ID from WhatsApp → API setup>
-   WHATSAPP_TEMPLATE_NAME=application_received
-   WHATSAPP_TEMPLATE_LANGUAGE=en
-   WHATSAPP_TEMPLATE_PARAMS=CandidateName,CompanyName  # what fills {{1}}, {{2}} ... in order
-   ```
-   You can use these values in `WHATSAPP_TEMPLATE_PARAMS`: `CandidateName`, `CompanyName`, `Department`,
-   `Position`, `HRSignature`.
-5. As admin, open **Settings → Communication → Automatic WhatsApp greeting**, send a test greeting to your own number,
-   and leave **Send the greeting automatically** switched on.
-
-Applications more than 3 days old are not greeted, for example when old responses are imported. Meta charges per
-template message; utility messages cost the least.
-
 ## Moving to production (paid) – no code changes
 
 | Change | How |

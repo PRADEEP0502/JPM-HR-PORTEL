@@ -419,11 +419,6 @@ export function useCallAction() {
 const CHANNEL_ICON: Record<CommChannel, typeof Phone> = { CALL: Phone, WHATSAPP: MessageCircle, EMAIL: Mail };
 const CHANNEL_LABEL: Record<CommChannel, string> = { CALL: 'Call', WHATSAPP: 'WhatsApp', EMAIL: 'Email' };
 
-/** Provider of the automatic WhatsApp greeting sent by the server when a candidate submits the Google Form. */
-export const WHATSAPP_API = 'WhatsApp Cloud API';
-const isAuto = (c: CommunicationRecord) => c.channel === 'WHATSAPP' && c.provider === WHATSAPP_API;
-const canRetry = (c: CommunicationRecord) => c.status === 'FAILED' && (c.channel === 'EMAIL' || isAuto(c));
-
 export function CommunicationHistory({ candidateId }: { candidateId: number }) {
   const toast = useToast();
   const invalidate = useInvalidateComms();
@@ -436,8 +431,7 @@ export function CommunicationHistory({ candidateId }: { candidateId: number }) {
     mutationFn: (id: number) => api.post<CommunicationRecord>(`/communications/${id}/retry`),
     onSuccess: (c) => {
       invalidate(candidateId);
-      const what = c.channel === 'WHATSAPP' ? 'WhatsApp greeting' : 'Email';
-      toast(c.status === 'ACCEPTED' ? 'success' : 'error', c.status === 'ACCEPTED' ? `${what} accepted on retry` : `Retry failed: ${c.errorMessage}`);
+      toast(c.status === 'ACCEPTED' ? 'success' : 'error', c.status === 'ACCEPTED' ? 'Email accepted on retry' : `Retry failed: ${c.errorMessage}`);
     },
     onError: (e) => toast('error', e.message),
   });
@@ -469,7 +463,6 @@ export function CommunicationHistory({ candidateId }: { candidateId: number }) {
                 {c.channel !== 'CALL' && (
                   <span className="font-normal text-ink-3"> · {labelOf(TEMPLATE_PURPOSES, c.purpose ?? 'INTERVIEW_INVITATION')}</span>
                 )}
-                {isAuto(c) && <span className="font-normal text-ink-3"> · sent automatically</span>}
               </span>
               <CommStatusPill status={c.status} />
               {c.callOutcome && <Pill tone="grey">{OUTCOMES.find((o) => o.value === c.callOutcome)?.label}</Pill>}
@@ -482,15 +475,15 @@ export function CommunicationHistory({ candidateId }: { candidateId: number }) {
                 </button>
               )}
             </div>
-            {(c.errorMessage || c.notes || (canRetry(c) && !retried.has(c.id)) || (c.channel === 'WHATSAPP' && c.status === 'PREPARED' && !isAuto(c))) && (
+            {(c.errorMessage || c.notes || (c.status === 'FAILED' && !retried.has(c.id)) || (c.channel === 'WHATSAPP' && c.status === 'PREPARED')) && (
               <div className="flex flex-wrap items-center gap-2 border-t border-line/60 px-3 py-2 text-xs">
                 {c.errorMessage && <span className="text-[#f29a9a]">{c.errorMessage}</span>}
                 {c.notes && <span className="text-ink-2">{c.notes}</span>}
                 <span className="flex-1" />
-                {canRetry(c) && !retried.has(c.id) && (
+                {c.channel === 'EMAIL' && c.status === 'FAILED' && !retried.has(c.id) && (
                   <button className="btn-secondary py-1 text-xs" disabled={retry.isPending} onClick={() => retry.mutate(c.id)}><RotateCw size={12} /> Retry</button>
                 )}
-                {c.channel === 'WHATSAPP' && c.status === 'PREPARED' && !isAuto(c) && (
+                {c.channel === 'WHATSAPP' && c.status === 'PREPARED' && (
                   <button className="btn-secondary py-1 text-xs" disabled={markSent.isPending} onClick={() => markSent.mutate(c.id)}>Mark as sent</button>
                 )}
               </div>
@@ -498,18 +491,12 @@ export function CommunicationHistory({ candidateId }: { candidateId: number }) {
             {expanded && c.content && (
               <div className="space-y-2 border-t border-line/60 p-3">
                 <p className="text-[11px] text-ink-3">
-                  {isAuto(c) ? 'Approved WhatsApp template' : `Template v${c.templateVersion ?? '—'}`}
+                  Template v{c.templateVersion ?? '—'}
                   {c.provider ? ` · ${c.provider}` : ''}
                   {c.providerMessageId ? ` · Message-ID ${c.providerMessageId}` : ''}
                   {c.retryOfId ? ` · retry of #${c.retryOfId}` : ''}
                 </p>
-                {c.channel === 'EMAIL' ? (
-                  <EmailPreview to={c.recipient} subject={c.subject} body={c.content} />
-                ) : isAuto(c) ? (
-                  <pre className="whitespace-pre-wrap rounded-lg bg-raised p-3 font-sans text-xs text-ink-2">{c.content}</pre>
-                ) : (
-                  <WhatsAppBubble text={c.content} />
-                )}
+                {c.channel === 'EMAIL' ? <EmailPreview to={c.recipient} subject={c.subject} body={c.content} /> : <WhatsAppBubble text={c.content} />}
               </div>
             )}
           </li>

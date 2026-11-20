@@ -8,7 +8,6 @@ import com.jpm.hrms.candidate.CandidateEnums.CandidateSource;
 import com.jpm.hrms.candidate.CandidateRepository;
 import com.jpm.hrms.candidate.CandidateService;
 import com.jpm.hrms.common.ApiException;
-import com.jpm.hrms.communication.ApplicantGreeter;
 import com.jpm.hrms.config.AppProperties;
 import com.jpm.hrms.department.Department;
 import com.jpm.hrms.department.DepartmentRepository;
@@ -119,7 +118,6 @@ public class SyncService {
     private final DocumentService documentService;
     private final DepartmentRepository departments;
     private final AuditService audit;
-    private final ApplicantGreeter greeter;
     private final AppProperties props;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -129,7 +127,7 @@ public class SyncService {
     public SyncService(GoogleApiClient google, IntegrationSettingsRepository settingsRepo, SyncRunRepository runs,
                        IgnoredRowRepository ignored, CandidateRepository candidates, CandidateDocumentRepository documents,
                        DocumentService documentService,
-                       DepartmentRepository departments, AuditService audit, ApplicantGreeter greeter, AppProperties props, ObjectMapper mapper,
+                       DepartmentRepository departments, AuditService audit, AppProperties props, ObjectMapper mapper,
                        Clock clock, ZoneId businessZone) {
         this.google = google;
         this.settingsRepo = settingsRepo;
@@ -140,7 +138,6 @@ public class SyncService {
         this.documentService = documentService;
         this.departments = departments;
         this.audit = audit;
-        this.greeter = greeter;
         this.props = props;
         this.mapper = mapper;
         this.clock = clock;
@@ -503,7 +500,6 @@ public class SyncService {
         audit.recordAs(p.rowNumber() > 0 ? SYNC_ACTOR : FORM_ACTOR, "CANDIDATE_IMPORTED", "CANDIDATE", c.getId(),
                 p.rowNumber() > 0 ? "Imported from Google Form response (sheet row " + p.rowNumber() + ")"
                         : "Imported from Google Form response (sent when the candidate submitted)");
-        greeter.greetLater(c.getId(), p.rowNumber() > 0 ? SYNC_ACTOR : FORM_ACTOR);
         return c;
     }
 

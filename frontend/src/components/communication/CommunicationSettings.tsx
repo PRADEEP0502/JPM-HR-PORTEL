@@ -29,10 +29,9 @@ export function CommunicationSettingsTab() {
   return (
     <div className="space-y-6">
       <IdentityForm settings={o.settings} />
-      <WhatsAppGreetingCard />
       <EmailServiceCard status={o.emailService} />
       <section className="panel p-5">
-        <SectionTitle title="Message templates" subtitle="Each message type has its own approved WhatsApp and email wording. Apart from the automatic WhatsApp greeting above (its wording is the Meta-approved template), messages are only sent when an HR user chooses to send them." />
+        <SectionTitle title="Message templates" subtitle="Each message type has its own approved WhatsApp and email wording. Messages are only sent when an HR user chooses to send them." />
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Message type">
           {o.purposes.map((p) => (
             <button
@@ -99,96 +98,6 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
         </button>
         {dirty && <button className="btn-ghost" onClick={() => setF(settings)}>Discard</button>}
       </div>
-    </section>
-  );
-}
-
-interface WhatsAppGreetingStatus {
-  configured: boolean;
-  provider: string;
-  templateName: string | null;
-  templateLanguage: string;
-  templateParams: string[];
-  autoGreetEnabled: boolean;
-}
-
-/** The WhatsApp greeting the server sends by itself when a candidate submits the Google Form. */
-function WhatsAppGreetingCard() {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const [to, setTo] = useState('');
-  const [result, setResult] = useState<{ accepted: boolean; messageId: string | null; error: string | null } | null>(null);
-  const status = useQuery({ queryKey: ['whatsapp-greeting'], queryFn: () => api.get<WhatsAppGreetingStatus>('/communication/whatsapp-greeting') });
-  const toggle = useMutation({
-    mutationFn: (enabled: boolean) => api.put<WhatsAppGreetingStatus>('/communication/whatsapp-greeting', { enabled }),
-    onSuccess: (s) => {
-      qc.setQueryData(['whatsapp-greeting'], s);
-      toast('success', s.autoGreetEnabled ? 'Automatic WhatsApp greeting turned on' : 'Automatic WhatsApp greeting turned off');
-    },
-    onError: (e) => toast('error', e.message),
-  });
-  const test = useMutation({
-    mutationFn: () => api.post<{ accepted: boolean; messageId: string | null; error: string | null }>('/communication/whatsapp-greeting/test', { to: to.trim() }),
-    onSuccess: (r) => {
-      setResult(r);
-      toast(r.accepted ? 'success' : 'error', r.accepted ? 'Test greeting accepted by WhatsApp' : `Test greeting failed: ${r.error}`);
-    },
-    onError: (e) => toast('error', e.message),
-  });
-  if (status.isLoading) return <section className="panel p-5"><LoadingBlock /></section>;
-  if (status.error || !status.data) return <section className="panel p-5"><ErrorState error={status.error} onRetry={() => status.refetch()} /></section>;
-  const s = status.data;
-  return (
-    <section className="panel space-y-4 p-5">
-      <SectionTitle
-        title="Automatic WhatsApp greeting"
-        subtitle="Sent by the server the moment a candidate submits the Google Form, using a template approved by Meta. Each attempt appears in the candidate's communication history."
-      />
-      {s.configured ? (
-        <div className="flex items-start gap-3 rounded-xl border border-good/40 bg-good/10 px-4 py-3 text-sm">
-          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-good" />
-          <p>
-            Connected to the {s.provider}. Template <strong>{s.templateName}</strong> ({s.templateLanguage})
-            {s.templateParams.length > 0 && <> filled with {s.templateParams.map((p, i) => <span key={p}>{i > 0 && ', '}<code>{`{{${i + 1}}}`}</code> = {p}</span>)}</>}.
-          </p>
-        </div>
-      ) : (
-        <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-[#f3c08a]">
-          <XCircle size={18} className="mt-0.5 shrink-0" />
-          <p>
-            Not connected. Set <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_PHONE_NUMBER_ID</code> and <code>WHATSAPP_TEMPLATE_NAME</code> (plus{' '}
-            <code>WHATSAPP_TEMPLATE_PARAMS</code> if the template has more than the candidate's name) on the server and restart. Until then no greeting is sent.
-          </p>
-        </div>
-      )}
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="h-4 w-4 accent-[#22a559]"
-          checked={s.autoGreetEnabled}
-          disabled={toggle.isPending}
-          onChange={(e) => toggle.mutate(e.target.checked)}
-        />
-        Send the greeting automatically to every new Google Form application
-        {toggle.isPending && <Spinner size={13} />}
-      </label>
-      <p className="text-xs text-ink-3">
-        Applications older than 3 days (for example when old responses are imported) are not greeted. A failed greeting can be retried from the candidate's
-        communication history.
-      </p>
-      <div className="flex flex-wrap items-end gap-2">
-        <Field label="Send a test greeting to" className="min-w-[240px] flex-1">
-          <input className="input" type="tel" inputMode="tel" value={to} onChange={(e) => setTo(e.target.value)} placeholder="10-digit mobile number" />
-        </Field>
-        <button className="btn-secondary" disabled={!s.configured || to.replace(/\D/g, '').length < 10 || test.isPending} onClick={() => test.mutate()}>
-          {test.isPending ? <Spinner size={14} /> : <MessageCircle size={14} />} Send test
-        </button>
-      </div>
-      {result && (
-        <p className={clsx('text-sm', result.accepted ? 'text-good' : 'text-bad')}>
-          {result.accepted ? `Accepted by WhatsApp (message id ${result.messageId}). Check the phone to confirm delivery.` : result.error}
-        </p>
-      )}
     </section>
   );
 }

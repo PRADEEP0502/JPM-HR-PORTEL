@@ -15,8 +15,7 @@ public record AppProperties(
         @DefaultValue Security security,
         @DefaultValue Mail mail,
         @DefaultValue Google google,
-        @DefaultValue Files files,
-        @DefaultValue WhatsApp whatsapp) {
+        @DefaultValue Files files) {
 
     /** loginAttemptsPerIp = sign-in requests allowed per client IP in 5 minutes. */
     public record Security(String jwtSecret,
@@ -54,20 +53,5 @@ public record AppProperties(
                               @DefaultValue("3310") int clamavPort,
                               @DefaultValue("15000") int timeoutMs,
                               @DefaultValue("true") boolean failClosed) {
-    }
-
-    /**
-     * WhatsApp Business Platform (Meta Cloud API), used for the automatic greeting sent when a candidate submits the
-     * Google Form. Off while the access token, phone number ID or template name is empty. Meta only lets a business
-     * start a chat with a template it has approved; templateParams lists, in order, the portal values that fill the
-     * template's {{1}}, {{2}} ... (CandidateName, CompanyName, Department, Position, HRSignature).
-     */
-    public record WhatsApp(String accessToken,
-                           String phoneNumberId,
-                           String templateName,
-                           @DefaultValue("en") String templateLanguage,
-                           @DefaultValue("CandidateName") List<String> templateParams,
-                           @DefaultValue("v23.0") String apiVersion,
-                           @DefaultValue("https://graph.facebook.com") String apiBaseUrl) {
     }
 }

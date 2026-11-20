@@ -17,8 +17,7 @@ class LoginRateLimitFilterTest {
         var props = new AppProperties(false, "Asia/Kolkata", List.of(), "./target/x", null,
                 new AppProperties.Security(null, 480, null, null, 3), new AppProperties.Mail(null, "HR"),
                 new AppProperties.Google(null, null, "Form Responses 1", null),
-                new AppProperties.Files("local", List.of("pdf"), new AppProperties.MalwareScan("off", "localhost", 3310, 1000, true)),
-                new AppProperties.WhatsApp(null, null, null, "en", List.of("CandidateName"), "v23.0", "https://graph.facebook.com"));
+                new AppProperties.Files("local", List.of("pdf"), new AppProperties.MalwareScan("off", "localhost", 3310, 1000, true)));
         LoginRateLimitFilter filter = new LoginRateLimitFilter(props);
 
         for (int i = 1; i <= 3; i++) assertThat(login(filter, "203.0.113.5").getStatus()).isEqualTo(200);

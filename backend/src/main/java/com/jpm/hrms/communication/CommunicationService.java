@@ -23,8 +23,6 @@ import com.jpm.hrms.communication.CommunicationDtos.TemplateRequest;
 import com.jpm.hrms.communication.CommunicationDtos.TemplateResponse;
 import com.jpm.hrms.communication.CommunicationDtos.TemplatesOverview;
 import com.jpm.hrms.communication.CommunicationDtos.TestEmailResult;
-import com.jpm.hrms.communication.CommunicationDtos.TestWhatsAppResult;
-import com.jpm.hrms.communication.CommunicationDtos.WhatsAppApiStatus;
 import com.jpm.hrms.communication.CommunicationDtos.WhatsAppDraft;
 import com.jpm.hrms.communication.CommunicationDtos.WhatsAppPrepared;
 import com.jpm.hrms.communication.ContactValidator.EmailCheck;
@@ -33,8 +31,6 @@ import com.jpm.hrms.communication.MessageTemplate.TemplateChannel;
 import com.jpm.hrms.communication.TemplateRenderer.MissingValuesException;
 import com.jpm.hrms.interview.Interview;
 import com.jpm.hrms.interview.InterviewRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -44,7 +40,6 @@ import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.DayOfWeek;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -61,10 +56,6 @@ import java.util.Objects;
 
 @Service
 public class CommunicationService {
-    private static final Logger log = LoggerFactory.getLogger(CommunicationService.class);
-
-    /** Form responses older than this are imported without a WhatsApp greeting (e.g. the first sync of an old sheet). */
-    static final Duration GREETING_WINDOW = Duration.ofDays(3);
 
     /** Approved default wording (the company name, venue, location link and signature come from settings). */
     static final String DEFAULT_EMAIL_SUBJECT = "Interview Invitation – JPM";
@@ -139,7 +130,6 @@ public class CommunicationService {
     private final DepartmentDirectory depts;
     private final InterviewRepository interviews;
     private final EmailSender email;
-    private final WhatsAppCloudSender whatsApp;
     private final AuditService audit;
     private final MongoOperations mongo;
     private final Clock clock;
@@ -150,7 +140,7 @@ public class CommunicationService {
     public CommunicationService(CommunicationSettingsRepository settingsRepo, MessageTemplateRepository templates,
                                 CommunicationRepository communications, CandidateRepository candidates,
                                 DepartmentDirectory depts, InterviewRepository interviews, EmailSender email,
-                                WhatsAppCloudSender whatsApp, AuditService audit, MongoOperations mongo, Clock clock, ZoneId businessZone) {
+                                AuditService audit, MongoOperations mongo, Clock clock, ZoneId businessZone) {
         this.mongo = mongo;
         this.settingsRepo = settingsRepo;
         this.templates = templates;
@@ -159,7 +149,6 @@ public class CommunicationService {
         this.depts = depts;
         this.interviews = interviews;
         this.email = email;
-        this.whatsApp = whatsApp;
         this.audit = audit;
         this.clock = clock;
         this.zone = businessZone;
@@ -463,17 +452,9 @@ public class CommunicationService {
         return deliver(comm);
     }
 
-    /**
-     * Re-sends the exact stored content of a failed email, or a failed automatic WhatsApp greeting, as a new attempt
-     * (the failed record is kept).
-     */
+    /** Re-sends the exact stored content of a failed email as a new attempt (the failed record is kept). */
     public CommunicationResponse retry(Long communicationId, String actor) {
         Communication failed = communications.findById(communicationId).orElseThrow(() -> ApiException.notFound("Communication"));
-        if (failed.getChannel() == Channel.WHATSAPP && failed.getStatus() == Status.FAILED
-                && WhatsAppCloudSender.PROVIDER.equals(failed.getProvider())) {
-            if (!whatsApp.isConfigured()) throw ApiException.badRequest("WhatsApp sending is not configured on the server");
-            return sendGreeting(failed.getCandidateId(), actor, failed.getId());
-        }
         if (failed.getChannel() != Channel.EMAIL || failed.getStatus() != Status.FAILED) {
             throw ApiException.badRequest("Only failed emails can be retried");
         }
@@ -545,8 +526,7 @@ public class CommunicationService {
     /** HR confirms they pressed send in WhatsApp. This is HR's confirmation, not a delivery receipt. */
     public CommunicationResponse markWhatsAppSent(Long id, String actor) {
         Communication comm = communications.findById(id).orElseThrow(() -> ApiException.notFound("Communication"));
-        if (comm.getChannel() != Channel.WHATSAPP || comm.getStatus() != Status.PREPARED
-                || WhatsAppCloudSender.PROVIDER.equals(comm.getProvider())) {
+        if (comm.getChannel() != Channel.WHATSAPP || comm.getStatus() != Status.PREPARED) {
             throw ApiException.badRequest("Only prepared WhatsApp messages can be marked as sent");
         }
         comm.setStatus(Status.MARKED_SENT);
@@ -571,119 +551,6 @@ public class CommunicationService {
             audit.record("EMAIL_TEST", "SETTINGS", null, "Test email failed: " + e.getMessage());
             return new TestEmailResult(false, null, e.getMessage());
         }
-    }
-
-    // ================================================================ automatic WhatsApp greeting
-
-    public WhatsAppApiStatus whatsAppStatus() {
-        return new WhatsAppApiStatus(whatsApp.isConfigured(), WhatsAppCloudSender.PROVIDER, whatsApp.templateName(),
-                whatsApp.templateLanguage(), whatsApp.templateParams(), settings().isAutoGreetOnApply());
-    }
-
-    public WhatsAppApiStatus setAutoGreet(boolean enabled, String actor) {
-        CommunicationSettings s = settings();
-        s.setAutoGreetOnApply(enabled);
-        s.setUpdatedBy(actor);
-        settingsRepo.save(s);
-        audit.record(enabled ? "WHATSAPP_AUTO_GREETING_ON" : "WHATSAPP_AUTO_GREETING_OFF", "SETTINGS", s.getId(),
-                "Automatic WhatsApp greeting for new Google Form applications turned " + (enabled ? "on" : "off"));
-        return whatsAppStatus();
-    }
-
-    /**
-     * Runs after a Google Form response becomes a candidate. Sends the greeting once per candidate, only for fresh
-     * applications and only while it is configured and switched on. Never throws: the application is already saved.
-     */
-    public void greetNewApplicant(Long candidateId, String actor) {
-        try {
-            if (!whatsApp.isConfigured() || !settings().isAutoGreetOnApply()) return;
-            Candidate c = candidates.findById(candidateId).orElse(null);
-            if (c == null) return;
-            if (c.getAppliedAt() != null && c.getAppliedAt().isBefore(clock.instant().minus(GREETING_WINDOW))) return;
-            boolean alreadyTried = communications.findByCandidateIdOrderByCreatedAtDesc(candidateId).stream()
-                    .anyMatch(m -> m.getChannel() == Channel.WHATSAPP && WhatsAppCloudSender.PROVIDER.equals(m.getProvider()));
-            if (alreadyTried) return;
-            sendGreeting(candidateId, actor, null);
-        } catch (RuntimeException e) {
-            log.warn("Automatic WhatsApp greeting for candidate {} failed: {}", candidateId, e.getClass().getSimpleName());
-        }
-    }
-
-    /** Sends the approved WhatsApp template to the candidate. The attempt is recorded whether it works or not. */
-    private CommunicationResponse sendGreeting(Long candidateId, String actor, Long retryOfId) {
-        Context ctx = context(candidateId, null, TemplatePurpose.APPLICATION_ACK);
-        Communication comm = base(ctx, Channel.WHATSAPP, ctx.phone().valid() ? ctx.phone().display() : ctx.candidate().getMobile(), actor);
-        comm.setPurpose(TemplatePurpose.APPLICATION_ACK);
-        comm.setProvider(WhatsAppCloudSender.PROVIDER);
-        comm.setRetryOfId(retryOfId);
-        TemplateValues tv = templateValues(ctx.values());
-        comm.setContent(tv.summary());
-        String problem = !ctx.phone().valid() ? ctx.phone().reason()
-                : !tv.missing().isEmpty() ? "Missing " + friendly(tv.missing()) : null;
-        if (problem == null) {
-            comm.setStatus(Status.PREPARED);
-            communications.save(comm);
-            try {
-                comm.setProviderMessageId(whatsApp.sendTemplate(ctx.phone().international(), tv.values()));
-                comm.setStatus(Status.ACCEPTED);
-            } catch (WhatsAppCloudSender.WhatsAppException e) {
-                problem = e.getMessage();
-            }
-        }
-        if (problem != null) {
-            comm.setStatus(Status.FAILED);
-            comm.setErrorMessage(problem);
-        }
-        communications.save(comm);
-        String retry = retryOfId != null ? " - retry of #" + retryOfId : "";
-        audit.recordAs(actor, problem == null ? "WHATSAPP_GREETING_SENT" : "WHATSAPP_GREETING_FAILED", "CANDIDATE", candidateId,
-                problem == null ? "WhatsApp greeting accepted by " + WhatsAppCloudSender.PROVIDER + " (template \"" + whatsApp.templateName() + "\")" + retry
-                        : "WhatsApp greeting not sent: " + problem + retry);
-        return CommunicationResponse.from(comm);
-    }
-
-    /** Sends the greeting template to any number with sample candidate details, to check the setup. */
-    public TestWhatsAppResult sendTestWhatsApp(String to) {
-        if (!whatsApp.isConfigured()) return new TestWhatsAppResult(false, null, "WhatsApp sending is not configured on the server");
-        PhoneCheck phone = ContactValidator.checkPhone(to, settings().getDefaultCountryCode());
-        if (!phone.valid()) return new TestWhatsAppResult(false, null, phone.reason());
-        Map<String, String> values = baseValues(settings());
-        values.put(TemplateRenderer.CANDIDATE_NAME, "Test Candidate");
-        values.put(TemplateRenderer.DEPARTMENT, "Test Department");
-        values.put(TemplateRenderer.POSITION, "Test Post");
-        TemplateValues tv = templateValues(values);
-        if (!tv.missing().isEmpty()) return new TestWhatsAppResult(false, null, "Missing " + friendly(tv.missing()));
-        try {
-            String id = whatsApp.sendTemplate(phone.international(), tv.values());
-            audit.record("WHATSAPP_TEST", "SETTINGS", null, "Test WhatsApp greeting accepted by " + WhatsAppCloudSender.PROVIDER);
-            return new TestWhatsAppResult(true, id, null);
-        } catch (WhatsAppCloudSender.WhatsAppException e) {
-            audit.record("WHATSAPP_TEST", "SETTINGS", null, "Test WhatsApp greeting failed: " + e.getMessage());
-            return new TestWhatsAppResult(false, null, e.getMessage());
-        }
-    }
-
-    /** The values for the template's {{1}}, {{2}} ..., the placeholders that have no value, and a readable record of both. */
-    private record TemplateValues(List<String> values, List<String> missing, String summary) {
-    }
-
-    private TemplateValues templateValues(Map<String, String> source) {
-        List<String> values = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
-        StringBuilder summary = new StringBuilder("WhatsApp template \"" + whatsApp.templateName() + "\" (" + whatsApp.templateLanguage() + ")");
-        List<String> keys = whatsApp.templateParams();
-        for (int i = 0; i < keys.size(); i++) {
-            String v = source.get(keys.get(i));
-            // Meta does not accept line breaks, tabs or long runs of spaces inside a template value
-            v = v == null ? null : v.replaceAll("\\s*[\\r\\n\\t]+\\s*", ", ").replaceAll(" {4,}", " ").trim();
-            if (!StringUtils.hasText(v)) {
-                missing.add(keys.get(i));
-                continue;
-            }
-            values.add(v);
-            summary.append("\n{{").append(i + 1).append("}} ").append(keys.get(i)).append(": ").append(v);
-        }
-        return new TemplateValues(values, missing, summary.toString());
     }
 
     // ================================================================ helpers
