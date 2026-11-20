@@ -14,6 +14,10 @@ import com.jpm.hrms.communication.CommunicationDtos.TemplateResponse;
 import com.jpm.hrms.communication.CommunicationDtos.TemplatesOverview;
 import com.jpm.hrms.communication.CommunicationDtos.TestEmailRequest;
 import com.jpm.hrms.communication.CommunicationDtos.TestEmailResult;
+import com.jpm.hrms.communication.CommunicationDtos.AutoGreetRequest;
+import com.jpm.hrms.communication.CommunicationDtos.TestWhatsAppRequest;
+import com.jpm.hrms.communication.CommunicationDtos.TestWhatsAppResult;
+import com.jpm.hrms.communication.CommunicationDtos.WhatsAppApiStatus;
 import com.jpm.hrms.communication.CommunicationDtos.WhatsAppPrepared;
 import com.jpm.hrms.communication.MessageTemplate.TemplateChannel;
 import jakarta.validation.Valid;
@@ -134,6 +138,25 @@ public class CommunicationController {
     @PreAuthorize("hasRole('ADMIN')")
     public TestEmailResult testEmail(@Valid @RequestBody TestEmailRequest req, Authentication auth) {
         return service.sendTestEmail(req.to().trim(), auth.getName());
+    }
+
+    /** The automatic WhatsApp greeting sent when a candidate submits the Google Form. */
+    @GetMapping("/communication/whatsapp-greeting")
+    @PreAuthorize("hasRole('ADMIN')")
+    public WhatsAppApiStatus whatsAppGreeting() {
+        return service.whatsAppStatus();
+    }
+
+    @PutMapping("/communication/whatsapp-greeting")
+    @PreAuthorize("hasRole('ADMIN')")
+    public WhatsAppApiStatus setWhatsAppGreeting(@RequestBody AutoGreetRequest req, Authentication auth) {
+        return service.setAutoGreet(req.enabled(), auth.getName());
+    }
+
+    @PostMapping("/communication/whatsapp-greeting/test")
+    @PreAuthorize("hasRole('ADMIN')")
+    public TestWhatsAppResult testWhatsAppGreeting(@Valid @RequestBody TestWhatsAppRequest req) {
+        return service.sendTestWhatsApp(req.to().trim());
     }
 
     /** Seeds the default settings and template version 1 on startup. */

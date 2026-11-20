@@ -92,6 +92,17 @@ app:
     spreadsheet-id: ${GOOGLE_SHEET_ID:}
     sheet-range: ${GOOGLE_SHEET_RANGE:Form Responses 1}
     form-url: ${GOOGLE_FORM_URL:}
+  # Automatic WhatsApp greeting when a candidate submits the Google Form (WhatsApp Business Platform / Meta Cloud API).
+  # Leave the token, phone number ID or template name empty to turn it off. The template must be approved by Meta.
+  whatsapp:
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    template-name: ${WHATSAPP_TEMPLATE_NAME:}
+    template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en}
+    # Portal values for the template's {{1}}, {{2}} ... in order: CandidateName, CompanyName, Department, Position, HRSignature
+    template-params: ${WHATSAPP_TEMPLATE_PARAMS:CandidateName}
+    api-version: ${WHATSAPP_API_VERSION:v23.0}
+    api-base-url: ${WHATSAPP_API_BASE_URL:https://graph.facebook.com}
   # ONE-TIME migration from the previous SQL database (see README "Migrating existing data to MongoDB").
   # Leave empty in normal operation.
   legacy-import:

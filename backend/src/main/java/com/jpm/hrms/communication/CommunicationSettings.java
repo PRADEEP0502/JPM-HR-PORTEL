@@ -23,6 +23,8 @@ public class CommunicationSettings implements SequencedEntity {
     private String locationLink = DEFAULT_LOCATION_LINK;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
     private String defaultCountryCode = "91";
+    /** Send the WhatsApp greeting automatically when a candidate submits the Google Form (needs the WhatsApp API on the server). */
+    private boolean autoGreetOnApply = true;
     private String updatedBy;
     private Instant updatedAt;
 
@@ -53,6 +55,8 @@ public class CommunicationSettings implements SequencedEntity {
     public void setHrSignature(String hrSignature) { this.hrSignature = hrSignature; }
     public String getDefaultCountryCode() { return defaultCountryCode; }
     public void setDefaultCountryCode(String defaultCountryCode) { this.defaultCountryCode = defaultCountryCode; }
+    public boolean isAutoGreetOnApply() { return autoGreetOnApply; }
+    public void setAutoGreetOnApply(boolean autoGreetOnApply) { this.autoGreetOnApply = autoGreetOnApply; }
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
     public Instant getUpdatedAt() { return updatedAt; }

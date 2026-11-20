@@ -52,6 +52,24 @@ public final class CommunicationDtos {
     public record EmailServiceStatus(boolean configured, String provider, String fromAddress, String fromName) {
     }
 
+    /**
+     * The automatic WhatsApp greeting: whether the server has the WhatsApp API credentials, which Meta template it
+     * sends, the portal values filling the template's {{1}}, {{2}} ..., and whether the admin has it switched on.
+     */
+    public record WhatsAppApiStatus(boolean configured, String provider, String templateName, String templateLanguage,
+                                    List<String> templateParams, boolean autoGreetEnabled) {
+    }
+
+    public record AutoGreetRequest(boolean enabled) {
+    }
+
+    public record TestWhatsAppRequest(@NotBlank @Size(max = 20) @Pattern(regexp = "^[+0-9 ()-]{10,20}$", message = "must be a mobile number")
+                                      String to) {
+    }
+
+    public record TestWhatsAppResult(boolean accepted, String messageId, String error) {
+    }
+
     /** The approved WhatsApp and email template of one purpose. */
     public record PurposeTemplates(TemplatePurpose purpose, String label, boolean needsInterview, List<String> required,
                                    TemplateResponse whatsapp, TemplateResponse email) {
