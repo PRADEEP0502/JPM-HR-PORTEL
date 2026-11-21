@@ -35,7 +35,7 @@ public final class CandidateDtos {
                                     ApplicationStatus applicationStatus, InterviewStatus interviewStatus,
                                     VerificationStatus verificationStatus, CandidateSource source,
                                     Integer profileRating, String ratingRemark, boolean archived,
-                                    AadhaarVerification.Result aadhaarResult, Double homeDistanceKm) {
+                                    AadhaarVerification.Result aadhaarResult, Double homeDistanceKm, Double homeRoadKm) {
         public static CandidateListItem from(Candidate c, DepartmentDirectory.Names depts) {
             return new CandidateListItem(c.getId(), c.getCandidateCode(), c.getFullName(), c.getMobile(), c.getEmail(),
                     depts.name(c) == null ? null : c.getDepartmentId(),
@@ -43,7 +43,7 @@ public final class CandidateDtos {
                     c.getQualification(), c.getExperienceYears(), c.getApplicationDate(), c.getJoiningDate(), c.getApplicationStatus(),
                     c.getInterviewStatus(), c.getVerificationStatus(), c.getSource(),
                     c.getProfileRating(), c.getRatingRemark(), c.isArchived(),
-                    c.getAadhaarVerification() == null ? null : c.getAadhaarVerification().getResult(), c.getHomeDistanceKm());
+                    c.getAadhaarVerification() == null ? null : c.getAadhaarVerification().getResult(), c.getHomeDistanceKm(), c.getHomeRoadKm());
         }
     }
 
@@ -77,6 +77,7 @@ public final class CandidateDtos {
             String city, String district, String state, String pincode, String travelMode, String currentLocation,
             // home pin: the Google Maps link, straight-line km to the company, and directions (road distance)
             String homeMapLink, boolean homeLocated, Double homeDistanceKm, String homeDirectionsUrl,
+            Double homeRoadKm, Integer homeRoadMinutes, String homeRoadSource,
             // B. education
             String qualification, String institution, Integer passingYear,
             // C. employment

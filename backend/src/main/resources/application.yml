@@ -92,6 +92,11 @@ app:
     spreadsheet-id: ${GOOGLE_SHEET_ID:}
     sheet-range: ${GOOGLE_SHEET_RANGE:Form Responses 1}
     form-url: ${GOOGLE_FORM_URL:}
+  # Road distance from a candidate's home to the company. With a Google Maps Platform key (Routes API enabled) the
+  # numbers match Google Maps; without one the free OpenStreetMap route server (OSRM) is used.
+  maps:
+    google-api-key: ${GOOGLE_MAPS_API_KEY:}
+    osrm-url: ${OSRM_URL:https://router.project-osrm.org}
   # ONE-TIME migration from the previous SQL database (see README "Migrating existing data to MongoDB").
   # Leave empty in normal operation.
   legacy-import:

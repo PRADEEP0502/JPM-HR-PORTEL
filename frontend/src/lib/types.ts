@@ -84,6 +84,8 @@ export interface CandidateListItem {
   aadhaarResult: AadhaarResult | null;
   /** Straight-line km from home to the company; null when the home or company pin is unknown. */
   homeDistanceKm: number | null;
+  /** Road km by car from home to the company; null until it has been looked up. */
+  homeRoadKm: number | null;
 }
 
 export type AadhaarResult = 'VERIFIED' | 'MISMATCH';
@@ -177,6 +179,10 @@ export interface CandidateDetail {
   homeDistanceKm: number | null;
   /** Google Maps directions from home to the company (road distance and travel time). */
   homeDirectionsUrl: string | null;
+  /** Road distance and driving time by car, and the map service that gave them (Google Maps or OpenStreetMap). */
+  homeRoadKm: number | null;
+  homeRoadMinutes: number | null;
+  homeRoadSource: string | null;
   qualification: string | null;
   institution: string | null;
   passingYear: number | null;

@@ -136,10 +136,12 @@ public class CandidateService {
                             Sort.Order.desc("_id"))));
         }
         if ("distance".equals(sort)) {
+            // road km when known, otherwise the straight line; candidates without a home pin last
+            var km = ConditionalOperators.ifNull("homeRoadKm").thenValueOf("homeDistanceKm");
             var unknown = ConditionalOperators.when(ComparisonOperators.valueOf("homeDistanceKm").greaterThanEqualToValue(0)).then(0).otherwise(1);
-            return Optional.of(new ComputedOrder(Aggregation.addFields().addField("sortGroup").withValue(unknown).build(),
-                    Sort.by(Sort.Order.asc("sortGroup"), asc ? Sort.Order.asc("homeDistanceKm") : Sort.Order.desc("homeDistanceKm"),
-                            Sort.Order.desc("_id"))));
+            return Optional.of(new ComputedOrder(Aggregation.addFields().addField("sortGroup").withValue(unknown)
+                    .addField("sortKm").withValue(km).build(),
+                    Sort.by(Sort.Order.asc("sortGroup"), asc ? Sort.Order.asc("sortKm") : Sort.Order.desc("sortKm"), Sort.Order.desc("_id"))));
         }
         if ("department".equals(sort)) {
             List<Long> idsByName = departments.findAllByOrderByNameAsc().stream().map(Department::getId).toList();
@@ -183,6 +185,7 @@ public class CandidateService {
                 c.getFullName(), c.getDateOfBirth(), c.getMobile(), c.getEmail(), c.getAddress(),
                 c.getCity(), c.getDistrict(), c.getState(), c.getPincode(), c.getTravelMode(), c.getCurrentLocation(),
                 c.getHomeMapLink(), c.getHomeLat() != null, c.getHomeDistanceKm(), homes.directionsUrl(c).orElse(null),
+                c.getHomeRoadKm(), c.getHomeRoadMinutes(), c.getHomeRoadSource(),
                 c.getQualification(), c.getInstitution(), c.getPassingYear(),
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
                 d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(), c.getHiringSource(),

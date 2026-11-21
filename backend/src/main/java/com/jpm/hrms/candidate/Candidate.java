@@ -42,6 +42,12 @@ public class Candidate implements SequencedEntity {
     private Double homeLng;
     /** Straight-line distance from home to the company pin, in km; null while either point is unknown. */
     private Double homeDistanceKm;
+    /** Road distance and driving time by car from home to the company, and which map service gave them. */
+    private Double homeRoadKm;
+    private Integer homeRoadMinutes;
+    private String homeRoadSource;
+    /** When the road distance was last looked up (failed lookups are retried later). */
+    private java.time.Instant homeRoadCheckedAt;
 
     private String qualification;
     private String institution;
@@ -149,6 +155,16 @@ public class Candidate implements SequencedEntity {
     public void setHomeLng(Double homeLng) { this.homeLng = homeLng; }
     public Double getHomeDistanceKm() { return homeDistanceKm; }
     public void setHomeDistanceKm(Double homeDistanceKm) { this.homeDistanceKm = homeDistanceKm; }
+    public Double getHomeRoadKm() { return homeRoadKm; }
+    public Integer getHomeRoadMinutes() { return homeRoadMinutes; }
+    public String getHomeRoadSource() { return homeRoadSource; }
+    public java.time.Instant getHomeRoadCheckedAt() { return homeRoadCheckedAt; }
+    public void setHomeRoad(Double km, Integer minutes, String source, java.time.Instant checkedAt) {
+        this.homeRoadKm = km;
+        this.homeRoadMinutes = minutes;
+        this.homeRoadSource = source;
+        this.homeRoadCheckedAt = checkedAt;
+    }
     public void setTravelMode(String travelMode) { this.travelMode = travelMode; }
     public String getQualification() { return qualification; }
     public void setQualification(String qualification) { this.qualification = qualification; }

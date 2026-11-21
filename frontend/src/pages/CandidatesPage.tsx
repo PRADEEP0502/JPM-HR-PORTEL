@@ -342,8 +342,11 @@ export default function CandidatesPage() {
                       </td>
                       <td className="td"><div className="max-w-[160px] truncate" title={c.qualification ?? undefined}>{c.qualification ?? '—'}</div></td>
                       <td className="td">{fmtExperience(c.experienceYears)}</td>
-                      <td className="td tabular-nums" title={c.homeDistanceKm === null ? 'No home location yet' : 'Straight-line distance from home to the company'}>
-                        {fmtKm(c.homeDistanceKm)}
+                      <td
+                        className="td tabular-nums"
+                        title={c.homeRoadKm !== null ? 'Road distance by car from home to the company' : c.homeDistanceKm !== null ? 'Straight line (road distance not looked up yet)' : 'No home location yet'}
+                      >
+                        {c.homeRoadKm !== null ? fmtKm(c.homeRoadKm) : c.homeDistanceKm !== null ? `~${fmtKm(c.homeDistanceKm)}` : '—'}
                       </td>
                       <td className="td tabular-nums">
                         {fmtDate(c.applicationDate)}

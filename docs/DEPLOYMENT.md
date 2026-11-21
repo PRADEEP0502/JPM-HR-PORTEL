@@ -61,6 +61,21 @@ development and testing, then move each piece to a paid service by changing conf
 5. **Backups:** schedule `scripts/backup-db.sh` daily from a machine you control (it only needs network access to
    Atlas) and `verify-restore.sh` weekly. On Atlas Free these are your only backups.
 
+## Road distance from home to the company (optional Google key)
+
+Candidates' road distance and driving time come from the free OpenStreetMap route server, which is usually close to
+Google Maps. To get the same numbers as Google Maps:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and link a billing account. Google's
+   monthly free allowance covers thousands of lookups.
+2. Enable **Routes API**, then open **APIs & Services → Credentials → Create credentials → API key**. Restrict the key
+   to the Routes API.
+3. Set `GOOGLE_MAPS_API_KEY=<key>` on the backend (Render → Environment) and redeploy. Keep the key secret: never put
+   it in code or chat.
+
+Existing candidates are recalculated with Google within about 10 minutes. The profile shows which service gave each
+distance.
+
 ## Moving to production (paid) – no code changes
 
 | Change | How |

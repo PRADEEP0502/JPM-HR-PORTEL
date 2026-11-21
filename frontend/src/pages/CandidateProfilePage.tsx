@@ -648,7 +648,13 @@ function HomeLocation({ c }: { c: CandidateDetail }) {
   return (
     <span className="flex flex-col gap-0.5">
       <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-        {c.homeDistanceKm !== null && <strong className="tabular-nums">{fmtKm(c.homeDistanceKm)} from the company</strong>}
+        {c.homeRoadKm !== null ? (
+          <strong className="tabular-nums">
+            {fmtKm(c.homeRoadKm)} by road{c.homeRoadMinutes !== null && ` · about ${c.homeRoadMinutes} min by car`}
+          </strong>
+        ) : (
+          c.homeDistanceKm !== null && <strong className="tabular-nums">{fmtKm(c.homeDistanceKm)} in a straight line</strong>
+        )}
         <a className="inline-flex items-center gap-1 text-xs text-info hover:underline" href={mapHref} target="_blank" rel="noopener noreferrer">
           <MapPin size={12} /> Home on map
         </a>
@@ -659,9 +665,11 @@ function HomeLocation({ c }: { c: CandidateDetail }) {
         )}
       </span>
       <span className="text-xs text-ink-3">
-        {c.homeDistanceKm !== null
-          ? 'Straight-line distance; the road is usually a little longer (open Directions for road km and travel time).'
-          : 'Set the company location link in Settings → Communication to see the distance.'}
+        {c.homeDistanceKm === null
+          ? 'Set the map pin for distances in Settings → Communication to see the distance.'
+          : c.homeRoadKm !== null
+            ? `Road distance from ${c.homeRoadSource ?? 'the map service'} · straight line ${fmtKm(c.homeDistanceKm)}`
+            : 'Road distance is being looked up; this is the straight line, the road is longer.'}
       </span>
     </span>
   );
