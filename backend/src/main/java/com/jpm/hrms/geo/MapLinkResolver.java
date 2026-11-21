@@ -56,11 +56,7 @@ public class MapLinkResolver {
             Pattern.compile("/maps/search/" + LAT + SEP + LNG),
             Pattern.compile("@" + LAT + "," + LNG));
     private static final Pattern PLAIN = Pattern.compile("^\\s*\\(?" + LAT + "\\s*[,\\s]\\s*" + LNG + "\\)?\\s*$");
-    /** Inside a Google Maps page: the static map preview and the initial view [zoom, lng, lat]. */
-    private static final Pattern PAGE_CENTER = Pattern.compile("center=" + LAT + "%2C" + LNG);
-    private static final Pattern PAGE_STATE = Pattern.compile("APP_INITIALIZATION_STATE=\\[\\[\\[[\\d.]+," + LNG + "," + LAT + "]");
     private static final Pattern GOOGLE_HOST = Pattern.compile("^(?:www\\.|maps\\.)?google\\.(?:com|co\\.in|co\\.[a-z]{2}|[a-z]{2,3})$");
-    private static final int MAX_PAGE_BYTES = 3 * 1024 * 1024;
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(6))
             .followRedirects(HttpClient.Redirect.NEVER).build();
@@ -88,7 +84,10 @@ public class MapLinkResolver {
         }
     }
 
-    /** Follows short-link redirects (Google hosts only), then reads the position from the final address or page. */
+    /**
+     * Follows short-link redirects (Google hosts only) and reads the position written in the address. The page itself
+     * is never read: Google centres it on the visitor's own region (our server is abroad), not on the place.
+     */
     private Result open(String url) throws IOException, InterruptedException {
         String current = url;
         for (int hop = 0; hop < 6; hop++) {
@@ -106,16 +105,8 @@ public class MapLinkResolver {
                     if (!allowedHost(current)) break;
                     continue;
                 }
-                if (status != 200) break;
-                String page = new String(body.readNBytes(MAX_PAGE_BYTES), StandardCharsets.UTF_8);
-                for (Matcher m = PAGE_CENTER.matcher(page); m.find(); ) {
-                    Optional<GeoPoint> p = point(m.group(1), m.group(2));
-                    if (p.isPresent()) return Result.of(p.get());
-                }
-                Matcher state = PAGE_STATE.matcher(page);
-                if (state.find()) {
-                    Optional<GeoPoint> p = point(state.group(2), state.group(1));
-                    if (p.isPresent()) return Result.of(p.get());
+                if (status == 200 && current.contains("/maps/place/")) {
+                    return Result.fail("This link is for a named place, and Google does not put its exact position in it. " + HOW_TO);
                 }
                 break;
             }

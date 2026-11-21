@@ -82,6 +82,32 @@ public class HomeDistanceService {
         return problem;
     }
 
+    /** Version 2: positions are only read from the link itself, never from the Google Maps page (wrong abroad). */
+    static final int PIN_RULES = 2;
+
+    /**
+     * Runs once after the reading rules change: reads every saved home link and the company pin again, so a pin
+     * read the old way (for example a page centred on the server's region, thousands of km away) is corrected.
+     */
+    public void recheckIfRulesChanged() {
+        CommunicationSettings s = settingsRepo.findById(CommunicationSettings.SINGLETON_ID).orElse(null);
+        if (s == null || s.getPinRulesVersion() >= PIN_RULES) return;
+        List<Candidate> withLink = mongo.find(Query.query(Criteria.where("homeMapLink").ne(null)), Candidate.class);
+        if (!withLink.isEmpty()) {
+            BulkOperations bulk = mongo.bulkOps(BulkOperations.BulkMode.UNORDERED, Candidate.class);
+            for (Candidate c : withLink) {
+                GeoPoint home = resolver.resolve(c.getHomeMapLink()).point();
+                bulk.updateOne(Query.query(Criteria.where("_id").is(c.getId())), new Update()
+                        .set("homeLat", home == null ? null : home.lat())
+                        .set("homeLng", home == null ? null : home.lng())
+                        .set("homeDistanceKm", null));
+            }
+            bulk.execute();
+        }
+        s.setPinRulesVersion(PIN_RULES);
+        refreshCompanyPin(s);
+    }
+
     private void recalculateAll(GeoPoint company) {
         List<Candidate> withHome = mongo.find(Query.query(Criteria.where("homeLat").ne(null)), Candidate.class);
         if (withHome.isEmpty()) return;
