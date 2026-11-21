@@ -4,6 +4,7 @@ import { Download, FileWarning, UserRound } from 'lucide-react';
 import { ApiError, api } from '../../lib/api';
 import { Modal } from '../ui/Modal';
 import { ErrorState, LoadingBlock, Spinner } from '../ui/States';
+import { PdfPages } from './PdfPages';
 
 export interface ViewTarget {
   title: string;
@@ -15,11 +16,12 @@ export interface ViewTarget {
 }
 
 /**
- * Shows a PDF or image inside the portal. The file is fetched with the user's session and displayed from a
+ * Shows a PDF (every page, also on tablets and phones) or image inside the portal. The file is fetched with the user's session and displayed from a
  * temporary in-memory URL, so it never has a shareable link. Other types can only be downloaded.
  */
 export function DocumentViewer({ target, onClose }: { target: ViewTarget | null; onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [type, setType] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [downloading, setDownloading] = useState(false);
@@ -29,6 +31,7 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
     let objectUrl: string | null = null;
     let cancelled = false;
     setUrl(null);
+    setBlob(null);
     setError(null);
     api
       .blob(target.path, { inline: true })
@@ -36,6 +39,7 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
         if (cancelled) return;
         objectUrl = URL.createObjectURL(b);
         setType(b.type);
+        setBlob(b);
         setUrl(objectUrl);
       })
       .catch((e) => !cancelled && setError(e));
@@ -91,8 +95,8 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget | null;
         <ErrorState error={error} />
       ) : !url ? (
         <LoadingBlock label="Opening document…" />
-      ) : isPdf ? (
-        <iframe title={target?.fileName ?? 'Document'} src={url} className="min-h-[60vh] w-full flex-1 rounded-lg border border-line bg-white" />
+      ) : isPdf && blob ? (
+        <PdfPages data={blob} name={target?.fileName ?? 'Document'} />
       ) : isImage ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <img src={url} alt={target?.fileName ?? 'Document'} className="max-h-full max-w-full rounded-lg border border-line object-contain" />
