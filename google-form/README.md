@@ -91,3 +91,26 @@ The dashboard recognizes common variations (for example "Phone Number" for "Mobi
 anything else, set a **Column mapping override** in *Settings → Google Sheets integration*. Adding a
 new department to the dropdown? Add it in the dashboard's Departments page too, with the exact same
 spelling.
+
+## Road distance from Google Maps (free, optional)
+
+The portal shows each candidate's road distance and driving time to the company. Without this step they come from
+OpenStreetMap and can differ a little from Google Maps. With it, they come from Google Maps itself. It is free: no
+API key, card or billing, and it allows about 1,000 lookups a day.
+
+1. Open **https://script.google.com** → **New project**. Name it "JPM road distance".
+2. Delete the sample code, paste the whole [`road-distance.gs`](road-distance.gs), and click **Save**.
+3. Optional check: choose **`testRoadDistance`** → **Run** → allow the permissions. The log shows something like
+   `{"distanceMeters":9512,"durationSeconds":840,...}`.
+4. Click **Deploy → New deployment**:
+   - Select type (gear icon) → **Web app**
+   - **Execute as:** Me
+   - **Who has access:** Anyone
+   - Click **Deploy**, then **Authorize access**.
+5. Copy the **Web app URL**. It looks like `https://script.google.com/macros/s/…/exec`.
+6. In the portal, as admin, open **Settings → Communication → Google road distance link**, paste the URL, and click
+   **Save**. The portal checks the link before saving. All candidates' road km are then recalculated with Google
+   within a few minutes.
+
+Keep the link private: anyone who has it can use your daily allowance. If you change the script later, use
+**Deploy → Manage deployments → Edit → New version**, so the link stays the same.

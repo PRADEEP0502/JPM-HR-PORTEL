@@ -496,6 +496,8 @@ export interface CommSettings {
   companyLng: number | null;
   /** Optional exact company pin (link or coordinates) used for distances instead of locationLink. */
   companyPinLink: string | null;
+  /** Apps Script web-app link that returns Google's road distance (free); null = OpenStreetMap. */
+  roadScriptUrl: string | null;
 }
 
 export interface MessageTemplateInfo {

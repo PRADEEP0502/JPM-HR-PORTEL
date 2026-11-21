@@ -19,10 +19,11 @@ public final class CommunicationDtos {
 
     public record SettingsResponse(String companyName, String defaultVenue, String locationLink, String hrSignature,
                                    String defaultCountryCode, String updatedBy, Instant updatedAt,
-                                   Double companyLat, Double companyLng, String companyPinLink) {
+                                   Double companyLat, Double companyLng, String companyPinLink, String roadScriptUrl) {
         static SettingsResponse from(CommunicationSettings s) {
             return new SettingsResponse(s.getCompanyName(), s.getDefaultVenue(), s.getLocationLink(), s.getHrSignature(),
-                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt(), s.getCompanyLat(), s.getCompanyLng(), s.getCompanyPinLink());
+                    s.getDefaultCountryCode(), s.getUpdatedBy(), s.getUpdatedAt(), s.getCompanyLat(), s.getCompanyLng(), s.getCompanyPinLink(),
+                    s.getRoadScriptUrl());
         }
     }
 
@@ -32,7 +33,8 @@ public final class CommunicationDtos {
                                   String locationLink,
                                   @NotBlank @Size(max = 500) String hrSignature,
                                   @NotBlank @Pattern(regexp = "^\\d{1,3}$", message = "must be 1-3 digits, e.g. 91") String defaultCountryCode,
-                                  @Size(max = 2000) String companyPinLink) {
+                                  @Size(max = 2000) String companyPinLink,
+                                  @Size(max = 300) String roadScriptUrl) {
     }
 
     public record TemplateResponse(Long id, TemplateChannel channel, int version, String subject, String body, boolean active,

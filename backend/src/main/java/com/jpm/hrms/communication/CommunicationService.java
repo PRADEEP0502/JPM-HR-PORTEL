@@ -245,12 +245,20 @@ public class CommunicationService {
             if (!pin.found()) throw ApiException.badRequest("Map pin for distances: " + pin.problem());
         }
         s.setCompanyPinLink(pinLink);
+        String scriptUrl = trimToNull(req.roadScriptUrl());
+        boolean scriptChanged = !Objects.equals(scriptUrl, s.getRoadScriptUrl());
+        if (scriptChanged && scriptUrl != null) {
+            String problem = homes.checkRoadScript(scriptUrl);
+            if (problem != null) throw ApiException.badRequest("Google road distance link: " + problem);
+        }
+        s.setRoadScriptUrl(scriptUrl);
         s.setHrSignature(req.hrSignature().trim().replace("\r\n", "\n"));
         s.setDefaultCountryCode(req.defaultCountryCode().trim());
         s.setUpdatedBy(actor);
         settingsRepo.save(s);
         // a new location link moves the company pin, so every candidate's distance is worked out again
         if (!Objects.equals(s.getCompanyPinSource(), s.pinSource())) homes.refreshCompanyPin(s);
+        else if (scriptChanged) homes.redoRoads();
         audit.record("COMM_SETTINGS_UPDATED", "SETTINGS", s.getId(),
                 "Company \"" + s.getCompanyName() + "\", venue \"" + s.getDefaultVenue() + "\", country code +" + s.getDefaultCountryCode());
         return SettingsResponse.from(s);

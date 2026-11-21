@@ -148,6 +148,18 @@ public class HomeDistanceService {
         if (company != null) CompletableFuture.runAsync(this::fillMissingRoads);
     }
 
+    /** Looks up every road distance again (for example after the Google road distance link is set). */
+    public void redoRoads() {
+        mongo.updateMulti(Query.query(Criteria.where("homeLat").ne(null)), clearRoad(new Update()), Candidate.class);
+        CompletableFuture.runAsync(this::fillMissingRoads);
+    }
+
+    /** Null when the road distance link works; otherwise what is wrong with it. */
+    public String checkRoadScript(String url) {
+        GeoPoint company = companyPoint().orElse(new GeoPoint(11.0415413, 77.3206051));
+        return router.checkScript(url, new GeoPoint(company.lat() + 0.02, company.lng() + 0.02), company);
+    }
+
     private static Update clearRoad(Update u) {
         return u.set("homeRoadKm", null).set("homeRoadMinutes", null).set("homeRoadSource", null).set("homeRoadCheckedAt", null);
     }
@@ -175,7 +187,7 @@ public class HomeDistanceService {
         if (company.isEmpty()) return;
         for (int batch = 0; batch < 50; batch++) {
             Criteria due = new Criteria().orOperator(Criteria.where("homeRoadCheckedAt").is(null),
-                    Criteria.where("homeRoadCheckedAt").lt(Instant.now().minus(RETRY_AFTER)), Criteria.where("homeRoadKm").ne(null));
+                    Criteria.where("homeRoadCheckedAt").lt(Instant.now().minus(RETRY_AFTER)));
             Query q = Query.query(new Criteria().andOperator(Criteria.where("homeLat").ne(null),
                     Criteria.where("homeRoadSource").ne(router.source()), due)).limit(ROADS_PER_RUN);
             List<Candidate> todo = mongo.find(q, Candidate.class);

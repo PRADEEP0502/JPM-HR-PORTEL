@@ -28,6 +28,8 @@ public class CommunicationSettings implements SequencedEntity {
     private String companyPinSource;
     /** Optional exact map pin (link or coordinates) for distances; when empty the pin is read from locationLink. */
     private String companyPinLink;
+    /** Web-app link of the free Apps Script that returns Google's road distance (google-form/road-distance.gs). */
+    private String roadScriptUrl;
     /** Version of the map-link reading rules the stored pins were read with; older pins are read again once. */
     private int pinRulesVersion;
     /** Country calling code (digits only) assumed for 10-digit mobile numbers. */
@@ -63,6 +65,8 @@ public class CommunicationSettings implements SequencedEntity {
     public String getCompanyPinSource() { return companyPinSource; }
     public String getCompanyPinLink() { return companyPinLink; }
     public int getPinRulesVersion() { return pinRulesVersion; }
+    public String getRoadScriptUrl() { return roadScriptUrl; }
+    public void setRoadScriptUrl(String roadScriptUrl) { this.roadScriptUrl = roadScriptUrl; }
     public void setPinRulesVersion(int pinRulesVersion) { this.pinRulesVersion = pinRulesVersion; }
     public void setCompanyPinLink(String companyPinLink) { this.companyPinLink = companyPinLink; }
     /** Where the company pin comes from: the exact pin link when set, otherwise the location link. */

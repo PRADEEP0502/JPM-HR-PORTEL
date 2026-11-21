@@ -59,11 +59,12 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
   useEffect(() => setF(settings), [settings]);
   const dirty = f.companyName !== settings.companyName || f.defaultVenue !== settings.defaultVenue || (f.locationLink ?? '') !== (settings.locationLink ?? '')
     || f.hrSignature !== settings.hrSignature || f.defaultCountryCode !== settings.defaultCountryCode
-    || (f.companyPinLink ?? '') !== (settings.companyPinLink ?? '');
+    || (f.companyPinLink ?? '') !== (settings.companyPinLink ?? '') || (f.roadScriptUrl ?? '') !== (settings.roadScriptUrl ?? '');
   const save = useMutation({
     mutationFn: () => api.put<CommSettings>('/communication/settings', {
       companyName: f.companyName, defaultVenue: f.defaultVenue, locationLink: f.locationLink ?? '', hrSignature: f.hrSignature, defaultCountryCode: f.defaultCountryCode,
       companyPinLink: f.companyPinLink?.trim() || null,
+      roadScriptUrl: f.roadScriptUrl?.trim() || null,
     }),
     onSuccess: () => {
       toast('success', 'Company details saved');
@@ -95,6 +96,16 @@ function IdentityForm({ settings }: { settings: CommSettings }) {
           }
         >
           <input className="input" maxLength={2000} placeholder="https://www.google.com/maps/place/…" value={f.companyPinLink ?? ''} onChange={(e) => setF({ ...f, companyPinLink: e.target.value })} />
+        </Field>
+        <Field
+          label="Google road distance link (free, optional)"
+          hint={
+            settings.roadScriptUrl
+              ? 'Connected: road km and driving time come from Google Maps. Clear it to use OpenStreetMap instead.'
+              : 'Paste the Web app URL of road-distance.gs (Apps Script) to show the same road km as Google Maps. Empty = OpenStreetMap, which can differ a little.'
+          }
+        >
+          <input className="input" maxLength={300} placeholder="https://script.google.com/macros/s/…/exec" value={f.roadScriptUrl ?? ''} onChange={(e) => setF({ ...f, roadScriptUrl: e.target.value })} />
         </Field>
         <Field label="HR signature *" hint="Shown after “Best regards,”. Use separate lines for department and company.">
           <textarea className="input min-h-[72px]" maxLength={500} value={f.hrSignature} onChange={(e) => setF({ ...f, hrSignature: e.target.value })} />
