@@ -48,12 +48,14 @@ public class HiringRequirementController {
                                 @Min(1) Integer priority) {
     }
 
-    /** Send either or both. */
-    public record UpdateRequest(@Min(1) @Max(100) Integer needed, @Min(1) Integer priority) {
+    /** Send any of them. pending = true keeps the requirement pending (hiring paused, with an optional reason); false resumes it. */
+    public record UpdateRequest(@Min(1) @Max(100) Integer needed, @Min(1) Integer priority, Boolean pending,
+                                @Size(max = 300) String pendingReason) {
     }
 
     /** departmentName is null when the department has since been deleted; hired = active selected / joined candidates in its department and sub-work. */
-    public record RequirementResponse(Long id, Long departmentId, String departmentName, String position, int needed, int priority, long hired) {
+    public record RequirementResponse(Long id, Long departmentId, String departmentName, String position, int needed, int priority, long hired,
+                                      boolean pending, String pendingReason, String pendingBy, java.time.Instant pendingSince) {
     }
 
     private static final List<ApplicationStatus> HIRED = List.of(ApplicationStatus.SELECTED, ApplicationStatus.JOINED);
@@ -91,8 +93,8 @@ public class HiringRequirementController {
     }
 
     @PutMapping("/{id}")
-    public RequirementResponse update(@PathVariable Long id, @Valid @RequestBody UpdateRequest req) {
-        if (req.needed() == null && req.priority() == null) throw ApiException.badRequest("Nothing to change");
+    public RequirementResponse update(@PathVariable Long id, @Valid @RequestBody UpdateRequest req, Authentication auth) {
+        if (req.needed() == null && req.priority() == null && req.pending() == null) throw ApiException.badRequest("Nothing to change");
         HiringRequirement r = repo.findById(id).orElseThrow(() -> ApiException.notFound("Requirement"));
         String name = departments.findById(r.getDepartmentId()).map(Department::getName).orElse(null);
         List<String> changes = new ArrayList<>();
@@ -105,6 +107,17 @@ public class HiringRequirementController {
             Integer before = r.getPriority();
             renumber(ordered(), r, req.priority());
             if (!r.getPriority().equals(before)) changes.add("priority " + before + " → " + r.getPriority());
+        }
+        if (req.pending() != null && req.pending() != r.isPending()) {
+            String reason = StringUtils.hasText(req.pendingReason()) ? req.pendingReason().trim() : null;
+            if (req.pending()) {
+                r.keepPending(reason, auth.getName());
+                audit.record("REQUIREMENT_PENDING", "REQUIREMENT", r.getId(), label(name, r.getPosition()) + ": kept pending" + (reason == null ? "" : " - " + reason));
+            } else {
+                r.resume();
+                audit.record("REQUIREMENT_RESUMED", "REQUIREMENT", r.getId(), label(name, r.getPosition()) + ": hiring resumed");
+            }
+            repo.save(r);
         }
         if (!changes.isEmpty()) audit.record("REQUIREMENT_UPDATED", "REQUIREMENT", r.getId(), label(name, r.getPosition()) + ": " + String.join(", ", changes));
         return toResponse(r, x -> name);
@@ -150,7 +163,7 @@ public class HiringRequirementController {
         long hired = candidates.count(CandidateSpecifications.matching(new CandidateSpecifications.Filter(null, r.getDepartmentId(), r.getPosition(), null, null,
                 HIRED, null, null, null, null, null, ArchiveScope.ACTIVE, null)));
         return new RequirementResponse(r.getId(), r.getDepartmentId(), departmentName.apply(r.getDepartmentId()), r.getPosition(), r.getNeeded(),
-                r.getPriority() == null ? 0 : r.getPriority(), hired);
+                r.getPriority() == null ? 0 : r.getPriority(), hired, r.isPending(), r.getPendingReason(), r.getPendingBy(), r.getPendingSince());
     }
 
     private static String label(String department, String position) {

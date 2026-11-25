@@ -20,7 +20,9 @@ import {
   HeartPulse,
   Monitor,
   Package,
+  PauseCircle,
   Pencil,
+  PlayCircle,
   Phone,
   Plus,
   Search,
@@ -41,7 +43,7 @@ import {
 import { api } from '../lib/api';
 import { useDepartments } from '../lib/queries';
 import { useToast } from '../lib/toast';
-import { PENDING_STATUSES, fmtExperience } from '../lib/format';
+import { PENDING_STATUSES, fmtDate, fmtExperience } from '../lib/format';
 import type { CandidateListItem, Page, Requirement } from '../lib/types';
 import { ApplicationPill, RatingPill } from '../components/ui/Pill';
 import { Avatar, Field } from '../components/ui/Misc';
@@ -116,7 +118,7 @@ export default function RequirementsPage() {
   const [search, setSearch] = useState('');
   // opened from the Departments page (?departmentId=…) → show that department's requirements
   const [filterDepartment, setFilterDepartment] = useState(params.get('departmentId') ?? '');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'OPEN' | 'FILLED'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'OPEN' | 'PENDING' | 'FILLED'>('ALL');
 
   // Shared modals
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
@@ -234,8 +236,10 @@ export default function RequirementsPage() {
   const totalNeeded = reqList.reduce((acc, r) => acc + r.needed, 0);
   // only hires that count towards the required number (extra hires beyond the number needed do not inflate the rate)
   const totalHired = reqList.reduce((acc, r) => acc + Math.min(r.hired, r.needed), 0);
-  const openRolesCount = reqList.filter((r) => stillNeedOf(r) > 0).length;
-  const filledRolesCount = reqList.length - openRolesCount;
+  // a requirement kept pending is not an open vacancy until it is resumed
+  const openRolesCount = reqList.filter((r) => stillNeedOf(r) > 0 && !r.pending).length;
+  const pendingRolesCount = reqList.filter((r) => stillNeedOf(r) > 0 && r.pending).length;
+  const filledRolesCount = reqList.length - openRolesCount - pendingRolesCount;
   const fulfillment = totalNeeded > 0 ? Math.min(100, Math.round((totalHired / totalNeeded) * 100)) : 0;
 
   const filteredList = useMemo(() => {
@@ -247,7 +251,8 @@ export default function RequirementsPage() {
       const stillNeed = stillNeedOf(r);
       const statusMatch =
         filterStatus === 'ALL' ||
-        (filterStatus === 'OPEN' && stillNeed > 0) ||
+        (filterStatus === 'OPEN' && stillNeed > 0 && !r.pending) ||
+        (filterStatus === 'PENDING' && stillNeed > 0 && r.pending) ||
         (filterStatus === 'FILLED' && stillNeed === 0);
       return textMatch && depMatch && statusMatch;
     });
@@ -283,7 +288,7 @@ export default function RequirementsPage() {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${filledRolesCount} filled`} />
+        <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${pendingRolesCount ? `${pendingRolesCount} pending · ` : ''}${filledRolesCount} filled`} />
         <Kpi icon={<Users size={16} />} tone="violet" label="People needed" value={totalNeeded} hint="across all roles" />
         <Kpi icon={<UserCheck size={16} />} tone="good" label="Filled" value={totalHired} hint="selected / joined, towards the required count" />
         <Kpi
@@ -442,6 +447,18 @@ export default function RequirementsPage() {
             </button>
             <button
               type="button"
+              onClick={() => setFilterStatus('PENDING')}
+              className={clsx(
+                'rounded-lg px-3 py-1 font-semibold transition',
+                filterStatus === 'PENDING'
+                  ? 'bg-panel text-violet shadow-sm ring-1 ring-violet/50'
+                  : 'text-ink-3 hover:text-ink'
+              )}
+            >
+              Pending ({pendingRolesCount})
+            </button>
+            <button
+              type="button"
               onClick={() => setFilterStatus('FILLED')}
               className={clsx(
                 'rounded-lg px-3 py-1 font-semibold transition',
@@ -491,6 +508,14 @@ export default function RequirementsPage() {
                 className="btn-primary mt-3 text-xs px-4 py-2"
               >
                 View Open Vacancies ({openRolesCount})
+              </button>
+            </div>
+          ) : filterStatus === 'PENDING' ? (
+            <div className="max-w-md mx-auto space-y-2">
+              <h3 className="text-base font-bold text-ink">Nothing is kept pending</h3>
+              <p className="text-xs text-ink-3">Use “Keep pending” on a requirement to pause its hiring without deleting it.</p>
+              <button type="button" onClick={() => setFilterStatus('ALL')} className="btn-secondary mt-3 text-xs px-4 py-2">
+                View All Roles ({reqList.length})
               </button>
             </div>
           ) : filterStatus === 'OPEN' ? (
@@ -626,15 +651,17 @@ function DepartmentIcon({ department, position }: { department: string | null; p
 // LIST VIEW
 // -------------------------------------------------------------------------------------------------
 
-type FillState = 'OPEN' | 'PROGRESS' | 'FILLED';
+type FillState = 'OPEN' | 'PROGRESS' | 'PENDING' | 'FILLED';
 
 const FILL_META: Record<FillState, { label: string; dot: string; pill: string; bar: string; accent: string }> = {
   OPEN: { label: 'Hiring', dot: 'bg-warn', pill: 'bg-warn/10 text-warn ring-warn/30', bar: 'bg-warn', accent: 'bg-warn' },
   PROGRESS: { label: 'In progress', dot: 'bg-info', pill: 'bg-info/10 text-info ring-info/30', bar: 'bg-gradient-to-r from-info to-good', accent: 'bg-info' },
+  PENDING: { label: 'Pending', dot: 'bg-violet', pill: 'bg-violet/10 text-violet ring-violet/30', bar: 'bg-violet/60', accent: 'bg-violet' },
   FILLED: { label: 'Filled', dot: 'bg-good', pill: 'bg-good/10 text-good ring-good/30', bar: 'bg-good', accent: 'bg-good' },
 };
 
-const fillState = (r: Requirement): FillState => (r.hired >= r.needed ? 'FILLED' : r.hired > 0 ? 'PROGRESS' : 'OPEN');
+const fillState = (r: Requirement): FillState =>
+  r.hired >= r.needed ? 'FILLED' : r.pending ? 'PENDING' : r.hired > 0 ? 'PROGRESS' : 'OPEN';
 
 function RequirementListView({
   requirements,
@@ -760,6 +787,21 @@ function RequirementTableRow({
     onError: (e) => toast('error', e.message),
   });
 
+  const setPending = useMutation({
+    mutationFn: (body: { pending: boolean; pendingReason?: string }) => api.put<Requirement>(`/requirements/${r.id}`, body),
+    onSuccess: (_, body) => {
+      qc.invalidateQueries({ queryKey: ['requirements'] });
+      toast('success', body.pending ? 'Requirement kept pending' : 'Hiring resumed');
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const keepPending = () => {
+    const reason = window.prompt(`Keep "${requirementTitle(r)}" pending?
+Hiring is paused until you resume it. Reason (optional):`, '');
+    if (reason === null) return;
+    setPending.mutate({ pending: true, pendingReason: reason.trim() || undefined });
+  };
+
   const state = fillState(r);
   const meta = FILL_META[state];
   const stillNeed = Math.max(r.needed - r.hired, 0);
@@ -774,7 +816,7 @@ function RequirementTableRow({
   return (
     <>
       <tr
-        className={clsx('group cursor-pointer transition-colors hover:bg-raised/40', isExpanded && 'bg-raised/30')}
+        className={clsx('group cursor-pointer transition-colors hover:bg-raised/40', isExpanded && 'bg-raised/30', r.pending && 'opacity-75')}
         onClick={onToggleExpand}
         title={isExpanded ? 'Hide candidates' : 'Show candidates'}
       >
@@ -791,6 +833,11 @@ function RequirementTableRow({
               <span className="mt-0.5 inline-flex max-w-[220px] items-center gap-1 truncate rounded-md bg-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
                 <Briefcase size={10} className="shrink-0" /> {r.position || 'Whole department'}
               </span>
+              {r.pending && (
+                <div className="mt-1 max-w-[260px] truncate text-[10px] text-violet" title={r.pendingReason ?? undefined}>
+                  Pending since {fmtDate(r.pendingSince)}{r.pendingBy ? ` · ${r.pendingBy}` : ''}{r.pendingReason ? ` · ${r.pendingReason}` : ''}
+                </div>
+              )}
             </div>
           </div>
         </td>
@@ -868,6 +915,27 @@ function RequirementTableRow({
             >
               <Pencil size={12} /> Edit
             </button>
+            {r.pending ? (
+              <button
+                className="inline-flex items-center gap-1 rounded-lg border border-violet/40 bg-violet/10 px-2.5 py-1.5 text-[11px] font-semibold text-violet transition hover:bg-violet/20"
+                title="Start hiring for this requirement again"
+                disabled={setPending.isPending}
+                onClick={() => setPending.mutate({ pending: false })}
+              >
+                <PlayCircle size={12} /> Resume
+              </button>
+            ) : (
+              stillNeed > 0 && (
+                <button
+                  className="inline-flex items-center gap-1 rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[11px] font-semibold text-ink-2 transition hover:border-violet/50 hover:text-violet"
+                  title="Pause hiring for this requirement for now (nothing is deleted)"
+                  disabled={setPending.isPending}
+                  onClick={keepPending}
+                >
+                  <PauseCircle size={12} /> Keep pending
+                </button>
+              )
+            )}
             <button
               className="rounded-lg p-1.5 text-ink-3 opacity-60 transition hover:bg-bad/10 hover:text-bad group-hover:opacity-100 focus-visible:opacity-100"
               title="Delete requirement"

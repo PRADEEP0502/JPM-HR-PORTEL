@@ -58,6 +58,11 @@ export interface Requirement {
   priority: number;
   /** Active selected / joined candidates in this department and sub-work. */
   hired: number;
+  /** Kept pending: hiring is paused for now; it can be resumed any time. */
+  pending: boolean;
+  pendingReason: string | null;
+  pendingBy: string | null;
+  pendingSince: string | null;
 }
 
 export interface CandidateListItem {

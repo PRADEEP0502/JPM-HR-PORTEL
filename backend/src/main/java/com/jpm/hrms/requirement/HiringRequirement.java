@@ -16,6 +16,11 @@ public class HiringRequirement implements SequencedEntity {
     private int needed;
     /** 1 = filled first. Older records have none and are numbered after the rest. */
     private Integer priority;
+    /** Kept pending: hiring for it is paused for now (nothing is deleted); it can be resumed any time. */
+    private boolean pending;
+    private String pendingReason;
+    private String pendingBy;
+    private Instant pendingSince;
     private String createdBy;
     private Instant createdAt;
     private Instant updatedAt;
@@ -49,6 +54,22 @@ public class HiringRequirement implements SequencedEntity {
     public void setNeeded(int needed) { this.needed = needed; }
     public Integer getPriority() { return priority; }
     public void setPriority(Integer priority) { this.priority = priority; }
+    public boolean isPending() { return pending; }
+    public String getPendingReason() { return pendingReason; }
+    public String getPendingBy() { return pendingBy; }
+    public Instant getPendingSince() { return pendingSince; }
+    public void keepPending(String reason, String by) {
+        this.pending = true;
+        this.pendingReason = reason;
+        this.pendingBy = by;
+        this.pendingSince = Instant.now();
+    }
+    public void resume() {
+        this.pending = false;
+        this.pendingReason = null;
+        this.pendingBy = null;
+        this.pendingSince = null;
+    }
     public String getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

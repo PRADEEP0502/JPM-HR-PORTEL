@@ -73,6 +73,19 @@ class HiringRequirementApiTest {
         call(put("/api/requirements/" + id), admin, "{\"needed\":8}").andExpect(status().isOk());
         assertThat(needed(admin, id)).isEqualTo(8);
 
+        // keep pending: hiring paused with a reason and who did it; resume clears it; the number and priority stay
+        JsonNode paused = mapper.readTree(call(put("/api/requirements/" + id), admin, "{\"pending\":true,\"pendingReason\":\" Budget next month \"}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(paused.get("pending").asBoolean()).isTrue();
+        assertThat(paused.get("pendingReason").asText()).isEqualTo("Budget next month");
+        assertThat(paused.get("pendingBy").asText()).isEqualTo("admin");
+        assertThat(paused.get("pendingSince").isNull()).isFalse();
+        assertThat(needed(admin, id)).isEqualTo(8);
+        JsonNode resumed = mapper.readTree(call(put("/api/requirements/" + id), admin, "{\"pending\":false}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(resumed.get("pending").asBoolean()).isFalse();
+        assertThat(resumed.get("pendingReason").isNull()).isTrue();
+
         // HR manages requirements too; interviewers and anonymous callers do not
         call(post("/api/users"), admin, "{\"username\":\"hr.req\",\"fullName\":\"HR Req\",\"role\":\"HR\",\"password\":\"HrReq@12345\"}").andExpect(status().is2xxSuccessful());
         call(post("/api/users"), admin, "{\"username\":\"iv.req\",\"fullName\":\"IV Req\",\"role\":\"INTERVIEWER\",\"password\":\"IvReq@12345\"}").andExpect(status().is2xxSuccessful());
