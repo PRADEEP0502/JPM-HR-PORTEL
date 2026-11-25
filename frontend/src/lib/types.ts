@@ -318,6 +318,8 @@ export interface Dashboard {
   interviewersToday: string[];
   departments: DepartmentCount[];
   recentCandidates: CandidateListItem[];
+  /** Selected / joined candidates joining today, in the next 30 days, or whose date passed while still only Selected. */
+  joinings: { today: CandidateListItem[]; upcoming: CandidateListItem[]; overdue: CandidateListItem[] };
 }
 
 export interface SyncStatus {

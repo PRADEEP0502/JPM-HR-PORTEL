@@ -19,6 +19,7 @@ import com.jpm.hrms.interview.InterviewService;
 import com.jpm.hrms.interview.InterviewViews;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -54,12 +55,22 @@ public class DashboardService {
     }
 
 
+    /**
+     * Joinings: selected / joined candidates whose joining date is today, in the next 30 days, or passed in the last 30
+     * days while they are still only "Selected" (joining not confirmed). Archived candidates are left out.
+     */
+    public record Joinings(List<CandidateListItem> today, List<CandidateListItem> upcoming, List<CandidateListItem> overdue) {
+    }
+
+    static final int JOINING_DAYS_AHEAD = 30;
+    static final int JOINING_DAYS_BACK = 30;
+
     public record DashboardResponse(Instant generatedAt, boolean demoMode, long demoCandidates, Summary summary,
                                     List<Count> departmentWise, List<Count> monthly, List<Count> applicationStatus,
                                     List<Count> interviewStatus, List<Count> experience, List<Count> lastSevenDays,
                                     List<Spotlight> spotlights, List<InterviewResponse> todaysInterviews,
                                     List<InterviewResponse> upcomingInterviews, List<String> interviewersToday,
-                                    List<DepartmentCount> departments, List<CandidateListItem> recentCandidates) {
+                                    List<DepartmentCount> departments, List<CandidateListItem> recentCandidates, Joinings joinings) {
     }
 
     private final CandidateRepository candidates;
@@ -162,7 +173,24 @@ public class DashboardService {
                 candidates.countBySource(com.jpm.hrms.candidate.CandidateEnums.CandidateSource.DEMO), summary,
                 deptChart, monthly, statusCounts, interviewCounts, expCounts, week, spotlights, todays, upcoming,
                 interviewersToday, deptCounts,
-                candidates.findTop8ByOrderByAppliedAtDesc().stream().map(c -> CandidateListItem.from(c, names)).toList());
+                candidates.findTop8ByOrderByAppliedAtDesc().stream().map(c -> CandidateListItem.from(c, names)).toList(),
+                joinings(today, names));
+    }
+
+    private Joinings joinings(LocalDate today, DepartmentDirectory.Names names) {
+        var hired = List.of(ApplicationStatus.SELECTED, ApplicationStatus.JOINED);
+        Sort byDate = Sort.by(Sort.Order.asc("joiningDate"), Sort.Order.asc("fullName"));
+        var todayList = candidates.findAll(Criteria.where("archived").ne(true).and("applicationStatus").in(hired)
+                .and("joiningDate").is(today), byDate);
+        var upcoming = candidates.findAll(Criteria.where("archived").ne(true).and("applicationStatus").in(hired)
+                .and("joiningDate").gt(today).lte(today.plusDays(JOINING_DAYS_AHEAD)), byDate);
+        var overdue = candidates.findAll(Criteria.where("archived").ne(true).and("applicationStatus").is(ApplicationStatus.SELECTED)
+                .and("joiningDate").gte(today.minusDays(JOINING_DAYS_BACK)).lt(today), byDate);
+        return new Joinings(items(todayList, names), items(upcoming, names), items(overdue, names));
+    }
+
+    private static List<CandidateListItem> items(List<com.jpm.hrms.candidate.Candidate> list, DepartmentDirectory.Names names) {
+        return list.stream().limit(50).map(c -> CandidateListItem.from(c, names)).toList();
     }
 
     /** Totals, today's applications and still-open (no decision yet) counts per department. */

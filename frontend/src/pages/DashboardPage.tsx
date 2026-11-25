@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useOpenOnClick } from '../lib/clickable';
 import clsx from 'clsx';
@@ -10,6 +11,8 @@ import {
   CalendarClock,
   CalendarPlus,
   ClipboardList,
+  DoorOpen,
+  Phone,
   FileClock,
   RefreshCw,
   UserPlus,
@@ -31,9 +34,12 @@ import {
   labelOf,
   toLocalInput,
 } from '../lib/format';
-import type { ApplicationStatus, Dashboard, InterviewStatus, Spotlight } from '../lib/types';
+import type { ApplicationStatus, CandidateListItem, Dashboard, InterviewStatus, Spotlight } from '../lib/types';
+import { api } from '../lib/api';
+import { useToast } from '../lib/toast';
+import { StatusModal, useInvalidateCandidates, type StatusTarget } from '../components/modals/CandidateModals';
 import { Avatar, RingGauge, SectionTitle } from '../components/ui/Misc';
-import { InterviewPill } from '../components/ui/Pill';
+import { ApplicationPill, InterviewPill } from '../components/ui/Pill';
 import { EmptyState, ErrorState, Skeleton } from '../components/ui/States';
 import { Donut, HorizontalBars, TrendArea, VerticalBars, WeekColumns } from '../components/charts/Charts';
 
@@ -45,6 +51,7 @@ export default function DashboardPage() {
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
       <div className="space-y-6 xl:col-span-9">
         <SummaryStrip d={data} />
+        <JoiningPanel d={data} />
         <SpotlightCards spotlights={data.spotlights} />
         <InterviewTable d={data} />
         <Analytics d={data} />
@@ -279,6 +286,151 @@ function InterviewTable({ d }: { d: Dashboard }) {
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ joinings
+
+type JoinTab = 'today' | 'upcoming' | 'overdue';
+
+/** Days from today to a YYYY-MM-DD date (negative = in the past), in the browser's calendar. */
+function daysFromToday(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const now = new Date();
+  return Math.round((new Date(y, m - 1, d).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+}
+
+function whenText(iso: string | null) {
+  if (!iso) return '—';
+  const n = daysFromToday(iso);
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  if (n > 1) return `In ${n} days`;
+  return n === -1 ? '1 day ago' : `${-n} days ago`;
+}
+
+/** Who joins today, who joins in the next 30 days, and who has not been marked joined after their date. */
+function JoiningPanel({ d }: { d: Dashboard }) {
+  const j = d.joinings;
+  const [tab, setTab] = useState<JoinTab>(j.today.length || !j.upcoming.length ? 'today' : 'upcoming');
+  const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const toast = useToast();
+  const invalidate = useInvalidateCandidates();
+  const markJoined = useMutation({
+    mutationFn: (c: CandidateListItem) =>
+      api.patch(`/candidates/${c.id}/status`, { applicationStatus: 'JOINED', note: 'Marked joined from the dashboard' }),
+    onSuccess: (_, c) => {
+      toast('success', `${c.fullName} marked as joined`);
+      invalidate();
+    },
+    onError: (e) => toast('error', e.message),
+  });
+  const rows = j[tab];
+  const tabs: { key: JoinTab; label: string; count: number; tone: string }[] = [
+    { key: 'today', label: 'Today', count: j.today.length, tone: 'text-good' },
+    { key: 'upcoming', label: 'Next 30 days', count: j.upcoming.length, tone: 'text-info' },
+    { key: 'overdue', label: 'Not joined yet', count: j.overdue.length, tone: 'text-warn' },
+  ];
+  const subtitle =
+    tab === 'today'
+      ? j.today.length
+        ? `${j.today.length} joining today`
+        : 'Nobody is joining today'
+      : tab === 'upcoming'
+        ? 'Selected candidates with a joining date in the next 30 days'
+        : 'Joining date has passed but the status is still Selected: confirm or change the date';
+
+  return (
+    <section className="panel p-5">
+      <SectionTitle
+        title="Joining"
+        subtitle={subtitle}
+        action={
+          <Link to="/candidates?applicationStatus=SELECTED,JOINED&sort=joiningDate&dir=asc" className="btn-ghost px-2.5 py-1.5 text-xs">
+            View all
+          </Link>
+        }
+      />
+      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Joining period">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={clsx(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              tab === t.key ? 'border-ink bg-ink text-canvas' : 'border-line text-ink-2 hover:text-ink',
+            )}
+          >
+            {t.label} <span className={clsx('ml-1 tabular-nums', tab !== t.key && t.tone)}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={<DoorOpen size={20} />}
+          title={tab === 'today' ? 'Nobody is joining today' : tab === 'upcoming' ? 'No joinings in the next 30 days' : 'Everyone is up to date'}
+          hint="Set the joining date when you mark a candidate Selected (Change status on their profile)."
+        />
+      ) : (
+        <ul className="divide-y divide-line/50">
+          {rows.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
+              <Link to={`/candidates/${c.id}`} className="flex min-w-[200px] flex-1 items-center gap-3 hover:underline">
+                <Avatar name={c.fullName} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-ink">{c.fullName}</span>
+                  <span className="block truncate text-xs text-ink-3">
+                    {[c.departmentName, c.position].filter(Boolean).join(' · ') || c.candidateCode}
+                  </span>
+                </span>
+              </Link>
+              <span className="w-32 text-sm tabular-nums">
+                <span className={clsx('block font-semibold', tab === 'overdue' ? 'text-warn' : tab === 'today' ? 'text-good' : 'text-ink')}>
+                  {whenText(c.joiningDate)}
+                </span>
+                <span className="block text-xs text-ink-3">{fmtDate(c.joiningDate)}</span>
+              </span>
+              <ApplicationPill status={c.applicationStatus} />
+              <span className="flex items-center gap-1.5">
+                {c.mobile && (
+                  <a href={`tel:${c.mobile}`} className="btn-ghost p-1.5" title={`Call ${c.mobile}`} aria-label={`Call ${c.fullName}`}>
+                    <Phone size={14} />
+                  </a>
+                )}
+                {c.applicationStatus === 'SELECTED' && (
+                  <button
+                    className="btn-secondary px-2.5 py-1 text-xs"
+                    disabled={markJoined.isPending}
+                    onClick={() => window.confirm(`Mark ${c.fullName} as joined?`) && markJoined.mutate(c)}
+                  >
+                    <BadgeCheck size={13} /> Mark joined
+                  </button>
+                )}
+                <button
+                  className="btn-ghost px-2 py-1 text-xs"
+                  title="Change the joining date or status"
+                  onClick={() =>
+                    setStatusTarget({
+                      id: c.id,
+                      name: c.fullName,
+                      code: c.candidateCode,
+                      applicationStatus: c.applicationStatus,
+                      verificationStatus: c.verificationStatus,
+                      joiningDate: c.joiningDate,
+                    })
+                  }
+                >
+                  Change date
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <StatusModal target={statusTarget} onClose={() => setStatusTarget(null)} />
     </section>
   );
 }
