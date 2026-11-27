@@ -288,7 +288,7 @@ export default function RequirementsPage() {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${pendingRolesCount ? `${pendingRolesCount} pending · ` : ''}${filledRolesCount} filled`} />
+        <Kpi icon={<Briefcase size={16} />} tone="info" label="Roles" value={totalRoles} hint={`${openRolesCount} open · ${pendingRolesCount ? `${pendingRolesCount} kept pending · ` : ''}${filledRolesCount} filled`} />
         <Kpi icon={<Users size={16} />} tone="violet" label="People needed" value={totalNeeded} hint="across all roles" />
         <Kpi icon={<UserCheck size={16} />} tone="good" label="Filled" value={totalHired} hint="selected / joined, towards the required count" />
         <Kpi
@@ -455,7 +455,7 @@ export default function RequirementsPage() {
                   : 'text-ink-3 hover:text-ink'
               )}
             >
-              Pending ({pendingRolesCount})
+              Keep Pending ({pendingRolesCount})
             </button>
             <button
               type="button"
@@ -656,7 +656,7 @@ type FillState = 'OPEN' | 'PROGRESS' | 'PENDING' | 'FILLED';
 const FILL_META: Record<FillState, { label: string; dot: string; pill: string; bar: string; accent: string }> = {
   OPEN: { label: 'Hiring', dot: 'bg-warn', pill: 'bg-warn/10 text-warn ring-warn/30', bar: 'bg-warn', accent: 'bg-warn' },
   PROGRESS: { label: 'In progress', dot: 'bg-info', pill: 'bg-info/10 text-info ring-info/30', bar: 'bg-gradient-to-r from-info to-good', accent: 'bg-info' },
-  PENDING: { label: 'Pending', dot: 'bg-violet', pill: 'bg-violet/10 text-violet ring-violet/30', bar: 'bg-violet/60', accent: 'bg-violet' },
+  PENDING: { label: 'Keep Pending', dot: 'bg-violet', pill: 'bg-violet/10 text-violet ring-violet/30', bar: 'bg-violet/60', accent: 'bg-violet' },
   FILLED: { label: 'Filled', dot: 'bg-good', pill: 'bg-good/10 text-good ring-good/30', bar: 'bg-good', accent: 'bg-good' },
 };
 
@@ -835,7 +835,7 @@ Hiring is paused until you resume it. Reason (optional):`, '');
               </span>
               {r.pending && (
                 <div className="mt-1 max-w-[260px] truncate text-[10px] text-violet" title={r.pendingReason ?? undefined}>
-                  Pending since {fmtDate(r.pendingSince)}{r.pendingBy ? ` · ${r.pendingBy}` : ''}{r.pendingReason ? ` · ${r.pendingReason}` : ''}
+                  Kept pending since {fmtDate(r.pendingSince)}{r.pendingBy ? ` · ${r.pendingBy}` : ''}{r.pendingReason ? ` · ${r.pendingReason}` : ''}
                 </div>
               )}
             </div>
