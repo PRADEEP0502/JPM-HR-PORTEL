@@ -13,7 +13,12 @@ $new = Join-Path $Dir 'app.new.jar'
 Write-Host 'Downloading the latest server...'
 Invoke-WebRequest "$base/hrms-backend.jar" -OutFile $new -UseBasicParsing
 if ((Get-Item $new).Length -lt 10MB) { throw 'The download looks incomplete. Try again.' }
-$version = (Invoke-WebRequest "$base/hrms-backend.version.txt" -UseBasicParsing).Content.Trim()
+# GitHub serves .txt assets as binary, so Windows PowerShell 5.1 gives bytes: read the raw stream as text
+function Read-Text($url) {
+    $r = Invoke-WebRequest $url -UseBasicParsing
+    ([Text.Encoding]::UTF8.GetString([byte[]]$r.RawContentStream.ToArray())).Trim()
+}
+$version = Read-Text "$base/hrms-backend.version.txt"
 
 if (-not $NoRestart) {
     Write-Host 'Stopping the server...'
@@ -34,7 +39,7 @@ if (-not $NoRestart) {
     for ($i = 0; $i -lt 40; $i++) {
         Start-Sleep -Seconds 3
         try {
-            if ((Invoke-WebRequest 'http://127.0.0.1:8080/actuator/health' -UseBasicParsing -TimeoutSec 5).Content -match 'UP') {
+            if ((Read-Text 'http://127.0.0.1:8080/actuator/health') -match 'UP') {
                 Write-Host 'The server is running.' -ForegroundColor Green
                 exit 0
             }

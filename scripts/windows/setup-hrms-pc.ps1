@@ -13,8 +13,9 @@ $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 if (-not $admin) { throw 'Right-click PowerShell, choose "Run as administrator", and run this script again.' }
 
 # 1. Java 25
+# java -version prints to stderr; Windows PowerShell 5.1 turns that into an error under 'Stop', so ask through cmd.exe
 $javaOk = $false
-try { $javaOk = ((& java -version 2>&1) -join ' ') -match 'version "25' } catch { }
+try { $javaOk = ((& cmd.exe /c 'java -version 2>&1') -join ' ') -match 'version "25' } catch { }
 if (-not $javaOk) {
     Write-Host 'Java 25 is not installed. Install it with this command, then open a NEW PowerShell window and run this script again:' -ForegroundColor Yellow
     Write-Host '    winget install --id EclipseAdoptium.Temurin.25.JRE -e'
@@ -69,7 +70,8 @@ Write-Host 'Starting the server (about a minute)...'
 for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 3
     try {
-        if ((Invoke-WebRequest 'http://127.0.0.1:8080/actuator/health' -UseBasicParsing -TimeoutSec 5).Content -match 'UP') {
+        $health = Invoke-WebRequest 'http://127.0.0.1:8080/actuator/health' -UseBasicParsing -TimeoutSec 5
+        if ([Text.Encoding]::UTF8.GetString([byte[]]$health.RawContentStream.ToArray()) -match 'UP') {
             Write-Host 'Done. The server is running and will start by itself whenever Windows starts.' -ForegroundColor Green
             Write-Host 'Next: set up Tailscale Funnel (docs\SELF-HOSTING-WINDOWS.md, step 4).'
             exit 0
