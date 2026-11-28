@@ -190,6 +190,7 @@ public class CandidateService {
                 c.getPreviousCompany(), c.getExperienceYears(), c.getPreviousDesignation(), c.getSkills(), c.getExpectedSalary(),
                 d == null ? null : d.getId(), d == null ? null : d.getName(), c.getDepartmentRaw(), c.getPosition(), c.getHiringSource(),
                 c.getApplicationDate(), c.getAppliedAt(), c.getJoiningDate(),
+                c.getExitDate(), c.getExitReason(),
                 c.getApplicationStatus(), c.getInterviewStatus(), c.getVerificationStatus(),
                 c.getReferenceName(), c.getReferenceRelation(), c.getReferenceContact(),
                 c.getFamilyRefName(), c.getFamilyRefRelation(), c.getFamilyRefContact(),
@@ -307,6 +308,14 @@ public class CandidateService {
         if (req.applicationStatus() == null && req.verificationStatus() == null && req.joiningDate() == null) {
             throw ApiException.badRequest("Provide an application status, verification status, or joining date");
         }
+        if (req.applicationStatus() == ApplicationStatus.EXITED && c.getApplicationStatus() != ApplicationStatus.EXITED
+                && c.getApplicationStatus() != ApplicationStatus.JOINED) {
+            throw ApiException.badRequest("Only a candidate who has joined can be marked as Exit");
+        }
+        if (req.applicationStatus() == ApplicationStatus.EXITED && req.exitDate() != null && c.getJoiningDate() != null
+                && req.exitDate().isBefore(c.getJoiningDate())) {
+            throw ApiException.badRequest("The exit date cannot be before the joining date");
+        }
         boolean changed = false;
         if (req.joiningDate() != null && !Objects.equals(c.getJoiningDate(), req.joiningDate())) {
             audit.record("JOINING_DATE_UPDATED", "CANDIDATE", c.getId(), "Joining date: "
@@ -320,6 +329,13 @@ public class CandidateService {
             statusHistory.save(new StatusChange(c.getId(), c.getApplicationStatus(), req.applicationStatus(), actor,
                     StringUtils.hasText(req.note()) ? req.note().trim() : null));
             c.setApplicationStatus(req.applicationStatus());
+            if (req.applicationStatus() == ApplicationStatus.EXITED) {
+                c.setExitDate(req.exitDate() != null ? req.exitDate() : LocalDate.now(clock.withZone(zone)));
+                c.setExitReason(trim(req.exitReason()));
+            } else {
+                c.setExitDate(null);
+                c.setExitReason(null);
+            }
             if (req.applicationStatus() == ApplicationStatus.JOINED && c.getJoiningDate() == null) {
                 c.setJoiningDate(LocalDate.now(clock.withZone(zone)));
             }

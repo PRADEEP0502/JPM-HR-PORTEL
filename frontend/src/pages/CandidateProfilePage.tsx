@@ -356,6 +356,13 @@ export default function CandidateProfilePage() {
                 ? <Link to={`/candidates?departmentId=${c.departmentId}&position=${encodeURIComponent(c.position)}`} className="hover:underline">{c.position}</Link>
                 : c.position],
               ['Application date', fmtDateTime(c.appliedAt)],
+              ...(c.applicationStatus === 'EXITED'
+                ? [['Exit', (
+                    <span className="font-semibold text-ink">
+                      {fmtDate(c.exitDate)}{c.exitReason ? <span className="font-normal text-ink-2"> · {c.exitReason}</span> : null}
+                    </span>
+                  )] as [string, React.ReactNode]]
+                : []),
               ['Joining date', (
                 <div className="flex items-center gap-2">
                   {c.joiningDate ? (

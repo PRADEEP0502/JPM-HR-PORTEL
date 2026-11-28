@@ -85,6 +85,7 @@ public final class CandidateDtos {
             String expectedSalary,
             // D. application
             Long departmentId, String departmentName, String departmentRaw, String position, String hiringSource, LocalDate applicationDate, Instant appliedAt, LocalDate joiningDate,
+            LocalDate exitDate, String exitReason,
             ApplicationStatus applicationStatus, InterviewStatus interviewStatus, VerificationStatus verificationStatus,
             // E. references
             String referenceName, String referenceRelation, String referenceContact,
@@ -170,9 +171,12 @@ public final class CandidateDtos {
             long version) {
     }
 
+    /** exitDate (default today) and exitReason are used only when the status becomes Exit. */
     public record StatusUpdateRequest(ApplicationStatus applicationStatus, VerificationStatus verificationStatus,
                                       LocalDate joiningDate,
-                                      @Size(max = 2000) String note) {
+                                      @Size(max = 2000) String note,
+                                      LocalDate exitDate,
+                                      @Size(max = 300) String exitReason) {
     }
 
     private static final String RATING_RULE = "must be a whole number from 1 to 10";

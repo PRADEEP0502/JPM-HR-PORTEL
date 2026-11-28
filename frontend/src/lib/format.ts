@@ -11,6 +11,7 @@ export const APPLICATION_STATUSES: { value: ApplicationStatus; label: string }[]
   { value: 'NOT_JOINED', label: 'Not Joined' },
   { value: 'ON_HOLD', label: 'On Hold' },
   { value: 'REJECTED', label: 'Rejected' },
+  { value: 'EXITED', label: 'Exit' },
 ];
 
 /** Statuses without a final decision (not selected, rejected or joined), as a list filter value. */
@@ -75,6 +76,7 @@ export const applicationTone: Record<ApplicationStatus, Tone> = {
   SELECTED: 'green',
   JOINED: 'green',
   NOT_JOINED: 'red',
+  EXITED: 'grey',
   ON_HOLD: 'orange',
   REJECTED: 'red',
 };

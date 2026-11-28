@@ -9,7 +9,8 @@ export type ApplicationStatus =
   | 'JOINED'
   | 'NOT_JOINED'
   | 'ON_HOLD'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'EXITED';
 export type Recommendation = 'STRONGLY_RECOMMEND' | 'RECOMMEND' | 'NEUTRAL' | 'NOT_RECOMMENDED';
 export type ArchiveScope = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type InterviewStatus = 'NOT_SCHEDULED' | 'SCHEDULED' | 'COMPLETED' | 'RESCHEDULED' | 'CANCELLED';
@@ -204,6 +205,9 @@ export interface CandidateDetail {
   applicationDate: string;
   appliedAt: string;
   joiningDate: string | null;
+  /** Set while the status is Exit: last working day and why the employee left. */
+  exitDate: string | null;
+  exitReason: string | null;
   applicationStatus: ApplicationStatus;
   interviewStatus: InterviewStatus;
   verificationStatus: VerificationStatus;

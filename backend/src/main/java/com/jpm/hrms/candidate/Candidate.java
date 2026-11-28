@@ -72,6 +72,9 @@ public class Candidate implements SequencedEntity {
     private Instant appliedAt;
     /** Expected or confirmed date the candidate will join / has joined. */
     private LocalDate joiningDate;
+    /** Set while the status is Exit: the last working day and why the employee left. */
+    private LocalDate exitDate;
+    private String exitReason;
 
     private ApplicationStatus applicationStatus = ApplicationStatus.NEW;
     private InterviewStatus interviewStatus = InterviewStatus.NOT_SCHEDULED;
@@ -198,6 +201,10 @@ public class Candidate implements SequencedEntity {
     public void setAppliedAt(Instant appliedAt) { this.appliedAt = appliedAt; }
     public LocalDate getJoiningDate() { return joiningDate; }
     public void setJoiningDate(LocalDate joiningDate) { this.joiningDate = joiningDate; }
+    public LocalDate getExitDate() { return exitDate; }
+    public void setExitDate(LocalDate exitDate) { this.exitDate = exitDate; }
+    public String getExitReason() { return exitReason; }
+    public void setExitReason(String exitReason) { this.exitReason = exitReason; }
     public ApplicationStatus getApplicationStatus() { return applicationStatus; }
     public void setApplicationStatus(ApplicationStatus applicationStatus) { this.applicationStatus = applicationStatus; }
     public InterviewStatus getInterviewStatus() { return interviewStatus; }

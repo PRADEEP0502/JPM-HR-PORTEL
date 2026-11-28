@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import { CANDIDATE_KEYS, useDepartments } from '../../lib/queries';
-import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, fmtAge, fmtAmounts, ratingBand } from '../../lib/format';
+import { APPLICATION_STATUSES, HIRING_SOURCES, RATING_BANDS, TRAVEL_MODES, VERIFICATION_STATUSES, fmtAge, fmtAmounts, ratingBand, toLocalInput } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import type { ApplicationStatus, CandidateDetail, VerificationStatus } from '../../lib/types';
 import { Modal } from '../ui/Modal';
@@ -290,10 +290,14 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
   const [app, setApp] = useState<ApplicationStatus>('NEW');
   const [ver, setVer] = useState<VerificationStatus>('PENDING');
   const [joiningDate, setJoiningDate] = useState<string>('');
+  const [exitDate, setExitDate] = useState('');
+  const [exitReason, setExitReason] = useState('');
   const [note, setNote] = useState('');
 
   useEffect(() => {
     if (target) {
+      setExitDate(toLocalInput(new Date()).slice(0, 10));
+      setExitReason('');
       setApp(target.applicationStatus);
       setVer(target.verificationStatus);
       setJoiningDate(target.joiningDate ?? '');
@@ -315,6 +319,8 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
         verificationStatus: ver !== target!.verificationStatus ? ver : null,
         joiningDate: hasDateChanged ? (joiningDate ? joiningDate : null) : undefined,
         note: note.trim() || null,
+        exitDate: app === 'EXITED' && app !== target!.applicationStatus ? exitDate || null : undefined,
+        exitReason: app === 'EXITED' && app !== target!.applicationStatus ? exitReason.trim() || null : undefined,
       });
     },
     onSuccess: () => {
@@ -343,9 +349,20 @@ export function StatusModal({ target, onClose }: { target: StatusTarget | null; 
       <div className="space-y-4">
         <Field label="Application status">
           <select className="input" value={app} onChange={(e) => setApp(e.target.value as ApplicationStatus)}>
-            {APPLICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {/* Exit is only for people who have joined */}
+            {APPLICATION_STATUSES.filter((s) => s.value !== 'EXITED' || target?.applicationStatus === 'JOINED' || target?.applicationStatus === 'EXITED').map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </Field>
+        {app === 'EXITED' && app !== target?.applicationStatus && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Exit date (last working day)">
+              <input type="date" className="input" value={exitDate} min={joiningDate || undefined} onChange={(e) => setExitDate(e.target.value)} />
+            </Field>
+            <Field label="Reason for leaving (optional)">
+              <input className="input" maxLength={300} value={exitReason} onChange={(e) => setExitReason(e.target.value)} placeholder="e.g. Resigned - better salary" />
+            </Field>
+          </div>
+        )}
         <Field label="Document verification">
           <select className="input" value={ver} onChange={(e) => setVer(e.target.value as VerificationStatus)}>
             {VERIFICATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}

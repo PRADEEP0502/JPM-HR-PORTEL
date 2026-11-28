@@ -11,7 +11,9 @@ public final class CandidateEnums {
         // NEW is shown as "Applied"; the stored value stays NEW so existing records need no migration.
         NEW("Applied"), UNDER_REVIEW("Under Review"), SHORTLISTED("Shortlisted"),
         INTERVIEW_SCHEDULED("Interview Scheduled"), INTERVIEW_COMPLETED("Interview Completed"),
-        SELECTED("Selected"), JOINED("Joined"), NOT_JOINED("Not Joined"), ON_HOLD("On Hold"), REJECTED("Rejected");
+        SELECTED("Selected"), JOINED("Joined"), NOT_JOINED("Not Joined"), ON_HOLD("On Hold"), REJECTED("Rejected"),
+        // an employee who joined and has since left (resigned); only reachable from JOINED
+        EXITED("Exit");
 
         public final String label;
 
@@ -21,7 +23,7 @@ public final class CandidateEnums {
 
         /** Statuses where no final hiring decision (selected, rejected, joined, not joined) has been made yet. */
         public boolean isPending() {
-            return this != SELECTED && this != REJECTED && this != JOINED && this != NOT_JOINED;
+            return this != SELECTED && this != REJECTED && this != JOINED && this != NOT_JOINED && this != EXITED;
         }
     }
 
