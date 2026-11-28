@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { DICTATION_LANGS, type DictationLang } from '../../lib/dictation';
 import { useToast } from '../../lib/toast';
 
@@ -44,11 +44,48 @@ function savedLang(): DictationLang {
 }
 
 const ERRORS: Record<string, string> = {
-  'not-allowed': 'The microphone is blocked. Click the lock icon next to the address, allow the microphone, and try again.',
-  'service-not-allowed': 'The microphone is blocked. Click the lock icon next to the address, allow the microphone, and try again.',
-  'audio-capture': 'No microphone was found on this device.',
   network: 'Voice typing needs an internet connection.',
   'language-not-supported': 'This browser cannot type in the chosen language by voice.',
+};
+
+/** What is wrong with the microphone, so the person is told exactly what to switch on. */
+type MicIssue = 'blocked' | 'missing' | 'busy';
+
+function issueOf(error: unknown): MicIssue {
+  const name = (error as { name?: string } | null)?.name;
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'missing';
+  if (name === 'NotReadableError' || name === 'AbortError' || name === 'TrackStartError') return 'busy';
+  return 'blocked';
+}
+
+/**
+ * Asks the browser for the microphone first. If it is switched off for this site the browser shows its "Allow" box
+ * right here; if it was blocked earlier the person gets steps to switch it on. Resolves to null when it is ready.
+ */
+async function checkMicrophone(): Promise<MicIssue | null> {
+  if (!navigator.mediaDevices?.getUserMedia) return null; // let the speech engine try on its own
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    return null;
+  } catch (e) {
+    return issueOf(e);
+  }
+}
+
+const ISSUE_TITLE: Record<MicIssue, string> = {
+  blocked: 'The microphone is off for this site',
+  missing: 'No microphone was found',
+  busy: 'The microphone is being used by another app',
+};
+const ISSUE_STEPS: Record<MicIssue, string[]> = {
+  blocked: [
+    'Click the lock (or settings) icon at the left of the address bar.',
+    'Switch Microphone to ON / Allow.',
+    'Click Try again below. If it still says blocked: Windows Settings → Privacy & security → Microphone → turn it on.',
+  ],
+  missing: ['Plug in or connect your microphone or headset.', 'In Windows Settings → System → Sound → Input, choose it.', 'Click Try again below.'],
+  busy: ['Close other apps that use the microphone (Zoom, Teams, Meet, recorders).', 'Click Try again below.'],
 };
 
 /**
@@ -67,6 +104,8 @@ export function DictationButton({ onText, stopToken, className }: {
   const [lang, setLang] = useState<DictationLang>(savedLang);
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');
+  const [issue, setIssue] = useState<MicIssue | null>(null);
+  const [asking, setAsking] = useState(false);
   const rec = useRef<Recognition | null>(null);
   const wanted = useRef(false);
   const onTextRef = useRef(onText);
@@ -112,7 +151,9 @@ export function DictationButton({ onText, stopToken, className }: {
     r.onerror = (e) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       wanted.current = false;
-      toast('error', ERRORS[e.error] ?? `Voice typing stopped (${e.error}).`);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setIssue('blocked');
+      else if (e.error === 'audio-capture') setIssue('missing');
+      else toast('error', ERRORS[e.error] ?? `Voice typing stopped (${e.error}).`);
     };
     r.onend = () => {
       // browsers end a session after a few quiet seconds: carry on while the person is still dictating
@@ -151,6 +192,35 @@ export function DictationButton({ onText, stopToken, className }: {
     if (stopToken !== undefined) stop(true);
   }, [stopToken, stop]);
 
+  // when the person switches the microphone on from the address bar, drop the warning at once
+  useEffect(() => {
+    let status: PermissionStatus | null = null;
+    let alive = true;
+    navigator.permissions
+      ?.query({ name: 'microphone' as PermissionName })
+      .then((st) => {
+        if (!alive) return;
+        status = st;
+        st.onchange = () => {
+          if (st.state === 'granted') setIssue(null);
+        };
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+      if (status) status.onchange = null;
+    };
+  }, []);
+
+  /** Checks the microphone (showing the browser's Allow box if needed), then starts listening. */
+  const begin = useCallback(async (language: DictationLang) => {
+    setAsking(true);
+    const problem = await checkMicrophone();
+    setAsking(false);
+    setIssue(problem);
+    if (!problem) start(language);
+  }, [start]);
+
   useEffect(() => () => {
     wanted.current = false;
     rec.current?.abort();
@@ -165,7 +235,7 @@ export function DictationButton({ onText, stopToken, className }: {
     }
     if (listening) {
       stop();
-      window.setTimeout(() => start(next), 300);
+      window.setTimeout(() => void begin(next), 300);
     }
   };
 
@@ -182,7 +252,8 @@ export function DictationButton({ onText, stopToken, className }: {
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => (listening ? stop() : start(lang))}
+          disabled={asking}
+          onClick={() => (listening ? stop() : void begin(lang))}
           aria-pressed={listening}
           className={clsx(
             'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ring-1 transition',
@@ -211,6 +282,20 @@ export function DictationButton({ onText, stopToken, className }: {
         </select>
         {listening && <span className="text-[11px] text-bad">Listening… speak one language at a time</span>}
       </div>
+      {asking && (
+        <p className="rounded-lg bg-info/10 px-3 py-2 text-xs text-info" role="status">
+          Click <strong>Allow</strong> in the box at the top-left of the browser to switch the microphone on. Voice typing starts right after.
+        </p>
+      )}
+      {issue && !asking && (
+        <div className="space-y-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5 text-xs text-[#f3c08a]" role="alert">
+          <p className="flex items-center gap-1.5 font-semibold"><MicOff size={14} /> {ISSUE_TITLE[issue]}</p>
+          <ol className="list-decimal space-y-0.5 pl-4">
+            {ISSUE_STEPS[issue].map((step) => <li key={step}>{step}</li>)}
+          </ol>
+          <button type="button" className="btn-secondary px-2.5 py-1 text-xs" onClick={() => void begin(lang)}>Try again</button>
+        </div>
+      )}
       {listening && heard && <p className="text-xs italic text-ink-3" aria-live="polite">{heard}…</p>}
       {!listening && (
         <p className="text-[11px] text-ink-3">
