@@ -45,7 +45,7 @@ var RESPONSE_SPREADSHEET_ID = '1QlF0mX1fMO2DWJjj1RG9noQiu2dYHRYCJXUJx9hDaAw';
 
 // Auto-send to the dashboard: copy FORM_KEY from the dashboard, Settings → Google Sheets integration →
 // "Google Form → dashboard (instant)", then run installAutoSend once. DASHBOARD_URL is the backend (Render).
-var DASHBOARD_URL = 'https://jpm-hr-portel.onrender.com/api/public/form-submissions';
+var DASHBOARD_URL = 'https://orca-tex-2.taile8184a.ts.net/api/public/form-submissions';
 var FORM_KEY = 'PASTE-THE-FORM-KEY-HERE';
 var DASHBOARD_TIMEZONE = 'Asia/Kolkata';
 var MAX_FILE_BYTES_PER_APPLICATION = 20 * 1024 * 1024;

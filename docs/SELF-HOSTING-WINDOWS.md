@@ -96,7 +96,7 @@ If `winget` can't find it, download **Temurin 25, JRE, Windows x64, .msi** from 
 
 Once the portal works through the PC, open **Render → JPM-HR-PORTEL → Settings → Suspend Web Service**. This stops two
 servers from running the same scheduled jobs, such as the Google Sheets sync. To use Render again, click **Resume** and
-point `vercel.json` back to `https://jpm-hr-portel.onrender.com`.
+point `frontend/vercel.json` (and `DASHBOARD_URL` in the Google Form script) back to `https://jpm-hr-portel.onrender.com`.
 
 ## Updating the server
 

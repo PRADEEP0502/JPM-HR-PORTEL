@@ -1,12 +1,12 @@
-# Keeps the free Render backend awake (it sleeps after 15 minutes without traffic, and waking takes ~1 minute).
-# Runs every 10 minutes. GitHub may start scheduled runs a few minutes late, so an external monitor
-# (e.g. UptimeRobot on /actuator/health every 5 minutes) is a good second safety net.
-# One always-awake free service uses ~744 of Render's 750 free hours per month.
+# Pings the Render backend's health endpoint (run it by hand from the Actions tab).
+# The schedule is OFF on purpose: the backend now runs on the office PC (docs/SELF-HOSTING-WINDOWS.md) and Render is
+# only a backup. Pinging Render every 10 minutes kept it awake around the clock, used up Render's ~750 free hours a
+# month for the whole workspace, and got every service in it suspended. To keep Render awake again, restore:
+#   schedule:
+#     - cron: "*/10 0-15 * * *"     # UTC; 05:30-21:30 India time, so it may sleep at night
 name: Keep backend awake
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:

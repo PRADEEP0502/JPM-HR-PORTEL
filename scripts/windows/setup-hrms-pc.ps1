@@ -49,8 +49,10 @@ server.port=8080
 server.address=127.0.0.1
 '@ | Set-Content -Encoding ascii $config
     & icacls $config /inheritance:r /grant:r 'Administrators:F' 'SYSTEM:F' | Out-Null
-    Write-Host "Fill in the settings file now (Notepad opens). Save and close it, then press Enter here." -ForegroundColor Yellow
-    Start-Process notepad $config -Wait
+    Write-Host "Notepad opens now. Paste the three values after the = signs, save (Ctrl+S) and close Notepad." -ForegroundColor Yellow
+    Start-Process notepad $config
+    # Notepad on Windows 11 does not tell us when it is closed, so wait for Enter instead of Start-Process -Wait
+    [void](Read-Host 'When you have saved the file and closed Notepad, press Enter here')
 }
 $text = Get-Content $config -Raw
 foreach ($key in 'MONGODB_URI', 'JWT_SECRET', 'DOCUMENT_ENCRYPTION_KEY') {
