@@ -8,6 +8,8 @@ import { useToast } from '../../lib/toast';
 import { fmtDateTime, fmtRelative } from '../../lib/format';
 import type { NoteType, Remark } from '../../lib/types';
 import { Spinner } from '../ui/States';
+import { DictationButton } from '../ui/DictationButton';
+import { appendDictation } from '../../lib/dictation';
 
 const MAX_TEXT = 2000;
 const MAX_REF = 100;
@@ -204,12 +206,15 @@ function NoteForm({
   const toast = useToast();
   const empty: Draft = { type: 'CALL', referenceNo: '', remark: '' };
   const [d, setD] = useState<Draft>(initial ?? empty);
+  // bumped when the note is saved so a microphone left on does not type into the next note
+  const [stopToken, setStopToken] = useState(0);
   const needsRef = d.type === 'REFERENCE';
   const ready = d.remark.trim().length > 0 && (!needsRef || d.referenceNo.trim().length > 0);
 
   const submit = () => {
     if (!d.remark.trim()) return toast('error', 'Write the note first');
     if (needsRef && !d.referenceNo.trim()) return toast('error', 'Enter the reference number');
+    setStopToken((n) => n + 1);
     onSubmit(d, () => setD({ ...empty, type: d.type }));
   };
 
@@ -270,6 +275,11 @@ function NoteForm({
             submit();
           }
         }}
+      />
+
+      <DictationButton
+        stopToken={stopToken}
+        onText={(spoken, lang) => setD((prev) => ({ ...prev, remark: appendDictation(prev.remark, spoken, lang, MAX_TEXT) }))}
       />
 
       <div className="flex items-center justify-between gap-2">
