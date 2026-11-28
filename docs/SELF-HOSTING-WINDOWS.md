@@ -98,10 +98,26 @@ Once the portal works through the PC, open **Render → JPM-HR-PORTEL → Settin
 servers from running the same scheduled jobs, such as the Google Sheets sync. To use Render again, click **Resume** and
 point `frontend/vercel.json` (and `DASHBOARD_URL` in the Google Form script) back to `https://jpm-hr-portel.onrender.com`.
 
-## Updating the server
+## Updating the server by itself (every night)
 
-GitHub builds a new server file whenever backend code changes. It is the **backend-latest** release. To install it, run
-this in an administrator PowerShell:
+Run this once in an administrator PowerShell, from the `scripts\windows` folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-auto-update.ps1
+```
+
+It registers the task **"JPM HR Portal Auto Update"**. Every night at 02:00 (or when the PC is switched on, if it was off
+then) the PC checks whether GitHub has a newer server file and installs it. If the new server does not start within
+3 minutes, the previous version is put back and the new one is tried again the next night. Everything is written to
+`C:\JPM-HRMS\logs\update.log`. Website changes (Vercel) need nothing on the PC.
+
+Remove it with `Unregister-ScheduledTask -TaskName 'JPM HR Portal Auto Update' -Confirm:$false`. If antivirus ever
+removes `auto-update-hrms.ps1` from `C:\JPM-HRMS`, run `install-auto-update.ps1` again.
+
+## Updating the server by hand
+
+GitHub builds a new server file whenever backend code changes. It is the **backend-latest** release. To install it right
+away, run this in an administrator PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File C:\JPM-HRMS\update-hrms.ps1

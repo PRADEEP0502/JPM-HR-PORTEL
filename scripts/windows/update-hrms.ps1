@@ -1,9 +1,13 @@
 <#
   Downloads the latest JPM HR Portal server (built by GitHub from main) and restarts it.
   Run as Administrator:   powershell -ExecutionPolicy Bypass -File C:\JPM-HRMS\update-hrms.ps1
+  The previous server file is kept as app.prev.jar so auto-update-hrms.ps1 can go back to it.
+  Exit code: 0 = the new server is running, 1 = it did not answer in time.
 #>
 param(
     [string]$Dir = 'C:\JPM-HRMS',
+    [string]$HealthUrl = 'http://127.0.0.1:8080/actuator/health',
+    [int]$HealthWaitSeconds = 180,
     [switch]$NoRestart
 )
 $ErrorActionPreference = 'Stop'
@@ -28,22 +32,31 @@ if (-not $NoRestart) {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
     Start-Sleep -Seconds 3
 }
-Move-Item -Force $new (Join-Path $Dir 'app.jar')
+# keep the working version so a bad update can be undone
+$current = Join-Path $Dir 'app.jar'
+if (Test-Path $current) {
+    Copy-Item -Force $current (Join-Path $Dir 'app.prev.jar')
+    if (Test-Path (Join-Path $Dir 'version.txt')) { Copy-Item -Force (Join-Path $Dir 'version.txt') (Join-Path $Dir 'version.prev.txt') }
+}
+Move-Item -Force $new $current
 Set-Content -Encoding ascii (Join-Path $Dir 'version.txt') $version
-Write-Host "Installed version $($version.Substring(0, 7))."
+Write-Host "Installed version $($version.Substring(0, [Math]::Min(7, $version.Length)))."
 
 if (-not $NoRestart) {
     # run-hrms.ps1 starts it again within 15 seconds; make sure the task itself is running
-    if ((Get-ScheduledTask -TaskName 'JPM HR Portal').State -ne 'Running') { Start-ScheduledTask -TaskName 'JPM HR Portal' }
+    $task = Get-ScheduledTask -TaskName 'JPM HR Portal' -ErrorAction SilentlyContinue
+    if ($task -and $task.State -ne 'Running') { Start-ScheduledTask -TaskName 'JPM HR Portal' }
     Write-Host 'Waiting for the server to start (about a minute)...'
-    for ($i = 0; $i -lt 40; $i++) {
+    $tries = [Math]::Max(1, [int]($HealthWaitSeconds / 3))
+    for ($i = 0; $i -lt $tries; $i++) {
         Start-Sleep -Seconds 3
         try {
-            if ((Read-Text 'http://127.0.0.1:8080/actuator/health') -match 'UP') {
+            if ((Read-Text $HealthUrl) -match 'UP') {
                 Write-Host 'The server is running.' -ForegroundColor Green
                 exit 0
             }
         } catch { }
     }
     Write-Host "The server did not answer yet. Check the newest file in $Dir\logs." -ForegroundColor Yellow
+    exit 1
 }

@@ -67,6 +67,7 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
 Register-ScheduledTask -TaskName 'JPM HR Portal' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
 Start-ScheduledTask -TaskName 'JPM HR Portal'
+& (Join-Path $PSScriptRoot 'install-auto-update.ps1') -Dir $Dir
 
 Write-Host 'Starting the server (about a minute)...'
 for ($i = 0; $i -lt 40; $i++) {
